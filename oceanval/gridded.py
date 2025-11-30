@@ -140,28 +140,6 @@ def gridded_matchup(
                     x for x in paths if f"{exc}" not in os.path.basename(x)
                 ]
 
-            new_paths = []
-            # set up model_grid if it doesn't exist
-
-            if not os.path.exists(
-                session_info["out_dir"] + "oceanval_matchups/model_grid.csv"
-            ):
-                ds_grid = nc.open_data(paths[0], checks=False)
-                ds_grid.subset(variables=selection[0], time=0)
-                ds_grid.top()
-                if session_info["as_missing"] is not None:
-                    ds_grid.as_missing(session_info["as_missing"])
-                df_grid = ds_grid.to_dataframe().reset_index().dropna()
-                columns = [
-                    x for x in df_grid.columns if "lon" in x or "lat" in x
-                ]
-                df_grid = df_grid.loc[:, columns].drop_duplicates()
-                if not os.path.exists(session_info["out_dir"] + "oceanval_matchups"):
-                    os.makedirs("oceanval_matchups")
-                df_grid.to_csv(
-                    session_info["out_dir"] + "oceanval_matchups/model_grid.csv",
-                    index=False,
-                )
 
             all_years = []
             for ff in paths:

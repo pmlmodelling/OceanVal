@@ -1446,66 +1446,6 @@ def matchup(
                             results = dict()
 
                             for ff in paths:
-                                if grid_setup is False:
-                                    with warnings.catch_warnings(record=True) as w:
-
-                                        ds_grid = nc.open_data(ff, checks=False)
-                                        var = ds_grid.variables[0]
-                                        ds_grid.subset(variables=var)
-                                        ds_grid.subset(time = 0)
-                                        ds_grid.top()
-
-                                        if session_info["as_missing"] is not None:
-                                            ds_grid.as_missing(session_info["as_missing"])
-                                        df_grid = (
-                                            ds_grid.to_dataframe().reset_index()
-                                            # .dropna()
-                                        )
-                                        columns = [
-                                            x
-                                            for x in df_grid.columns
-                                            if "lon" in x or "lat" in x
-                                        ]
-                                        df_grid = df_grid.loc[
-                                            :, columns
-                                        ].drop_duplicates()
-                                        if not os.path.exists(
-                                            session_info["out_dir"] + "oceanval_matchups"
-                                        ):
-                                            os.makedirs(
-                                                session_info["out_dir"] + "oceanval_matchups"
-                                            )
-                                        df_grid.to_csv(
-                                            session_info["out_dir"]
-                                            + "oceanval_matchups/model_grid.csv",
-                                            index=False,
-                                        )
-                                        # save ds_grid
-                                        if not os.path.exists(
-                                            session_info["out_dir"] + "oceanval_matchups"
-                                        ):
-                                            os.makedirs(
-                                                session_info["out_dir"] + "oceanval_matchups"
-                                            )
-                                        if os.path.exists(
-                                            session_info["out_dir"]
-                                            + "oceanval_matchups/model_grid.nc"
-                                        ):
-                                            os.remove(
-                                                session_info["out_dir"]
-                                                + "oceanval_matchups/model_grid.nc"
-                                            )
-                                        ds_grid.to_nc(
-                                            session_info["out_dir"]
-                                            + "oceanval_matchups/model_grid.nc",
-                                            zip=True,
-                                            overwrite=True,
-                                        )
-                                    for ww in w:
-                                        if str(ww.message) not in session_warnings:
-                                            session_warnings.append(str(ww.message))
-
-                                grid_setup = True
 
                                 temp = pool.apply_async(
                                     mm_match,

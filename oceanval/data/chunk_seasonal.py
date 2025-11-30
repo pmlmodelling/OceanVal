@@ -66,22 +66,6 @@ if sub_regions in ["nwes", "global"]:
     ds_regions.regrid(ds_model, method = "nn")
     regions_contents = ds_regions.contents
     
-    # figure out if you can sensibly do a regional analysis for northwest European shelf
-    #grid = pd.read_csv("../../oceanval_matchups/model_grid.csv")
-    #lon = grid.loc[:,[x for x in grid.columns if "lon" in x]].values
-    #lon = np.unique(lon)
-    #lon.sort()
-    #lat = grid.loc[:,[x for x in grid.columns if "lat" in x]].values
-    #lat = np.unique(lat)
-    #lat.sort()
-    ## get unique values in grid and sort them
-    #lon = np.unique(lon)
-    #lon.sort()
-    #lon_min = lon.min()
-    #lon_max = lon.max()
-    #lat_min = lat.min()
-    #lat_max = lat.max()
-
 
 # %% tags=["remove-cell"]
 
