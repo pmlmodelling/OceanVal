@@ -5,7 +5,6 @@ import warnings
 import calendar
 import copy
 import oceanval
-ff  = "../../oceanval_matchups/definitions.pkl"
 import pickle
 
 import glob

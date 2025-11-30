@@ -23,16 +23,6 @@ out_def = f"../../oceanval_results/temporals/{variable}_cor_{source}.pkl"
 with open(out_def, "wb") as f:
     pickle.dump(definitions, f)
 
-# output to csv
-
-if False:
-    df_cor = ds_cor.to_dataframe().reset_index()
-    df_cor = df_cor.dropna()
-    out = f"../../results/temporals/{variable}_cor_{source}.csv"
-    if not os.path.exists(os.path.dirname(out)):
-        os.makedirs(os.path.dirname(out))
-    df_cor.to_csv(out, index = False)
-
 
 # %% tags=["remove-input"]
 
@@ -77,20 +67,20 @@ if sub_regions in ["nwes", "global"]:
     regions_contents = ds_regions.contents
     
     # figure out if you can sensibly do a regional analysis for northwest European shelf
-    grid = pd.read_csv("../../oceanval_matchups/model_grid.csv")
-    lon = grid.loc[:,[x for x in grid.columns if "lon" in x]].values
-    lon = np.unique(lon)
-    lon.sort()
-    lat = grid.loc[:,[x for x in grid.columns if "lat" in x]].values
-    lat = np.unique(lat)
-    lat.sort()
-    # get unique values in grid and sort them
-    lon = np.unique(lon)
-    lon.sort()
-    lon_min = lon.min()
-    lon_max = lon.max()
-    lat_min = lat.min()
-    lat_max = lat.max()
+    #grid = pd.read_csv("../../oceanval_matchups/model_grid.csv")
+    #lon = grid.loc[:,[x for x in grid.columns if "lon" in x]].values
+    #lon = np.unique(lon)
+    #lon.sort()
+    #lat = grid.loc[:,[x for x in grid.columns if "lat" in x]].values
+    #lat = np.unique(lat)
+    #lat.sort()
+    ## get unique values in grid and sort them
+    #lon = np.unique(lon)
+    #lon.sort()
+    #lon_min = lon.min()
+    #lon_max = lon.max()
+    #lat_min = lat.min()
+    #lat_max = lat.max()
 
 
 # %% tags=["remove-cell"]

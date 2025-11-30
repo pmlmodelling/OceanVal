@@ -10,7 +10,7 @@ if n_levels > 1:
 else:
     layer_long = ""
 
-ff = glob.glob(f"../../oceanval_matchups/point/{layer}/{variable}/{point_source}/*_{variable}.csv")[0]
+ff = glob.glob(f"data_dir_value/oceanval_matchups/point/{layer}/{variable}/{point_source}/*_{variable}.csv")[0]
 
 vv_source = os.path.basename(ff).split("_")[0]
 vv_source_raw = vv_source
@@ -23,7 +23,7 @@ lat_min = lat_lim[0]
 df = df.query(f"lon >= {lon_min} and lon <= {lon_max} and lat >= {lat_min} and lat <= {lat_max}").reset_index(drop = True) 
 # drop duplicates
 df = df.drop_duplicates().reset_index(drop = True)
-ff_dict = f"../../oceanval_matchups/point/{layer}/{variable}/matchup_dict.pkl"
+ff_dict = f"data_dir_value/oceanval_matchups/point/{layer}/{variable}/matchup_dict.pkl"
 point_time_res = ["year", "month", "day"]
 point_time_res = [x for x in point_time_res if x in df.columns]
 
@@ -121,7 +121,7 @@ if available:
     
     import pickle
     try:
-        ff_dict = f"../../oceanval_matchups/point/{layer}/{variable}/matchup_dict.pkl"
+        ff_dict = f"data_dir_value/oceanval_matchups/point/{layer}/{variable}/matchup_dict.pkl"
         with open(ff_dict, "rb") as f:
             matchup_dict = pickle.load(f)
             min_year = matchup_dict["start"]
@@ -442,7 +442,7 @@ title <- str_glue("Bias in {layer_long} {vv_name} ({unit})")
 title <- str_replace(title, "O_2", "O<sub>2</sub>")
 title <- str_replace(title, "CO2", "CO<sub>2</sub>")
 
-out = str_glue("../../results/{layer_select}/{variable}/{layer_select}_{variable}_bias.csv")
+out = str_glue("../../oceanval_results/{layer_select}/{variable}/{layer_select}_{variable}_bias.csv")
 
 # # check directory exists for out
 if (!dir.exists(dirname(out))){

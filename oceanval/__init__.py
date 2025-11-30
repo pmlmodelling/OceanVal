@@ -51,10 +51,10 @@ for key in session_info["keys"]:
 # add a test to make sure definitions is complete
 
 
-def fix_toc(concise = True):
-    short_titles = dill.load(open("oceanval_matchups/short_titles.pkl", "rb")) 
-    paths = glob.glob(f"oceanval_report/notebooks/*.ipynb")
-    variables = dill.load(open("oceanval_matchups/variables_matched.pkl", "rb"))
+def fix_toc(concise = True, data_dir = None, out_dir = None):
+    short_titles = dill.load(open(f"{data_dir}/oceanval_matchups/short_titles.pkl", "rb")) 
+    paths = glob.glob(f"{out_dir}/oceanval_report/notebooks/*.ipynb")
+    variables = dill.load(open(f"{data_dir}/oceanval_matchups/variables_matched.pkl", "rb"))
     variables.sort()
 
     vv_dict = dict()
@@ -65,7 +65,7 @@ def fix_toc(concise = True):
     # get summary docs
     ss_paths = [os.path.basename(x) for x in paths if "summary" in x]
 
-    out = f"oceanval_report/_toc.yml"
+    out = f"{out_dir}/oceanval_report/_toc.yml"
 
     # write line by line to out
     i_chapter = 1
@@ -81,13 +81,13 @@ def fix_toc(concise = True):
         # open notebook and replace book_chapter with i_chapter
 
         # open notebook and replace book_chapter with i_chapter
-        with open(f"oceanval_report/notebooks/001_methods.ipynb", "r") as file:
+        with open(f"{out_dir}/oceanval_report/notebooks/001_methods.ipynb", "r") as file:
             filedata = file.read()
 
         # Replace the target string
         filedata = filedata.replace("book_chapter", str(i_chapter))
 
-        with open(f"oceanval_report/notebooks/001_methods.ipynb", "w") as file:
+        with open(f"{out_dir}/oceanval_report/notebooks/001_methods.ipynb", "w") as file:
             file.write(filedata)
         i_chapter += 1
 
@@ -96,14 +96,14 @@ def fix_toc(concise = True):
         for ff in ss_paths:
             x = f.write(f"  - file: notebooks/{ff}\n")
             # open notebook and replace book_chapter with i_chapter
-            with open(f"oceanval_report/notebooks/{ff}", "r") as file:
+            with open(f"{out_dir}/oceanval_report/notebooks/{ff}", "r") as file:
                 filedata = file.read()
 
             filedata = filedata.replace("book_chapter", str(i_chapter))
 
             # Replace the target string
             # Write the file out again
-            with open(f"oceanval_report/notebooks/{ff}", "w") as file:
+            with open(f"{out_dir}/oceanval_report/notebooks/{ff}", "w") as file:
                 file.write(filedata)
             i_chapter += 1
 
@@ -120,7 +120,7 @@ def fix_toc(concise = True):
                 x = f.write(f"  - file: notebooks/{ff}\n")
 
                 # open notebook and replace book_chapter with i_chapter
-                with open(f"oceanval_report/notebooks/{ff}", "r") as file:
+                with open(f"{out_dir}/oceanval_report/notebooks/{ff}", "r") as file:
                     filedata = file.read()
 
                 # Replace the target string
@@ -128,7 +128,7 @@ def fix_toc(concise = True):
 
                 # Write the file out again
 
-                with open(f"oceanval_report/notebooks/{ff}", "w") as file:
+                with open(f"{out_dir}/oceanval_report/notebooks/{ff}", "w") as file:
                     file.write(filedata)
                 i_chapter += 1
 
@@ -164,6 +164,8 @@ def validate(
     variables="all",
     fixed_scale = False,
     region = None,
+    data_dir = ".",
+    out_dir = ".",
     test=False,
 ):
     # docstring
@@ -189,10 +191,19 @@ def validate(
     -------
     None
     """
+    # convert data_dir to absolute path
+    data_dir = os.path.abspath(data_dir)
     #  regioncan only be nwes or global
     if region is not None:
         if region not in ["nwes", "global"]:
             raise ValueError("region must be either 'nwes' or 'global'")
+    # ensure proper handling of ~
+    out_dir = os.path.expanduser(out_dir)
+
+    book_dir = os.path.join(out_dir, "oceanval_report")
+    # if it doesn't exist, create it
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
     # if lon_lim  is not None, make sure it's a list
     if lon_lim is not None:
         if isinstance(lon_lim, list) == False:
@@ -207,7 +218,6 @@ def validate(
             if len(lat_lim) != 2:
                 raise ValueError("lat_lim must be a list of length 2")
 
-    import os
 
     path_df = []
 
@@ -221,18 +231,18 @@ def validate(
     # create a new name if one already exists
     i = 0
 
-    if os.path.exists("oceanval_report"):
+    if os.path.exists(book_dir):
         # get user input to decide if it should be removed
         while True:
-                files = glob.glob(f"oceanval_report/**/**/**", recursive=True)
+                files = glob.glob(f"{book_dir}/**/**/**", recursive=True)
                 # list all files in book, recursively
                 for ff in files:
-                    if ff.startswith(f"oceanval_report/"):
+                    if ff.startswith(f"{book_dir}/"):
                         try:
                             os.remove(ff)
                         except:
                             pass
-                files = glob.glob(f"oceanval_report/**/**/**", recursive=True)
+                files = glob.glob(f"{book_dir}/**/**/**", recursive=True)
                 # only list files
                 files = [x for x in files if os.path.isfile(x)]
                 if len(files) == 0:
@@ -243,7 +253,6 @@ def validate(
     if os.path.exists(x_path):
         if x_path == "oceanval_results":
             shutil.rmtree(x_path)
-    import os
 
     if variables != "all":
         if isinstance(variables, str):
@@ -252,34 +261,34 @@ def validate(
     if empty:
         from shutil import copyfile
 
-        if not os.path.exists("oceanval_report"):
-            os.mkdir("oceanval_report")
-        if not os.path.exists("oceanval_report/notebooks"):
-            os.mkdir("oceanval_report/notebooks")
+        if not os.path.exists(book_dir):
+            os.mkdir(book_dir)
+        if not os.path.exists(f"{book_dir}/notebooks"):
+            os.mkdir(f"{book_dir}/notebooks")
 
         data_path = importlib.resources.files(__name__).joinpath("data/001_methods.ipynb")
-        if not os.path.exists(f"oceanval_report/notebooks/001_methods.ipynb"):
-            copyfile(data_path, f"oceanval_report/notebooks/001_methods.ipynb")
+        if not os.path.exists(f"{book_dir}/notebooks/001_methods.ipynb"):
+            copyfile(data_path, f"{book_dir}/notebooks/001_methods.ipynb")
         # open this file and replace model_name with model
 
 
         data_path = importlib.resources.files(__name__).joinpath("data/_toc.yml")
 
-        out = f"oceanval_report/" + os.path.basename(data_path)
+        out = f"{book_dir}/" + os.path.basename(data_path)
         copyfile(data_path, out)
 
         data_path = importlib.resources.files(__name__).joinpath("data/requirements.txt")
-        out = f"oceanval_report/" + os.path.basename(data_path)
+        out = f"{book_dir}/" + os.path.basename(data_path)
         copyfile(data_path, out)
 
         data_path = importlib.resources.files(__name__).joinpath("data/intro.md")
-        out = f"oceanval_report/" + os.path.basename(data_path)
+        out = f"{book_dir}/" + os.path.basename(data_path)
         copyfile(data_path, out)
 
         # copy config
 
         data_path = importlib.resources.files(__name__).joinpath("data/_config.yml")
-        out = f"oceanval_report/" + os.path.basename(data_path)
+        out = f"{book_dir}/" + os.path.basename(data_path)
 
         with open(data_path, "r") as file:
             filedata = file.read()
@@ -295,7 +304,7 @@ def validate(
 
         # loop through the point matchups and generate notebooks
 
-        point_paths = glob.glob("oceanval_matchups/point/**/**/**/**.csv")
+        point_paths = glob.glob(f"{data_dir}/oceanval_matchups/point/**/**/**/**.csv")
         point_paths = [x for x in point_paths if "paths.csv" not in x]
         point_paths = [x for x in point_paths if "unit" not in os.path.basename(x)]
         # loop through the paths
@@ -319,7 +328,7 @@ def validate(
                 if (
                     len(
                         glob.glob(
-                            f"oceanval_report/notebooks/*point_{layer}_{variable}.ipynb"
+                            f"{book_dir}/notebooks/*point_{layer}_{variable}.ipynb"
                         )
                     )
                     == 0
@@ -345,7 +354,7 @@ def validate(
                         filedata = filedata.replace("chunk_point_bottom", "")
 
                     # Replace the target string
-                    out = f"oceanval_report/notebooks/{source}_{layer}_{variable}.ipynb"
+                    out = f"{book_dir}/notebooks/{source}_{layer}_{variable}.ipynb"
                     filedata = filedata.replace("point_variable", variable)
                     n_levels = definitions[variable].n_levels
                     if layer != "all":
@@ -365,13 +374,12 @@ def validate(
                     filedata = filedata.replace("point_layer", layer)
                     filedata = filedata.replace("point_obs_source", source)
                     filedata = filedata.replace("template_title", Variable)
+                    filedata = filedata.replace("data_dir_value", data_dir)
 
                     # Write the file out again
                     with open(out, "w") as file:
                         file.write(filedata)
-                    variable = vv
-                    if variable == "pco2":
-                        variable = "pCO2"
+
                     path_df.append(
                         pd.DataFrame(
                             {
@@ -383,7 +391,7 @@ def validate(
 
         # Loop through the gridded matchups and generate notebooks
         # identify gridded variables in matched data
-        gridded_paths = glob.glob("oceanval_matchups/gridded/**/**.nc")
+        gridded_paths = glob.glob(f"{data_dir}/oceanval_matchups/gridded/**/**.nc")
 
         if len(gridded_paths) > 0:
             for vv in [
@@ -392,7 +400,7 @@ def validate(
             ]:
                 for source in [
                     os.path.basename(x).split("_")[0]
-                    for x in glob.glob(f"oceanval_matchups/gridded/**/**_{vv}_**.nc")
+                    for x in glob.glob(f"{data_dir}/oceanval_matchups/gridded/**/**_{vv}_**.nc")
                 ]:
 
                     variable = vv
@@ -400,12 +408,12 @@ def validate(
                         if vv not in variables:
                             continue
                     if not os.path.exists(
-                        f"oceanval_report/notebooks/{source}_{variable}.ipynb"
+                        f"{book_dir}/notebooks/{source}_{variable}.ipynb"
                     ):
-                        ff_def = glob.glob(f"oceanval_matchups/gridded/{variable}/*definitions*.pkl")[0]
+                        ff_def = glob.glob(f"{data_dir}/oceanval_matchups/gridded/{variable}/*definitions*.pkl")[0]
                         definitions = dill.load(open(ff_def, "rb"))
                         Variable = definitions[variable].short_name
-                        ff_nc = glob.glob(f"oceanval_matchups/gridded/{variable}/*surface*.nc")[0]
+                        ff_nc = glob.glob(f"{data_dir}/oceanval_matchups/gridded/{variable}/*surface*.nc")[0]
                         ds = nc.open_data(ff_nc, checks = False)
                         try:
                             n_months = len(ds.months)
@@ -417,7 +425,7 @@ def validate(
                         if (
                             len(
                                 glob.glob(
-                                    f"oceanval_report/notebooks/*{source}_{variable}.ipynb"
+                                    f"{book_dir}/notebooks/*{source}_{variable}.ipynb"
                                 )
                             )
                             == 0
@@ -428,6 +436,7 @@ def validate(
                             # Replace the target string
                             filedata = filedata.replace("template_variable", variable)
                             filedata = filedata.replace("template_title", Variable)
+                            filedata = filedata.replace("data_dir_value", data_dir)
                             filedata = filedata.replace("source_name", source)
                             if region == "nwes":
                                 filedata = filedata.replace("zonal_height", "6000" )
@@ -448,7 +457,7 @@ def validate(
 
                             # Write the file out again
                             with open(
-                                f"oceanval_report/notebooks/{source}_{variable}.ipynb", "w"
+                                f"{book_dir}/notebooks/{source}_{variable}.ipynb", "w"
                             ) as file:
                                 file.write(filedata)
 
@@ -458,7 +467,7 @@ def validate(
                                     {
                                         "variable": [variable],
                                         "path": [
-                                            f"oceanval_report/notebooks/{source}_{variable}.ipynb"
+                                            f"{book_dir}/notebooks/{source}_{variable}.ipynb"
                                         ],
                                     }
                                 )
@@ -469,7 +478,7 @@ def validate(
         i = 0
 
         for ff in [
-            x for x in glob.glob("oceanval_report/notebooks/*.ipynb") if "info" not in x
+            x for x in glob.glob("{book_dir}/notebooks/*.ipynb") if "info" not in x
         ]:
             try:
                 i_ff = int(os.path.basename(ff).split("_")[0])
@@ -502,37 +511,38 @@ def validate(
 
 
         file1 = importlib.resources.files(__name__).joinpath("data/summary.ipynb")
-        if len(glob.glob(f"oceanval_report/notebooks/*summary.ipynb")) == 0:
-            copyfile(file1, f"oceanval_report/notebooks/{i_pad}_summary.ipynb")
+        if len(glob.glob(f"{book_dir}/notebooks/*summary.ipynb")) == 0:
+            copyfile(file1, f"{book_dir}/notebooks/{i_pad}_summary.ipynb")
         else:
             if i > (i_orig + 1):
-                initial = glob.glob(f"oceanval_report/notebooks/*summary.ipynb")[0]
-                copyfile(initial, f"oceanval_report/notebooks/{i_pad}_summary.ipynb")
+                initial = glob.glob(f"{book_dir}/notebooks/*summary.ipynb")[0]
+                copyfile(initial, f"{book_dir}/notebooks/{i_pad}_summary.ipynb")
                 i += 1
 
         # change domain_title to "Full domain"
 
-        with open(f"oceanval_report/notebooks/{i_pad}_summary.ipynb", "r") as file:
+        with open(f"{book_dir}/notebooks/{i_pad}_summary.ipynb", "r") as file:
             filedata = file.read()
 
         # Replace the target string
         filedata = filedata.replace("domain_title", "Full domain")
+        filedata = filedata.replace("data_dir_value", data_dir)
 
         # Write the file out again
-        with open(f"oceanval_report/notebooks/{i_pad}_summary.ipynb", "w") as file:
+        with open(f"{book_dir}/notebooks/{i_pad}_summary.ipynb", "w") as file:
             file.write(filedata)
 
         # pair the notebooks using jupyter text
 
         os.system(
-            f"jupytext --set-formats ipynb,py:percent oceanval_report/notebooks/*.ipynb"
+            f"jupytext --set-formats ipynb,py:percent {book_dir}/notebooks/*.ipynb"
         )
 
         # add the chunks
-        add_chunks()
+        add_chunks(out_dir)
 
         # loop through the notebooks and set r warnings options
-        for ff in glob.glob(f"oceanval_report/notebooks/*.py"):
+        for ff in glob.glob(f"{book_dir}/notebooks/*.py"):
             with open(ff, "r") as file:
                 filedata = file.read()
 
@@ -575,17 +585,18 @@ def validate(
 
         # sync the notebooks
         #
-        os.system(f"jupytext --sync oceanval_report/notebooks/*.ipynb")
+        os.system(f"jupytext --sync {book_dir}/notebooks/*.ipynb")
 
 
     # loop through notebooks and change fast_plot_value to fast_plot
 
-    for ff in glob.glob(f"oceanval_report/notebooks/*.ipynb"):
+    for ff in glob.glob(f"{book_dir}/notebooks/*.ipynb"):
         with open(ff, "r") as file:
             filedata = file.read()
 
         # Replace the target string
         filedata = filedata.replace("fast_plot_value", str(fast_plot))
+        filedata = filedata.replace("data_dir_value", data_dir)
 
         # fix linees using the above
         def fix_r_magic(x):
@@ -600,9 +611,9 @@ def validate(
 
     # fix the toc using the function
 
-    fix_toc(concise = concise)
+    fix_toc(concise = concise, data_dir = data_dir, out_dir = out_dir)
 
-    for ff in glob.glob(f"oceanval_report/notebooks/*.ipynb"):
+    for ff in glob.glob(f"{book_dir}/notebooks/*.ipynb"):
         ff_clean = ff.replace(".ipynb", ".py")
         if os.path.exists(ff_clean):
             os.remove(ff_clean)
@@ -610,14 +621,13 @@ def validate(
     # move pml_logo to book directory
 
     shutil.copyfile(
-        importlib.resources.files(__name__).joinpath("data/pml_logo.jpg"), f"pml_logo.jpg"
+        importlib.resources.files(__name__).joinpath("data/pml_logo.jpg"), f"{book_dir}/pml_logo.jpg"
     )
 
-    os.system(f"jupyter-book build  oceanval_report/")
-    import os
+    os.system(f"jupyter-book build  {book_dir}/")
 
     stamps = [
-        os.path.basename(x) for x in glob.glob(f"oceanval_report/notebooks/.trackers/*")
+        os.path.basename(x) for x in glob.glob(f"{book_dir}/notebooks/.trackers/*")
     ]
     stamps.append("nctoolkit_rwi_uhosarcenctoolkittmp")
 
@@ -630,14 +640,14 @@ def validate(
             if "nctoolkit" in x:
                 os.remove(ff)
 
-    out_ff = f"oceanval_report/_build/html/index.html"
+    out_ff = f"{book_dir}/_build/html/index.html"
 
     # create a symlink to the html file
-    if os.path.exists("oceanval_report.html"):
-        os.remove("oceanval_report.html")
-    os.symlink(f"oceanval_report/_build/html/index.html", "oceanval_report.html")
+    if os.path.exists(f"{out_dir}/oceanval_report.html"):
+        os.remove(f"{out_dir}/oceanval_report.html")
+    os.symlink(f"{book_dir}/_build/html/index.html", f"{out_dir}/oceanval_report.html")
     webbrowser.open(
-        "file://" + os.path.abspath(f"oceanval_report/_build/html/index.html")
+        "file://" + os.path.abspath(f"{book_dir}/_build/html/index.html")
     )
 
 
