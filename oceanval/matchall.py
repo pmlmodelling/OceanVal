@@ -1262,7 +1262,11 @@ def matchup(
                     min_year = df_times.year.min()
                     max_year = df_times.year.max()
                     session_info["min_year"] = min_year
+                    # factor in start
+                    session_info["min_year"] = max(session_info["min_year"], sim_start)
                     session_info["max_year"] = max_year
+                    # factor in end
+                    session_info["max_year"] = min(session_info["max_year"], sim_end)
 
                     def point_match(
                         variable, layer="all", ds_depths=None, df_times=None
