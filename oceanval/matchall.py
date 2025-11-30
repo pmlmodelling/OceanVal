@@ -257,7 +257,6 @@ def get_time_res(x, folder=None):
     """
     Get the time resolution of the netCDF files
 
-
     Parameters
     -------------
     x : str
@@ -421,7 +420,6 @@ def extract_variable_mapping(folder, exclude=[], n_check=None):
                 pd.DataFrame.from_dict(new_dict).melt().assign(pattern=new_name)
             )
     
-
     try: 
         all_df = pd.concat(all_df).reset_index(drop=True)
     except:
@@ -497,7 +495,7 @@ def matchup(
     lon_lim : list
         List of two floats, which must be provided. The first is the minimum longitude, the second is the maximum longitude. Default is None.
     lat_lim : list
-        List of two float, which must be provided.. The first is the minimum latitude, the second is the maximum latitude. Default is None.
+        List of two float. Default is None, so no spatial subsetting will occur. The first is the minimum latitude, the second is the maximum latitude. Default is None.
     ask : bool
         If True, the user will be asked if they are happy with the matchups. Default is True.
     out_dir : str
@@ -692,18 +690,12 @@ def matchup(
     # check lon_lim and lat_lim are lists
 
     if lon_lim is None:
-        raise ValueError(
-            "Please provide lon_lim as a list of two floats [lon_min, lon_max]"
-        )
+        if lat_lim is not None:
+            raise TypeError("lat_lim must be a list")
     if lat_lim is None:
-        raise ValueError(
-            "Please provide lon_lim as a list of two floats [lon_min, lon_max]."
-        )
+        if lon_lim is not None:
+            raise TypeError("lon_lim must be a list")
 
-    if lon_lim is not None or lat_lim is not None:
-        # check both are lists
-        if not isinstance(lon_lim, list) or not isinstance(lat_lim, list):
-            raise TypeError("lon_lim and lat_lim must be lists")
     # add this info to session_info
     session_info["lon_lim"] = lon_lim
     session_info["lat_lim"] = lat_lim
@@ -839,16 +831,12 @@ def matchup(
         raise ValueError("Problems finding files. Check n_dirs_down arg")
 
     # check length of lon_lim and lat_lim
-    if len(session_info["lon_lim"]) != 2 or len(session_info["lat_lim"]) != 2:
-        raise ValueError(
-            "lon_lim and lat_lim must be lists of two floats, e.g. [-18, 9] and [42, 63]"
-        )
+    if session_info["lon_lim"] is not None:
+        if len(session_info["lon_lim"]) != 2 or len(session_info["lat_lim"]) != 2:
+            raise ValueError(
+                "lon_lim and lat_lim must be lists of two floats, e.g. [-18, 9] and [42, 63]"
+            )
 
-    with warnings.catch_warnings(record=True) as w:
-        lon_max = session_info["lon_lim"][1]
-        lon_min = session_info["lon_lim"][0]
-        lat_max = session_info["lat_lim"][1]
-        lat_min = session_info["lat_lim"][0]
 
     vars_available = list(
         all_df
@@ -1109,18 +1097,6 @@ def matchup(
     all_df = all_df.query("variable in @var_chosen").reset_index(drop=True)
 
     final_extension = extension_of_directory(sim_dir)
-    #    raise ValueError(all_df)
-    path = glob.glob(sim_dir + final_extension + all_df.pattern[0])[0]
-    with warnings.catch_warnings(record=True) as w:
-        ds = nc.open_data(path, checks=False).to_xarray()
-    lon_name = [x for x in ds.coords if "lon" in x]
-    lat_name = [x for x in ds.coords if "lat" in x]
-    lon = ds[lon_name[0]].values
-    lat = ds[lat_name[0]].values
-    lon_max = lon.max()
-    lon_min = lon.min()
-    lat_max = lat.max()
-    lat_min = lat.min()
 
     # combine all variables into a list
     all_vars = gridded + point["all"] + point["surface"]
@@ -1276,11 +1252,8 @@ def matchup(
                         )
                     df_times = pd.concat(df_times)
 
-                    # figure out if it is monthly or daily data
-
-                    #'df_times = df_times.query(
-                    #'    "year >= @sim_start and year <= @sim_end"
-                    #').reset_index(drop=True)
+                    # Idea: figure out if it is monthly or daily data
+                    # This might help speed things up
 
                     sim_paths = list(set(df_times.path))
                     sim_paths.sort()
@@ -1396,12 +1369,6 @@ def matchup(
                                 print(f"No matching times for {variable}")
 
                             manager = Manager()
-                            # time to subset the df to the lon/lat ranges
-                            # get the minimum and maximum lon/lat
-                            lon_min = float(df.lon.min())
-                            lon_max = float(df.lon.max())
-                            lat_min = float(df.lat.min())
-                            lat_max = float(df.lat.max())
 
                             df_times_new = copy.deepcopy(df_times)
 

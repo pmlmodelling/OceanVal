@@ -321,7 +321,8 @@ def gridded_matchup(
                 if occci:
                     variable = definitions[vv].obs_variable
                     ds_obs.subset(variables=variable)
-                    ds_obs.crop(lon=lon_lim, lat=lat_lim)
+                    if lon_lim is not None:
+                        ds_obs.crop(lon=lon_lim, lat=lat_lim)
 
                 if vertical_gridded is False:
                     if thredds:
@@ -411,6 +412,9 @@ def gridded_matchup(
 
                 lons = session_info["lon_lim"]
                 lats = session_info["lat_lim"]
+                if lons is None:
+                    lons = [-180, 180]
+                    lats = [-90, 90]
 
                 # # figure out the lon/lat extent in the model
 
@@ -674,15 +678,6 @@ def gridded_matchup(
                         ds_model.set_longnames({"model": f"Model {vv_name}"})
 
                     regrid_later = False
-                    #if is_latlon(ds_model[0]) is False:
-                    #    lons = session_info["lon_lim"]
-                    #    lats = session_info["lat_lim"]
-                    #    resolution = get_resolution(ds_model[0])
-                    #    lon_res = resolution[0]
-                    #    lat_res = resolution[1]
-                    #    ds_model.to_latlon(
-                    #        lon=lons, lat=lats, res=[lon_res, lat_res], method="bil"
-                    #    )
 
                     # unit may need some fiddling
                     out1 = out_file.replace(
