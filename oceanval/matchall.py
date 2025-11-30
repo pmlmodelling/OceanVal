@@ -612,6 +612,7 @@ def matchup(
         sim_dir = os.path.abspath(sim_dir)
 
     # if cache is True, create a cache directory in out_dir
+    out_dir = os.path.expanduser(out_dir)
     if cache:
         if out_dir == "":
             out_dir = "./"
@@ -1066,9 +1067,6 @@ def matchup(
     all_df_print = all_df_print.reset_index(drop=True)
 
     print(all_df_print.to_string(index=False))
-    print(
-        "Note: all possible variables are listed, not just those requested. Variables that will be matched up are starred."
-    )
 
     print("Are you happy with these matchups? Y/N")
 

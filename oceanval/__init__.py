@@ -200,7 +200,7 @@ def validate(
     None
     """
     # convert data_dir to absolute path
-    data_dir = os.path.abspath(data_dir)
+    data_dir = os.path.expanduser(data_dir)
     #  regioncan only be nwes or global
     if region is not None:
         if region not in ["nwes", "global"]:
