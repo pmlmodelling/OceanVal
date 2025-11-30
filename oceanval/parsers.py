@@ -875,9 +875,6 @@ class Validator:
             if not os.path.exists(point_dir):
                 raise ValueError(f"Point directory {point_dir} does not exist")
         var.gridded_dir = gridded_dir
-        if gridded_dir != "auto":
-            if not os.path.exists(gridded_dir):
-                raise ValueError(f"Gridded directory {gridded_dir} does not exist")
 
         # figure out if var.binning exists
         try:
