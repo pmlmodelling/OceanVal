@@ -1284,7 +1284,6 @@ def matchup(
                                 ).model_variable
                             )[0]
 
-                            # paths bottom
                             paths = glob.glob(
                                 f"{definitions[variable].point_dir}/**.csv"
                             )
@@ -1473,7 +1472,6 @@ def matchup(
                             ).merge(df)
                             # add model to name column names with frac in them
                             df_all = df_all.dropna().reset_index(drop=True)
-                            # read in point_bottom data
                             # fix the observations based on obs_unit_multiplier
                             multiplier = definitions[variable].obs_multiplier_point
                             if multiplier != 1:
