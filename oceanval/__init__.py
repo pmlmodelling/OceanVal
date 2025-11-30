@@ -18,6 +18,14 @@ import importlib
 
 from oceanval.parsers import Validator, definitions
 
+def reset():
+    # add docstring
+    """
+    Reset the matchup definitions to their default state.
+    This function resets the matchup definitions used in oceanval to their default state.
+    """
+    definitions.reset()
+
 
 notebook_dict = dict()
 

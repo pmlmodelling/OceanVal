@@ -359,6 +359,14 @@ class Validator:
         super().__delattr__(name)
 
 
+    # add reset method
+    def reset(self):
+        for key in self.keys:
+            # do not remove rules
+            if "rules" not in key:
+                super().__delattr__(key)
+        self.keys = []
+
     # ensure self.x = y, adds x to the keys list
     def __setattr__(self, name, value):
         if name != "keys" and "rules" not in name:
