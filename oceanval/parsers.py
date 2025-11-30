@@ -468,6 +468,10 @@ class Validator:
             recipe = True
         else:
             recipe = False
+        
+        # name can only have str or numbers
+        if not re.match("^[A-Za-z0-9]+$", name):
+            raise ValueError("Name can only contain letters and numbers")
 
         try:
             point_dir = getattr(self, name).point_dir
@@ -748,6 +752,9 @@ class Validator:
             if old_model_variable != "auto":
                 raise ValueError(f"Model variable for {name} already exists as {old_model_variable}, cannot change to {model_variable}")
 
+        # name can only have str or numbers
+        if not re.match("^[A-Za-z0-9]+$", name):
+            raise ValueError("Name can only contain letters and numbers")
         var = Variable()
 
         source_name = source
