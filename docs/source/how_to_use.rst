@@ -20,7 +20,7 @@ You can register both gridded and in-situ observational datasets using the `ocea
 
 To register an in-situ observational dataset, you will need to specify the following:
 
-- `name`: A name for the dataset, e.g. "temperature". This is so that oceanVal can keep track of things.
+- `name`: A name for the dataset, e.g. "temperature". This is so that oceanVal can keep track of things. You can call this what you want, but it can only contain numbers and letters.
 - `source`: The source of the observational data (e.g. "NOAA"). 
 - `model_variable`: A string specifying the name of the model variable to compare against the observations. 
 - `obs_path`: The path to a file or directory containing the observational data files.
@@ -52,6 +52,13 @@ An example is shown below:
         model_variable="temp",
         obs_path="/path/to/obs_data/",
     )
+
+.. admonition:: How does oceanVal handle variable names?
+
+    You can use whatever you want for the `name` parameter when registering observational datasets. This is only used internally by oceanVal to keep track of things, to name files etc.
+    Reports and plots will use the `short_name`, `long_name` and `short_title` parameters for labelling. If you want a better looking report, you should set these parameters.
+
+    You can only validate variables using a single gridded and a single point (in-situ) dataset each time you run a validation.
 
 
 
@@ -200,6 +207,13 @@ You can do this by setting something like "var1+var2+var3" as the `model_variabl
     Set this to `["month", "day"]` to ignore year information when matching up observations with the simulation output.
 
 
+.. admonition:: Where does oceanVal save matchup files?
+
+    By default, oceanVal will save matchup files in the directory where you run the `oceanval.matchup` function.
+    You can find the files in oceanval_matchups/gridded or oceanval_matchups/point subdirectories.
+
+    Gridded matchups will end with ".nc", while point matchups will end with ".csv".
+    In each case, the model output will be named "model", while the observations will be named "observation".
 
 Step 3: Calculate validation statistics and generate html summary
 --------------------------------------
