@@ -94,6 +94,7 @@ def mm_match(ff, model_variable, df, df_times, ds_depths, variable, df_all, laye
 
     """
 
+
     if session_info["cache"]:
         try:
             ff_read = (
@@ -513,10 +514,6 @@ def matchup(
     """
     session_info["as_missing"] = as_missing
 
-    if thickness == "z_level":
-        session_info["z_level"] = True
-    else:
-        session_info["z_level"] = False
 
     # store short title
     gridded = None
@@ -677,6 +674,14 @@ def matchup(
             if thickness.endswith(".nc"):
                 if not os.path.exists(thickness):
                     raise FileNotFoundError(f"{thickness} does not exist")
+    if thickness == "z-level":
+        thickness = "z_level"
+    if thickness == "z level":
+        thickness = "z_level"
+    if thickness == "z_level":
+        session_info["z_level"] = True
+    else:
+        session_info["z_level"] = False
 
     if cores == 6:
         if cores > os.cpu_count():
@@ -1494,8 +1499,6 @@ def matchup(
                             # create directory for out if it does not exists
                             if not os.path.exists(os.path.dirname(out)):
                                 os.makedirs(os.path.dirname(out))
-                            out1 = out.replace(os.path.basename(out), "paths.csv")
-                            pd.DataFrame({"path": paths}).to_csv(out1, index=False)
                             if lon_lim is not None:
                                 df_all = df_all.query(
                                     f"lon > {lon_lim[0]} and lon < {lon_lim[1]}"
@@ -1528,6 +1531,14 @@ def matchup(
                                     ".csv", "_definitions.pkl"
                                 )
                                 import dill
+                                # get the model unit
+                                ds = nc.open_data(paths[0], checks=False)
+                                model_unit = list(
+                                    ds.contents.query(
+                                        "variable == @model_variable"
+                                    ).unit
+                                )[0]
+                                definitions[variable].model_unit = model_unit
                                 dill.dump( definitions, file=open(out_definitions, "wb"))
 
                                 out1 = out.replace(
@@ -1562,17 +1573,6 @@ def matchup(
                                 with open(out1, "wb") as f:
                                     pickle.dump(the_dict, f)
 
-                                if session_info["out_dir"] != "":
-                                    out_unit = f"{session_info['out_dir']}/oceanval_matchups/point/{layer}/{variable}/{source}{source}_{layer}_{variable}_unit.csv"
-                                else:
-                                    out_unit = f"oceanval_matchups/point/{layer}/{variable}/{source}/{source}_{layer}_{variable}_unit.csv"
-                                ds = nc.open_data(paths[0], checks=False)
-                                ds_contents = ds.contents
-                                model_variable = model_variable.split("+")[0]
-                                ds_contents = ds_contents.query(
-                                    "variable == @model_variable"
-                                )
-                                ds_contents.to_csv(out_unit, index=False)
                                 return None
                             else:
                                 print(f"No data for {variable}")

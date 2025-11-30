@@ -313,7 +313,6 @@ def validate(
         # loop through the point matchups and generate notebooks
 
         point_paths = glob.glob(f"{data_dir}/oceanval_matchups/point/**/**/**/**.csv")
-        point_paths = [x for x in point_paths if "paths.csv" not in x]
         point_paths = [x for x in point_paths if "unit" not in os.path.basename(x)]
         # loop through the paths
         for pp in point_paths:

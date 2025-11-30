@@ -115,6 +115,7 @@ def gridded_matchup(
             df = df_mapping.query("variable == @vv").reset_index(drop=True)
 
             if len(df) == 0:
+                print("There appear to be no simulation files that meet your criteria.")
                 continue
 
             mapping[vv] = list(df.query("variable == @vv").model_variable)[0]
@@ -163,6 +164,7 @@ def gridded_matchup(
             if len(sim_years) == 0:
                 # specific error for glodap
                 session_info["end_messages"] += [f"No simulation years found for {vv}. Please check start and end args!"]
+                warnings.warn(f"No simulation years found for {vv}. Please check start and end args!")
                 return None
             # now simplify paths, so that only the relevant years are used
             new_paths = []
@@ -209,8 +211,6 @@ def gridded_matchup(
             var_dict["clim_years"] = [min(sim_years), max(sim_years)]
 
             # get the number of paths
-
-            n_paths = len(paths)
 
             with warnings.catch_warnings(record=True) as w:
 
@@ -608,7 +608,9 @@ def gridded_matchup(
                 lon_min = lons.min()
                 lat_max = df_test[lat_name].max()
                 lat_min = df_test[lat_name].min()
-                ds_model_surface.subset(lon=[lon_min, lon_max], lat=[lat_min, lat_max])
+                ds_model_surface.run()
+#                ds_model_surface.subset(lon=[lon_min, lon_max], lat=[lat_min, lat_max])
+                ds_model_surface.run()
 
                 ds_model_surface.to_nc(out_file, zip=True, overwrite=True)
                 out_file = out_file.replace(".nc", "_definitions.pkl")
