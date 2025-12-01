@@ -1,7 +1,7 @@
 Installation and a quick example
 ============
 
-**System requirements** You will need to run this on Linux or macOS.
+**System requirements** You will need to run this on a Linux system.
 
 You will need to use Conda to use oceanVal. The first step is to create a new environment::
 
