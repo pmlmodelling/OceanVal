@@ -1,7 +1,7 @@
-oceanVal: Automated marine ecosystem model validation 
+oceanVal: Automated ocean model validation 
 =======================================================
 
-Automatic validation of marine ecosystem models in Python. 
+Automatic validation of ocean models in Python. 
 
 Documentation
 -------------

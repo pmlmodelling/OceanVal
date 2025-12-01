@@ -17,6 +17,7 @@ Matchups and validation
    validate 
    reset
    compare
+   deep_clean
 
 
 
