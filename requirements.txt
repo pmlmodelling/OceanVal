@@ -9,17 +9,10 @@ python-dateutil
 matplotlib
 jupytext
 nctoolkit>=1.1.1
-jellyfish
 geopandas
 holoviews
 plotnine
 jupyter-book==1.0.4
-seawater
-cmocean
-numpydoc
-sphinx_rtd_theme
-nbsphinx
-molmass
 fiona
 
 
