@@ -499,14 +499,26 @@ class Validator:
         assumed = []
 
         if long_name is None:
-            long_name = name
-            assumed.append("long_name")
+            try:
+                long_name = self[name].long_name
+            except:
+                long_name = name
+                assumed.append("long_name")
+
         if short_name is None:
-            short_name = name
-            assumed.append("short_name")
+            # use it, if it already exists
+            try:
+                short_name = self[name].short_name
+            except:
+                short_name = name
+                assumed.append("short_name")
         if short_title is None:
-            short_title = name.title()
-            assumed.append("short_title")
+            try:
+                short_title = self[name].short_title
+            except:
+                short_title = name.title()
+                assumed.append("short_title")
+
 
         if source_info is None:
             source_info = f"Source for {source}"
@@ -692,14 +704,24 @@ class Validator:
             assumed.append("source_info")
         source = {source_name: source_info}
         if long_name is None:
-            long_name = name
-            assumed.append("long_name")
+            try:
+                long_name = self[name].long_name
+            except:
+                long_name = name
+                assumed.append("long_name")
         if short_name is None:
-            short_name = name
-            assumed.append("short_name")
+            # use it, if it already exists
+            try:
+                short_name = self[name].short_name
+            except:
+                short_name = name
+                assumed.append("short_name")
         if short_title is None:
-            short_title = name.title()
-            assumed.append("short_title")
+            try:
+                short_title = self[name].short_title
+            except:
+                short_title = name.title()
+                assumed.append("short_title")
 
         if name in session_info["short_title"]:
             if short_title != session_info["short_title"][name]:
@@ -759,6 +781,10 @@ class Validator:
             self[name].obs_variable = None 
 
         else:
+
+            # ensure short title is the same
+            if short_title != session_info["short_title"][name]:
+                raise ValueError(f"Short title for {name} already exists as {session_info['short_title'][name]}, cannot change to {short_title}")
 
             if self[name].model_variable != model_variable:
                 raise ValueError(f"Model variable for {name} already exists as {old_model_variable}, cannot change to {model_variable}")
