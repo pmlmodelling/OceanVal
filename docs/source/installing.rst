@@ -8,9 +8,15 @@ You will need to use Conda to use oceanVal. The first step is to create a new en
    $ conda env create --name oceanval -f https://raw.githubusercontent.com/pmlmodelling/oceanval/main/oceanval.yml
    $ conda activate oceanval
 
-Once you have done that, install the development version from GitHub::
+Once you have done that, install oceanVal from pypi:
+
+   $ pip install oceanval 
+
+Or, if you want the latest development version, install directly from GitHub:
 
    $ pip install git+https://github.com/pmlmodelling/oceanval.git
+
+A conda version of oceanVal will be available soon. 
 
 
 A short example
