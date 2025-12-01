@@ -385,7 +385,6 @@ class Validator:
     
 
     
-    # add a method that let's user create a new Variable and add it to the definitions
     # 
     def add_gridded_comparison(self, 
                                name = None, 
@@ -473,59 +472,7 @@ class Validator:
         if not re.match("^[A-Za-z0-9]+$", name):
             raise ValueError("Name can only contain letters and numbers")
 
-        try:
-            point_dir = getattr(self, name).point_dir
-        except:
-            point_dir = None
-        try:    
-            point_source = getattr(self, name).point_source
-        except:
-            point_source = None
-        try:
-            orig_sources = getattr(self, name).sources
-        except:
-            orig_sources = dict()
-            # get point start
-        try:
-            point_start = getattr(self, name).point_start
-        except:
-            point_start = -1000
-        try:
-            point_end = getattr(self, name).point_end
-        except:
-            point_end = 3000
-        try:
-            vertical_point = getattr(self, name).vertical_point
-        except:
-            vertical_point = None
-        try:
-            old_model_variable = getattr(self, name).model_variable
-        except:
-            old_model_variable = None
-        try:
-            old_obs_multiplier = getattr(self, name).obs_multiplier_point
-        except:
-            old_obs_multiplier = 1
-        try:
-            old_binning = getattr(self, name).binning
-        except:
-            old_binning = None
-        
-        try:
-            old_climatology = getattr(self, name).climatology
-        except:
-            old_climatology = None
-        
-        try:
-            old_obs_adder = getattr(self, name).obs_adder_point
-        except:
-            old_obs_adder = 0
 
-        if old_model_variable is not None and old_model_variable != model_variable:
-            if old_model_variable != "auto":
-                raise ValueError(f"Model variable for {name} already exists as {old_model_variable}, cannot change to {model_variable}")
-        
-        var = Variable()
         if source is None:
             raise ValueError("Source must be supplied")
         if model_variable is None:
@@ -565,14 +512,11 @@ class Validator:
             source_info = f"Source for {source}"
             assumed.append("source_info")
 
+        source_name = source
         source = {source: source_info}
-        if list(source.keys())[0] in orig_sources:
-            # ensure the value is the same
-            if orig_sources[list(source.keys())[0]] != source[list(source.keys())[0]]:
-                raise ValueError(f"Source {list(source.keys())[0]} already exists with a different value")
         # ensure the sourc key does not included "_"
-        if "_" in list(source.keys())[0]:
-            raise ValueError("Source key cannot contain '_'")
+        if "_" in list(source_name)[0]:
+            raise ValueError("Source cannot contain '_'")
         if not isinstance(obs_variable, str):
             raise ValueError("obs_variable must be a string")
 
@@ -589,60 +533,76 @@ class Validator:
             if short_title is not None:
                 if short_title != session_info["short_title"][name]:
                     raise ValueError(f"Short title for {name} already exists as {session_info['short_title'][name]}, cannot change to {short_title}")
-        
-        var.obs_adder_gridded = obs_adder
-        var.obs_adder_point = old_obs_adder
-        var.thredds = thredds
-        var.climatology = climatology
-        var.obs_multiplier_point = old_obs_multiplier
-        var.obs_multiplier_gridded = obs_multiplier
-        var.n_levels = 1
-        var.vertical_gridded = vertical
-        var.vertical_point = vertical_point
-        var.gridded_start = start
-        var.gridded_end = end
-        var.point_start = point_start
-        var.point_end = point_end
-        # var.point = point
-        var.point_source = point_source
-        var.gridded = True
-        var.long_name = long_name
-        var.binning = old_binning
+
+
+
+
+
+        # Figure out if name is already 
+
+        # figure out if self[name] exists already
+        if getattr(self, name, None) is None:
+            var = Variable()
+            setattr(self, name, var)
+            self[name].point_dir = None
+            self[name].point_source = None
+            self[name].sources = source 
+            self[name].point_start = -1000
+            self[name].point_end = 3000
+            self[name].vertical_point = None
+            self[name].model_variable = None
+            self[name].obs_multiplier = 1
+            self[name].binning = None
+            self[name].climatology = None
+            self[name].sources = dict()
+
+        else:
+            if self[name].model_variable != model_variable:
+                raise ValueError(f"Model variable for {name} already exists as {old_model_variable}, cannot change to {model_variable}")
+            if self[name].sources is not None:
+                orig_sources = self[name].sources
+            if list(source.keys())[0] in orig_sources:
+                # ensure the value is the same
+                if orig_sources[list(source.keys())[0]] != source[list(source.keys())[0]]:
+                    raise ValueError(f"Source {list(source.keys())[0]} already exists with a different value")
+
+        self[name].sources[source_name] = source_info
+        self[name].obs_adder_gridded = obs_adder
+        self[name].thredds = thredds
+        self[name].climatology = climatology
+        self[name].obs_multiplier_gridded = obs_multiplier
+        self[name].n_levels = 1
+        self[name].vertical_gridded = vertical
+        self[name].gridded_start = start
+        self[name].gridded_end = end
+        self[name].gridded = True
+        self[name].long_name = long_name
         # if this is None set to Name
-        var.short_name = short_name
-        if var.short_name is None:
-            var.short_name = name
+        self[name].short_name = short_name
+        if self[name].short_name is None:
+            self[name].short_name = name
             assumed.append("short_name")    
-        var.short_title = short_title
-        if var.short_title is None:
-            var.short_title = name.title()
+        self[name].short_title = short_title
+        if self[name].short_title is None:
+            self[name].short_title = name.title()
             assumed.append("short_title")
         # check if this is c
-        session_info["short_title"][name] = var.short_title
+        session_info["short_title"][name] = self[name].short_title
 
-        var.sources = orig_sources | source
-        var.gridded_source = list(source.keys())[0]
-        var.model_variable = model_variable
-        var.point_dir = point_dir
+        self[name].sources[source_name] = source_info 
+        self[name].gridded_source = list(source.keys())[0]
+        self[name].model_variable = model_variable
         # add obs_variable, ensure it's a string
-        var.obs_variable = obs_variable
+        self[name].obs_variable = obs_variable
         # check this exists
         gridded_dir = obs_path
-        var.gridded_dir = gridded_dir
-        var.recipe = recipe
-
+        self[name].gridded_dir = gridded_dir
+        self[name].recipe = recipe
+        
         # ensure nothing is None
-        for attr in [var.long_name, var.short_name, var.short_title, var.sources, var.model_variable, var.obs_variable, var.gridded_source]:
-            if attr is None:
-                raise ValueError(f"Attribute {attr} cannot be None")
-        setattr(self, name, var)
         # warnings for assumptions
         if len(assumed) > 0:
             print(f"Warning: The following attributes were missing and were assumed for variable {name}: {assumed}")
-    # 
-
-
-
 
 
     def add_point_comparison(self, 
@@ -792,7 +752,7 @@ class Validator:
             self[name].gridded = False
             self[name].vertical_gridded = None 
             self[name].recipe = None 
-            self[name].sources = source 
+            self[name].sources = dict() 
             self[name].gridded_source = None 
             self[name].thredds = None 
             self[name].gridded_dir = None 
@@ -809,7 +769,7 @@ class Validator:
                 if orig_sources[list(source.keys())[0]] != source[list(source.keys())[0]]:
                     raise ValueError(f"Source {list(source.keys())[0]} already exists with a different value")
 
-            self[name].sources[source_name] = source_info
+        self[name].sources[source_name] = source_info
 
         self[name].obs_multiplier_point= obs_multiplier
         self[name].obs_adder_point = obs_adder
