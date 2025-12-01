@@ -537,7 +537,6 @@ if available:
         md(f"**Figure {i_figure}**: Bias in {layer_long} {vv_name}. The bias is calculated as model - observation. The colour scale is from blue (negative bias) to red (positive bias). The colour scale is capped at the 98th percentile of the absolute bias. This is to avoid a few extreme outliers from dominating the colour scale.") 
     i_figure += 1
 
-#"adhoc/tmp/df_raw.feather"
 # create directory if non-existent, recursive
     if os.path.isdir("adhoc/tmp") == False:
         os.makedirs("adhoc/tmp")

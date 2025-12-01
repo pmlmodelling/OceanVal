@@ -1640,13 +1640,6 @@ def matchup(
         print("Important messages about matchups:")
         print("*" * 30)
         # write this info to a md report
-        with open("matchup_report.md", "w") as f:
-            f.write("# Matchup Report\n\n")
-            f.write("Important messages about matchups:\n\n")
-            for x in session_info["end_messages"]:
-                f.write(f"- {x}\n")
-        # convert to pdf
-        os.system("pandoc matchup_report.md -o matchup_issues.pdf")
 
         for x in session_info["end_messages"]:
             print(x)

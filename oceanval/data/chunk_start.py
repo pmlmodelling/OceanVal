@@ -9,7 +9,6 @@ import pickle
 
 import glob
 import geopandas as gpd
-import jellyfish
 import nctoolkit as nc
 nc.options(parallel=True)
 import os
@@ -17,7 +16,6 @@ import pickle
 import numpy as np
 import xarray as xr
 from IPython.display import Markdown as md_markdown
-import cmocean as cm
 from tqdm import tqdm
 import hvplot.pandas
 from plotnine import *

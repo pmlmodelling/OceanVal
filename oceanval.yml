@@ -4,25 +4,17 @@ channels:
 dependencies:
   - cartopy
   - cdo>2.1.0
-  - cmocean
   - nco
   - notebook
-  - jellyfish
-  - ipykernel=6.30.1
+  - ipykernel
   - nctoolkit>=1.1.1
-  - pandoc
-  - python=3.11
-  - rpy2=3.5.11
-  - wkhtmltopdf
-  - pyarrow
+  - python
+  - rpy2
   - r-base
   - r-rcpp
   - r-cowplot
   - r-ggthemes
-  - r-ggtern
   - r-maps
   - r-plotrix
   - r-tidyverse
-  - r-arrow
-  - r-ggridges
   - r-ggtext
