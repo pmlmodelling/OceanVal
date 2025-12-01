@@ -781,6 +781,15 @@ def compare(model_dict=None):
     out = "oceanval_comparison/compare/" + os.path.basename(data_path)
 
     shutil.copyfile(data_path, out)
+    # read in out and change some values
+    with open(out, "r") as file:
+        filedata = file.read()
+    # Replace the target string
+    filedata = filedata.replace("oceanval_report", "../oceanval_comparison")
+    # Write the file out again
+    with open(out, "w") as file:
+        file.write(filedata)
+
 
     # copy the comparison_seasonal notebook
 
