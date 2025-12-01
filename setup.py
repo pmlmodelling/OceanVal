@@ -1,13 +1,22 @@
 from setuptools import Command, find_packages, setup
 import sys
 
-DESCRIPTION = "Fast and easy analysis of netCDF data in Python"
+DESCRIPTION = "A Python package for ocean model validation and analysis"
 LONG_DESCRIPTION = """
 
-**oceanval** is an automated ERSEM evaluation toolkit 
+**oceanVal** is a Python package designed to automate the process of validating ocean models against observational datasets. It provides a suite of tools to facilitate the comparison of model outputs with various observational data sources, enabling researchers to assess model performance effectively. 
+
+Core abilities of oceanVal include:
+
+  - Matching model output variables to observational datasets 
+  - Assesing spatial and temporal performance of ocean models 
+  - Assessing model skill using a variety of statistical metrics 
+  - Asssessing extent of model biases 
+  - Generating comprehensive validation reports in html format
 
 
 """
+
 
 PROJECT_URLS = {
     "Bug Tracker": "https://github.com/pmlmodelling/oceanVal/issues",
@@ -22,7 +31,7 @@ extras_require["complete"] = ["geoviews", "rioxarray", "cfchecker", "geocube", "
 REQUIREMENTS = [i.strip() for i in open("requirements.txt").readlines()]
 
 setup(name='oceanval',
-      version='0.2.0',
+      version='0.1.0',
       description=DESCRIPTION,
       long_description=LONG_DESCRIPTION,
       python_requires='>=3.6.1',
