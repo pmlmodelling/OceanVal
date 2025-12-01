@@ -4,6 +4,7 @@ import glob
 import subprocess
 import warnings
 import nctoolkit as nc
+nc.session_info["stamp"] = nc.session_info["stamp"] + "_ecoval_output_"
 import copy
 from oceanval.matchall import matchup
 import dill
@@ -960,3 +961,73 @@ def compare(model_dict=None):
 
 
     webbrowser.open("file://" + os.path.abspath("oceanval_comparison/compare/_build/html/index.html"))
+
+import platform
+import tempfile
+
+
+def temp_check():
+    """
+    Function to check temp files
+    """
+
+    if platform.system() == "Linux":
+        mylist = [f for f in glob.glob("/tmp/*")]
+        mylist = mylist + [f for f in glob.glob("/var/tmp/*")]
+        mylist = mylist + [f for f in glob.glob("/usr/tmp/*")]
+        mylist = [f for f in mylist if "nctoolkit" in f]
+
+        mylist = [x for x in mylist if "ecoval_output" in x]
+
+        session_info["old_files"] = mylist
+
+        if len(mylist) > 0:
+            if len(mylist) == 1:
+                print(
+                    f"{len(mylist)} temporary file was created by oceanval in prior or current "
+                    f"sessions. Consider running oceanval.deep_clean!"
+                )
+            else:
+                print(
+                    f"{len(mylist)} temporary files were created by oceanval in prior or current"
+                    f" sessions. Consider running oceanval.deep_clean!"
+                )
+
+    else:
+        temp_folder = tempfile.gettempdir()
+
+        mylist = [f for f in glob.glob(f"{temp_folder}/*")]
+        mylist = [f for f in mylist if "nctoolkit" in f]
+        mylist = [x for x in mylist if "ecovaloutput" in x]
+
+        if len(mylist) > 0:
+            if len(mylist) == 1:
+                print(
+                    f"{len(mylist)} temporary file was created by oceanval in prior or current "
+                    f"sessions. Consider running oceanval.deep_clean!"
+                )
+            else:
+                print(
+                    f"{len(mylist)} temporary files were created by oceanval in prior or "
+                    f"current sessions. Consider running oceanval.deep_clean!"
+                )
+
+temp_check()
+
+
+
+
+def deep_clean():
+    """
+    Deep temp file cleaner
+    Remove all temporary files ever created by nctoolkit
+    across all previous and current sesions
+    """
+
+    candidates = session_info["old_files"] 
+
+    mylist = [f for f in candidates if "nctoolkit" in f and "ecoval_output" in f]
+    for ff in mylist:
+        if ff in session_info["old_files"]:
+            if "nctoolkit" in ff and "ecoval_output" in ff:
+                os.remove(ff)
