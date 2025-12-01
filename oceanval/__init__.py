@@ -1019,8 +1019,8 @@ temp_check()
 
 def deep_clean():
     """
-    Deep temp file cleaner
-    Remove all temporary files ever created by nctoolkit
+    Deep temp file cleaner.
+    Remove all temporary files ever created by oceanval
     across all previous and current sesions
     """
 
