@@ -421,10 +421,10 @@ def validate(
                     if not os.path.exists(
                         f"{book_dir}/notebooks/{source}_{variable}.ipynb"
                     ):
-                        ff_def = glob.glob(f"{data_dir}/oceanval_matchups/gridded/{variable}/*definitions*.pkl")[0]
+                        ff_def = glob.glob(f"{data_dir}/oceanval_matchups/gridded/{variable}/{source}_*definitions*.pkl")[0]
                         definitions = dill.load(open(ff_def, "rb"))
                         Variable = definitions[variable].short_name
-                        ff_nc = glob.glob(f"{data_dir}/oceanval_matchups/gridded/{variable}/*surface*.nc")[0]
+                        ff_nc = glob.glob(f"{data_dir}/oceanval_matchups/gridded/{variable}/{source}_*surface*.nc")[0]
                         ds = nc.open_data(ff_nc, checks = False)
                         try:
                             n_months = len(ds.months)
