@@ -385,6 +385,7 @@ def validate(
                     filedata = filedata.replace("point_obs_source", source)
                     filedata = filedata.replace("template_title", Variable)
                     filedata = filedata.replace("data_dir_value", data_dir)
+                    filedata = filedata.replace("out_dir_value", out_dir)
 
                     # Write the file out again
                     with open(out, "w") as file:
@@ -537,6 +538,7 @@ def validate(
         # Replace the target string
         filedata = filedata.replace("domain_title", "Full domain")
         filedata = filedata.replace("data_dir_value", data_dir)
+        filedata = filedata.replace("out_dir_value", out_dir)
 
         # Write the file out again
         with open(f"{book_dir}/notebooks/{i_pad}_summary.ipynb", "w") as file:
@@ -607,6 +609,7 @@ def validate(
         # Replace the target string
         filedata = filedata.replace("fast_plot_value", str(fast_plot))
         filedata = filedata.replace("data_dir_value", data_dir)
+        filedata = filedata.replace("out_dir_value", out_dir)
 
         # fix linees using the above
         def fix_r_magic(x):
