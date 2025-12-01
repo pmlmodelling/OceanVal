@@ -274,26 +274,36 @@ def find_recipe(x, start = None, end = None):
         return output
 
 
-
-
-        
-
-
-
-
-
-
-
     
     if value.lower() == "nsbc":
         if name.lower() in ["ammonium", "nitrate", "phosphate", "silicate", "chlorophyll", "oxygen", "temperature", "salinity"]:
-            url = f"https://icdc.cen.uni-hamburg.de/thredds/dodsC/ftpthredds/nsbc/level_3/climatological_monthly_mean/NSBC_Level3_{name}__UHAM_ICDC__v1.1__0.25x0.25deg__OAN_1960_2014.nc"
+            if name.lower() == "chlorophyll":
+                url = f"https://icdc.cen.uni-hamburg.de/thredds/dodsC/ftpthredds/nsbc/level_3/climatological_monthly_mean/NSBC_Level3_{'chlorophyll_a'}__UHAM_ICDC__v1.1__0.25x0.25deg__OAN_1960_2014.nc"
+            else:
+                url = f"https://icdc.cen.uni-hamburg.de/thredds/dodsC/ftpthredds/nsbc/level_3/climatological_monthly_mean/NSBC_Level3_{name}__UHAM_ICDC__v1.1__0.25x0.25deg__OAN_1960_2014.nc"
             output["obs_path"] = url
             output["source"] = "NSBC"
             output["source_info"] = "Hinrichs, Iris; Gouretski, Viktor; Paetsch, Johannes; Emeis, Kay; Stammer, Detlef (2017). North Sea Biogeochemical Climatology (Version 1.1)."
             output["name"] = name
             output["thredds"] = True
             output["climatology"] = True
+            if name.lower() == "ammonium":
+                output["obs_variable"] = "ammonium_mean"
+            if name.lower() == "nitrate":
+                output["obs_variable"] = "nitrate_mean"
+            if name.lower() == "phosphate":
+                output["obs_variable"] = "phosphate_mean"
+            if name.lower() == "silicate":
+                output["obs_variable"] = "silicate_mean"
+            if name.lower() == "chlorophyll":
+                output["obs_variable"] = "chlorophyll_a_mean"
+            if name.lower() == "oxygen":
+                output["obs_variable"] = "oxygen_mean"
+            if name.lower() == "temperature":
+                output["obs_variable"] = "temperature_mean"
+            if name.lower() == "salinity":
+                output["obs_variable"] = "salinity_mean"
+
 
 
             return output
