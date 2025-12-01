@@ -31,7 +31,6 @@ notebook_dict = dict()
 
 
 add_point_comparison = definitions.add_point_comparison
-add_point_comparison_2 = definitions.add_point_comparison_2
 add_gridded_comparison = definitions.add_gridded_comparison
 
 # loop through the keys and make sure all attributes are set

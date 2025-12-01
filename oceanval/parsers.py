@@ -620,7 +620,6 @@ class Validator:
         # check if this is c
         session_info["short_title"][name] = var.short_title
 
-        source_name = source
         var.sources = orig_sources | source
         var.gridded_source = list(source.keys())[0]
         var.model_variable = model_variable
@@ -641,6 +640,11 @@ class Validator:
         if len(assumed) > 0:
             print(f"Warning: The following attributes were missing and were assumed for variable {name}: {assumed}")
     # 
+
+
+
+
+
     def add_point_comparison(self, 
                              name = None, 
                              long_name = None, 
@@ -690,74 +694,18 @@ class Validator:
 
         """
 
-        if source is None:
-            raise ValueError("Source must be supplied")
-
-        try:
-            gridded_dir = getattr(self, name).gridded_dir
-        except:
-            gridded_dir = "auto"
-        try:
-            obs_variable = getattr(self, name).obs_variable
-        except:
-            obs_variable = "auto"
-        try:
-            gridded = getattr(self, name).gridded
-        except:
-            gridded = False
-        try:
-            gridded_source = getattr(self, name).gridded_source
-        except:
-            gridded_source = "auto"
-        try:
-            orig_sources = getattr(self, name).sources
-        except:
-            orig_sources = dict()
-        try:
-            gridded_start = getattr(self, name).gridded_start
-        except:
-            gridded_start = -1000
-        try:
-            gridded_end = getattr(self, name).gridded_end
-        except:
-            gridded_end = 3000
-        try:
-            old_model_variable = getattr(self, name).model_variable 
-        except:
-            old_model_variable = None
-        try:
-            old_climatology = getattr(self, name).climatology
-        except:
-            old_climatology = None
-        try:
-            old_obs_multiplier = getattr(self, name).obs_multiplier_gridded
-            old_obs_adder = getattr(self, name).obs_adder_gridded
-        except:
-            old_obs_multiplier = 1
-            old_obs_adder = 0
-        try:
-            vertical_gridded = getattr(self, name).vertical_gridded
-        except:
-            vertical_gridded = False
-        try:
-            thredds = getattr(self, name).thredds
-        except:
-            thredds = False
-        try:
-            recipe = getattr(self, name).recipe
-        except:
-            recipe = False
-
-        if old_model_variable is not None and old_model_variable != model_variable:
-            if old_model_variable != "auto":
-                raise ValueError(f"Model variable for {name} already exists as {old_model_variable}, cannot change to {model_variable}")
-
+        # check what is supplied is valid
         # name can only have str or numbers
         if not re.match("^[A-Za-z0-9]+$", name):
             raise ValueError("Name can only contain letters and numbers")
-        var = Variable()
 
+        if source is None:
+            raise ValueError("Source must be supplied")
         source_name = source
+        # ensure the sourc key does not included "_"
+        if "_" in source: 
+            raise ValueError("Source key cannot contain '_'")
+
 
         try:
             obs_multiplier= float(obs_multiplier)
@@ -782,6 +730,7 @@ class Validator:
         if source_info is None:
             source_info = f"Source for {source}"
             assumed.append("source_info")
+        source = {source_name: source_info}
         if long_name is None:
             long_name = name
             assumed.append("long_name")
@@ -796,14 +745,6 @@ class Validator:
             if short_title != session_info["short_title"][name]:
                 raise ValueError(f"Short title for {name} already exists as {session_info['short_title'][name]}, cannot change to {short_title}")
 
-        source = {source: source_info}
-        if list(source.keys())[0] in orig_sources:
-            # ensure the value is the same
-            if orig_sources[list(source.keys())[0]] != source[list(source.keys())[0]]:
-                raise ValueError(f"Source {list(source.keys())[0]} already exists with a different value")
-        # ensure the sourc key does not included "_"
-        if "_" in list(source.keys())[0]:
-            raise ValueError("Source key cannot contain '_'")
         point_files = [f for f in glob.glob(os.path.join(obs_path, "*.csv"))] 
         # if no files exists, raise error
         if len(point_files) == 0:
@@ -836,78 +777,75 @@ class Validator:
                     float(res)
                 except:
                     raise ValueError("Each element of binning must be a number")
-        try:
-            old_climatology = getattr(self, name).climatology
-        except:
-            old_climatology = None
-        
-        # adders
-        var.obs_adder_gridded = old_obs_adder
-        var.obs_adder_point = obs_adder
-
-        var.climatology = old_climatology
-        var.n_levels = 1
-        var.gridded_start = gridded_start
-        var.gridded_end = gridded_end
-        var.obs_multiplier_gridded= old_obs_multiplier
-        var.obs_multiplier_point= obs_multiplier
-        # var.point = True
-        var.gridded = gridded
-        var.long_name = long_name
-        if var.long_name is None:
-            var.long_name = name
-            assumed.append("long_name")
-
-        var.vertical_point = vertical
-        var.vertical_gridded = vertical_gridded 
-        var.recipe = recipe
-
-        var.short_name = short_name
-        if var.short_name is None:
-            var.short_name = name
-            assumed.append("short_name")
-
-        var.short_title = short_title
-        if var.short_title is None:
-            var.short_title = name.title()
-            assumed.append("short_title")
-        var.point_start = start
-        var.point_end = end
-        # append source to the var.source
-        # check if source key is in orig_source
-        var.sources = orig_sources | source 
-        var.gridded_source = gridded_source
-        var.point_source = list(source.keys())[0]   
-        var.model_variable = model_variable
-        var.point_dir = obs_path
-        # find csv files in point_dir
-        var.thredds = thredds
-
-        var.obs_variable = obs_variable
         # check this exists
         point_dir = obs_path
         if point_dir != "auto":
             if not os.path.exists(point_dir):
                 raise ValueError(f"Point directory {point_dir} does not exist")
-        var.gridded_dir = gridded_dir
+
+
+        # figure out if self[name] exists already
+        if getattr(self, name, None) is None:
+            # add it
+            var = Variable()
+            setattr(self, name, var)
+            self[name].gridded = False
+            self[name].vertical_gridded = None 
+            self[name].recipe = None 
+            self[name].sources = source 
+            self[name].gridded_source = None 
+            self[name].thredds = None 
+            self[name].gridded_dir = None 
+            self[name].obs_variable = None 
+
+        else:
+
+            if self[name].model_variable != model_variable:
+                raise ValueError(f"Model variable for {name} already exists as {old_model_variable}, cannot change to {model_variable}")
+            if self[name].sources is not None:
+                orig_sources = self[name].sources
+            if list(source.keys())[0] in orig_sources:
+                # ensure the value is the same
+                if orig_sources[list(source.keys())[0]] != source[list(source.keys())[0]]:
+                    raise ValueError(f"Source {list(source.keys())[0]} already exists with a different value")
+
+            self[name].sources[source_name] = source_info
+
+        self[name].obs_multiplier_point= obs_multiplier
+        self[name].obs_adder_point = obs_adder
+        self[name].n_levels = 1
+        self[name].long_name = long_name
+        if self[name].long_name is None:
+            self[name].long_name = name
+            assumed.append("long_name")
+
+        self[name].vertical_point = vertical
+        self[name].short_name = short_name
+        if self[name].short_name is None:
+            self[name].short_name = name
+            assumed.append("short_name")
+
+        self[name].short_title = short_title
+        if self[name].short_title is None:
+            self[name].short_title = name.title()
+            assumed.append("short_title")
+        self[name].point_start = start
+        self[name].point_end = end
+        # append source to the var.source
+        # check if source key is in orig_source
+        self[name].point_source = list(source.keys())[0]   
+        self[name].model_variable = model_variable
+        self[name].point_dir = obs_path
 
         # figure out if var.binning exists
-        try:
-            old_binning = getattr(self, name).binning
-            var.binning = old_binning 
-        except:
-            var.binning = binning 
+        self[name].binning = binning 
 
-        # ensure nothing is None
-        for attr in [var.long_name, var.short_name, var.short_title, var.sources, var.model_variable]:
-            if attr is None:
-                raise ValueError(f"Attribute {attr} cannot be None")
-        setattr(self, name, var)
+        #  
 
         for vv in assumed:
             print(f"Warning: The attribute {vv} was missing and was assumed for variable {name}")
-        session_info["short_title"][name] = var.short_title
-    # 
+        session_info["short_title"][name] = short_title
+
 
 definitions = Validator()
 
