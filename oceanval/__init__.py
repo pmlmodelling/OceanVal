@@ -31,6 +31,7 @@ notebook_dict = dict()
 
 
 add_point_comparison = definitions.add_point_comparison
+add_point_comparison_2 = definitions.add_point_comparison_2
 add_gridded_comparison = definitions.add_gridded_comparison
 
 # loop through the keys and make sure all attributes are set
@@ -201,12 +202,14 @@ def validate(
     """
     # convert data_dir to absolute path
     data_dir = os.path.expanduser(data_dir)
+    data_dir = os.path.abspath(data_dir)
     #  regioncan only be nwes or global
     if region is not None:
         if region not in ["nwes", "global"]:
             raise ValueError("region must be either 'nwes' or 'global'")
     # ensure proper handling of ~
     out_dir = os.path.expanduser(out_dir)
+    out_dir = os.path.abspath(out_dir)
 
     book_dir = os.path.join(out_dir, "oceanval_report")
     # if it doesn't exist, create it
