@@ -794,12 +794,6 @@ def compare(model_dict=None):
     if len(glob.glob("oceanval_comparison/compare/notebooks/*comparison_seasonal.ipynb")) == 0:
         shutil.copyfile(file1, "oceanval_comparison/compare/notebooks/comparison_seasonal.ipynb")
 
-    # copy comparison_overall notebook
-
-    file1 = importlib.resources.files(__name__).joinpath("data/comparison_overall.ipynb")
-
-    if len(glob.glob("oceanval_comparison/compare/notebooks/*comparison_overall.ipynb")) == 0:
-        shutil.copyfile(file1, "oceanval_comparison/compare/notebooks/comparison_overall.ipynb")
 
     model_dict_str = str(model_dict)
 

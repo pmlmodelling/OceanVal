@@ -21,7 +21,7 @@ def is_chunk(x):
 def add_chunks( dir=None):
 
     paths = glob.glob(f"{dir}/oceanval_report/notebooks/*.py")
-    paths += glob.glob("{dir}/oceanval_comparison/compare/notebooks/*.py")
+    paths += glob.glob(f"oceanval_comparison/compare/notebooks/*.py")
     if dir is not None:
         paths += glob.glob(f"{dir}/*.py")
 
