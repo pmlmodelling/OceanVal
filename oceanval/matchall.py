@@ -253,6 +253,7 @@ def mm_match(ff, model_variable, df, df_times, ds_depths, variable, df_all, laye
     except Exception as e:
         print(e)
 
+example_files = dict()
 
 def get_time_res(x, folder=None):
     """
@@ -416,6 +417,7 @@ def extract_variable_mapping(folder, exclude=[], n_check=None):
             new_name = re.sub(r"\d{4,}", "**", new_name)
             # replace strings of the form _12. with _**.
             new_name = re.sub(r"\d{2,}", "**", new_name)
+            example_files[new_name] = ff
 
             all_df.append(
                 pd.DataFrame.from_dict(new_dict).melt().assign(pattern=new_name)
@@ -427,6 +429,7 @@ def extract_variable_mapping(folder, exclude=[], n_check=None):
         raise ValueError("No netCDF files found with any of the model variables.")
     #  rename variable-value, and value-variable
     all_df = all_df.rename(columns={"variable": "value", "value": "variable"}) 
+
 
     patterns = set(all_df.pattern)
     resolution_dict = dict()
@@ -441,6 +444,11 @@ def extract_variable_mapping(folder, exclude=[], n_check=None):
     all_df = all_df.rename(columns={"value": "variable"})
     all_df = all_df.drop(columns="resolution")
     all_df = all_df.loc[:, ["variable", "model_variable", "pattern"]]
+
+    # add example file column
+    all_df["example_file"] = [
+        example_files[x] for x in all_df.pattern
+    ]
 
     return all_df
 
@@ -462,6 +470,7 @@ def matchup(
     cache=False,
     n_check=None,
     as_missing=None,
+    strict_names = True,
     **kwargs,
 ):
     """
@@ -512,6 +521,7 @@ def matchup(
     Data will be stored in the matched directory.
 
     """
+    session_info["strict_names"] = strict_names
     session_info["as_missing"] = as_missing
 
 
@@ -1139,6 +1149,10 @@ def matchup(
         ensemble = glob.glob(sim_dir + final_extension + pattern)
         for exc in exclude:
             ensemble = [x for x in ensemble if f"{exc}" not in os.path.basename(x)]
+        # find length of example file
+        if strict_names:
+            len_example = len(os.path.basename(example_files[pattern]))
+            ensemble = [x for x in ensemble if len(os.path.basename(x)) == len_example]
 
         try:
             ds = xr.open_dataset(ensemble[0])
@@ -1646,6 +1660,7 @@ def matchup(
         lon_lim=lon_lim,
         lat_lim=lat_lim,
         times_dict=times_dict,
+        example_files=example_files,
     )
 
     if len(session_info["end_messages"]) > 0:

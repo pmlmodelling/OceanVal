@@ -24,7 +24,8 @@ def gridded_matchup(
     sim_end=None,
     lon_lim=None,
     lat_lim=None,
-    times_dict=None
+    times_dict=None,
+    example_files = {}
 ):
     """
     Function to create gridded matchups for a given set of variables
@@ -135,6 +136,10 @@ def gridded_matchup(
 
             final_extension = extension_of_directory(folder)
             paths = glob.glob(folder + final_extension + pattern)
+            if session_info["strict_names"]:
+                len_example = len(os.path.basename(example_files[pattern]))
+                paths = [x for x in paths if len(os.path.basename(x)) == len_example]
+
 
             for exc in exclude:
                 paths = [

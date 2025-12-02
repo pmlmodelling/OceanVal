@@ -229,3 +229,31 @@ Once you have modified them you can then rebuild the report using:
     oceanval.rebuild(data_dir = "/foo/bar")
 
 This will overwrite your original report with the results of the modified analysis.
+
+How do I make sure oceanVal uses the correct simulation files?
+------------------------------------
+
+oceanVal will automatically identify the file path pattern in a directory that identifies the simulation
+files that contain a specific variable. In most cases this will work fine.
+However, in some cases the files may not have a totally strict naming convention, which can trip up oceanVal.
+In this case you will want to use the `exclude` parameters in the `oceanval.matchup` function. This will ignore certain files that contain
+particular character strings.
+
+For example, consider a case where the general file pattern was something like this:
+
+eORCA1_1m_**_**_grid_T_**-**.nc
+
+In this case a typical would be something like "eORCA1_1m_20060101_20060131_grid_T_200601-200601.nc".
+However, confusing you could have something like "eORCA1_1m_test_grid_T_200601-200601.nc" in the same directory.
+In this case, our file pattern matching would pick up this file, which we do not want.
+To get around this, you could do:
+
+.. code:: ipython3
+
+    oceanval.matchup(
+        ...,
+        exclude = ["test_grid"],
+        ...
+    )
+
+This would then ignore any files with "test_grid" in the name.
