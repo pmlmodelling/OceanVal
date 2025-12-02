@@ -31,7 +31,7 @@ extras_require["complete"] = ["geoviews", "rioxarray", "cfchecker", "geocube", "
 REQUIREMENTS = [i.strip() for i in open("requirements.txt").readlines()]
 
 setup(name='oceanval',
-      version='0.1.4',
+      version='0.1.5',
       description=DESCRIPTION,
       long_description=LONG_DESCRIPTION,
       python_requires='>=3.6.1',
