@@ -665,22 +665,24 @@ def validate(
     )
 
 
-def rebuild():
+def rebuild(data_dir = "."):
     """
     Rebuild the validation report after modifying notebooks.
     Use this if you have modified the notebooks generated and want to create a new validation report.
 
     Parameters
     ----------
-    build : str
-        The type of the existing build. Default is None. Options are "html" or "pdf"
+    data_dir : str
+        The directory where the oceanval_report directory is located. Default is current directory.
     """
     # add a deprecation notice
+    data_dir = os.path.expanduser(data_dir)
+    data_dir = os.path.abspath(data_dir)
 
-    os.system(f"jupyter-book build oceanval_report/")
+    os.system(f"jupyter-book build {data_dir}/oceanval_report/")
 
     webbrowser.open(
-        "file://" + os.path.abspath(f"oceanval_report/_build/html/index.html")
+        "file://" + os.path.abspath(f"{data_dir}/oceanval_report/_build/html/index.html")
     )
 
 
