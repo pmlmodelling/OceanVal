@@ -703,6 +703,10 @@ if available and not concise:
 
 # %% tags=["remove-input"]
 if available:
+    is_month = "month" in df_raw.columns
+    if is_month == False:
+        df_raw = df_raw.assign(month = 1)
+        df = df.assign(month = 1)
     if variable not in [ "benbio"]:
         df_bias = (
             df_raw
@@ -723,6 +727,10 @@ if available:
     else:
         # only want annual
         df_bias = pd.DataFrame({"month": ["All"], "bias": [df_raw.model.mean() - df_raw.observation.mean()]})
+    # remove month == 1
+    if is_month == False:
+        df_bias = df_bias.query("month != 1")
+
     if variable not in [ "benbio"]:
         # now create an rmse dataframe
         df_rmse = (
@@ -741,6 +749,10 @@ if available:
     else:
         # only want annual
         df_rmse = pd.DataFrame({"month": ["All"], "rmse": [np.sqrt(((df_raw.model - df_raw.observation).pow(2)).mean())]})
+    # remove month == 1
+    if is_month == False:
+        df_rmse = df_rmse.query("month != 1")
+
     # rename the month column to Month
     # merge the two dataframes
     df_table = copy.deepcopy(df_bias).merge(df_rmse)
@@ -766,6 +778,10 @@ if available:
     else:
         # only want annual
         df_corr = pd.DataFrame({"month": ["All"], "correlation": [df_raw.model.corr(df_raw.observation)]})
+    # remove month == 1
+    if is_month == False:
+        df_corr = df_corr.query("month != 1")
+
     df_table = df_table.merge(df_corr)
     df_table = df_table.round(2)
     df_table = df_table.rename(columns={"month": "Month", "bias": "Bias", "rmse": "RMSD", "correlation": "Correlation"})
@@ -781,6 +797,8 @@ if available:
         df_number = df_number.rename(columns={"month": "Time period", "observation": "Number of observations"})
     else:
         df_number = pd.DataFrame({"Time period": ["All"], "Number of observations": [len(df_raw)]})
+    if is_month == False:
+        df_number = df_number.query("`Time period` != '1'")
 
     # add total number of observations
     annual_number = len(df_raw)
@@ -819,6 +837,9 @@ if available:
         df_agg_numbers = df_agg_numbers.drop(columns=["Agg_Number"])
         # put All first
         df_agg_numbers = pd.concat([df_agg_numbers[df_agg_numbers["Time period"] == "All"], df_agg_numbers[df_agg_numbers["Time period"] != "All"]])
+
+        if is_month == False:
+            df_agg_numbers = df_agg_numbers.query("`Time period` != '1'")
 
         df_display(df_agg_numbers)
     else:
@@ -880,6 +901,9 @@ if available:
         except:
             pass
     # sort period appropriately, so All is first then ordered by month
+    if is_month == False:
+        df_stats = df_stats[df_stats["Period"] != "1"]
+
     df_stats["Period"] = pd.Categorical(df_stats["Period"], [calendar.month_abbr[x] for x in range(1, 13)] + ["All"])
     # round p-value to 3 dp
     df_stats["P"] = df_stats["P"].round(5)
