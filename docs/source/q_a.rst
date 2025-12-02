@@ -195,12 +195,24 @@ How do I ensure the model and observational data have the same units?
 Internally, oceanVal will assume that the model and observational data are in the same units.
 However, you can modify the the observational data units using the `obs_multiplier` or `model_adder` arguments in the `oceanval.add_point_comparison` and `oceanval.add_gridded_comparison` functions.
 
-For example, if you wanted to convert observational temperature from degrees Celsius to Kelvin, you could do:
+For example, if you wanted to convert observational data from mol/m3 to mmol/m3, you could do: 
 
 .. code:: ipython3
 
     oceanval.add_point_comparison(
         ...,
-        obs_adder = 273.15,
+        obs_multiplier = 1000,
         ...
     )
+
+**Note**: there is special handling when you name a variable "temperature", where oceanVal will automatically convert the obseration to the model units. 
+
+Why do I need to say if gridded data is climatological?
+------------------------------------
+
+If you do not provide this, it can be unclear how to handle gridded observational data.
+For example, a file could have a climatological, but will have time information that says the year is 2000.
+If you do not specify if this is a climatology, there is no way of knowing if it represents the year 2000, 
+and therefore should only be matched up for the year 2000, or if it is a climatology and should therefore be compared with a
+multi-year average from the simulation.
+
