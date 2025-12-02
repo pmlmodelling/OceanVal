@@ -405,7 +405,7 @@ class Validator:
                                source_info = None, 
                                model_variable = None, 
                                obs_path = None, 
-                               obs_variable = "auto", 
+                               obs_variable = None, 
                                start = -1000, 
                                end = 3000, 
                                vertical = False, 
@@ -540,7 +540,7 @@ class Validator:
         if "_" in list(source_name)[0]:
             raise ValueError("Source cannot contain '_'")
         if not isinstance(obs_variable, str):
-            raise ValueError("obs_variable must be a string")
+            raise ValueError("obs_variable be provided")
 
         gridded_dir = obs_path
         if gridded_dir != "auto":
@@ -550,6 +550,25 @@ class Validator:
         # thredds must be boolean
         if not isinstance(thredds, bool):
             raise ValueError("thredds must be a boolean value")
+        
+        # figure out if obs_variable exists in the files
+        if isinstance(obs_path, list):
+            sample_file = obs_path[0]
+        else:
+            if obs_path.endswith(".nc"):
+                sample_file = obs_path
+            else:
+                sample_file = nc.glob(obs_path)[0]
+        try:
+            if thredds is True:
+                ds = nc.open_thredds(sample_file)
+            else:
+                ds = nc.open_data(sample_file, checks = False )
+        except:
+            raise ValueError(f"Could not open observation data file {sample_file}")
+        ds_variables = ds.variables
+        if obs_variable not in ds_variables:
+            raise ValueError(f"obs_variable {obs_variable} not found in observation data files")
 
         if name in session_info["short_title"]:
             if short_title is not None:
