@@ -68,5 +68,106 @@ For example, to validate model temperature against the COBE SST data hosted by N
         thredds=True
     )
 
+Something in my simulation should really be a missing value. What can I do?
+------------------------------------
+
+If something in your simulation output should be a missing value, you can just use the `as_missing` argument in `oceanval.matchup`.
+
+For example, if any 0 values should really be missing values, you can do:
+
+.. code:: ipython3
+
+    oceanval.matchup(..., as_missing = 0, .... )
+
+How do I spatially subset data before validation?
+------------------------------------
+
+You can use the `lon_lim` and `lat_lim` arguments in the `oceanval.matchup` or `oceanVal.validate` functions to spatially subset data before validation. 
+For example, to only validate data in the North Atlantic (lon: -80 to 0, lat: 0 to 60):
+
+.. code:: ipython3
+
+    oceanval.matchup(..., lon_lim = [-80, 0], lat_lim = [0, 60], .... )
+
+
+How do I only a specific year range?
+------------------------------------
+
+You can use the `start` and `end` arguments in the `oceanval.matchup` function to only validate data in a specific year range.
+For example, to only validate data from 2000 to 2010:
+.. code:: ipython3
+
+    oceanval.matchup(..., start = 2000, end = 2010, .... ) 
+
+If you want fine grained control, you can also specify these in the `oceanVal.add_point_comparison` and `oceanVal.add_gridded_comparison` functions using the `start` and `end` arguments there.
+For example, to only validate data from 2010 to 2015:
+
+.. code:: ipython3
+
+    oceanval.add_point_comparison(..., start = 2010, end = 2015, .... )
+
+How do I carry out vertical validation?
+------------------------------------
+
+If you want to carry out vertical validation, you first need to specify the `vertical` argument 
+in the `oceanval.add_gridded_comparison` or `oceanval.add_point_comparison` for each variable you want vertical validation for. 
+
+For example:
+.. code:: ipython3
+
+    oceanval.add_point_comparison(
+        ...,
+        vertical=True,
+        ...
+    )
+
+Once, you have done this you will need to specify the `thickness` argument in the `oceanVal.matchup` function.
+If you have z-level data, i.e. the depth levels are at fixed depths in all cells, just set `thickness="z_level"`.
+If the cell thicknesses vary spatially, e.g. in a sigma or hybrid coordinate system, you will need to provide a file containing the thicknesses.
+
+.. code:: ipython3
+
+    oceanval.matchup(
+        ...,
+        thickness="z_level",
+        ...
+    )
+
+For a simulation with varying cell thicknesses, you would do something like:
+
+.. code:: ipython3
+
+    oceanval.matchup(
+        ...,
+        thickness="/path/to/thickness_file.nc",
+        ...
+    )
+if it is a file containing the thicknesses. If the thickness variable is stored in one of the simulation files, just do:
+
+.. code:: ipython3
+
+    oceanval.matchup(
+        ...,
+        thickness="thickness_variable_name",
+        ...
+    )   
+
+oceanVal will then search for the variable and extract the thicknesses for you.
+
+
+
+I would like a new feature in oceanVal. How can I request this?
+------------------------------------
+
+Please open an issue on the oceanVal GitHub page:
+https://github.com/pmlmodelling/oceanVal
+
+
+Can I use oceanVal to compare simulations against each other?
+------------------------------------
+
+oceanVal is not explicitly designed to compare simulations against each other, but you can do this by treating one simulation as "observations".
+This will only work for the gridded comparison, not the point comparison.
+If you do this, you should see how simulations compare climatologically and across time.
 
 
