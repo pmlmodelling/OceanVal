@@ -13,12 +13,12 @@ This is carried out using the ``recipe`` parameter in the ``add_gridded_comparis
 
 
 .. code-block:: python
+    import oceanval
 
-   from oceanval.parsers import definitions
-   definitions.add_gridded_comparison(
-       model_variable="foobar",
-       recipe={"temperature": "cobe2"}
-   )
+    oceanval.add_gridded_comparison(
+        model_variable="foobar",
+        recipe={"temperature": "cobe2"}
+    )
 
 This is a minimalist example, where you have said you want to matchup temperature from the (COBE2)[https://psl.noaa.gov/thredds/dodsC/Datasets/COBE2/sst.mon.mean.nc] sea surface temperature dataset with the model temperature, with variable name "foobar".
 
@@ -92,7 +92,7 @@ COBE2 - Sea Surface Temperature
 
 .. code-block:: python
 
-   definitions.add_gridded_comparison(
+   oceanval.add_gridded_comparison(
        model_varianble ="foobar",
        recipe={"temperature": "cobe2"}
    )
@@ -134,7 +134,7 @@ Data is stored in the following units:
 
 .. code-block:: python
 
-   definitions.add_gridded_comparison(
+   oceanval.add_gridded_comparison(
        model_variable="foobar",
        recipe={"nitrate": "woa23"}
    )
@@ -162,7 +162,7 @@ For example, if you want to validate against the 1995-2004 climatology, you woul
 
 .. code-block:: python
 
-   definitions.add_gridded_comparison(
+   oceanval.add_gridded_comparison(
        model_variable="foobar",
        recipe={"temperature": "woa23"},
        start = 1995,
@@ -173,7 +173,7 @@ This data is vertically resolved, so if you want vertically resolved validation 
 
 .. code-block:: python
 
-   definitions.add_gridded_comparison(
+   oceanval.add_gridded_comparison(
        model_variable="foobar" ,
        recipe={"nitrate": "woa23"},
        vertical = True
@@ -196,11 +196,11 @@ Ocean Colour CCI - Chlorophyll and KD490
 **Usage Example**:
 .. code-block:: python
 
-   definitions.add_gridded_comparison(
+   oceanval.add_gridded_comparison(
        model_variable="foobar",
        recipe={"chlorophyll": "occci"   }
    )
-    definitions.add_gridded_comparison(
+    oceanval.add_gridded_comparison(
          model_variable="foobar",
          recipe={"kd490": "occci"}
 
@@ -228,11 +228,11 @@ GLODAPv2.2016b
 
 .. code-block:: python
 
-   definitions.add_gridded_comparison(
+   oceanval.add_gridded_comparison(
        model_variable="foobar",
        recipe={"pH": "glodap"}
    )
-    definitions.add_gridded_comparison(
+    oceanval.add_gridded_comparison(
          model_variable="foobar",
          recipe={"alkalinity": "glodap"}
     )
@@ -266,34 +266,34 @@ NSBC - North Sea Biogeochemical Climatology
 
 .. code-block:: python
 
-   definitions.add_gridded_comparison(
+   oceanval.add_gridded_comparison(
        model_variable="foobar",
        recipe={"chlorophyll": "nsbc"}
    )
    
-   definitions.add_gridded_comparison(
+   oceanval.add_gridded_comparison(
         model_variable="foobar",
        recipe={"nitrate": "nsbc"}
    )
 
-   definitions.add_gridded_comparison(
+   oceanval.add_gridded_comparison(
         model_variable="foobar",
        recipe={"phosphate": "nsbc"}
    )
 
-   definitions.add_gridded_comparison(
+   oceanval.add_gridded_comparison(
         model_variable="foobar",
        recipe={"silicate": "nsbc"}
    )
-    definitions.add_gridded_comparison(
+    oceanval.add_gridded_comparison(
           model_variable="foobar",
          recipe={"oxygen": "nsbc"}
     )
-    definitions.add_gridded_comparison(
+    oceanval.add_gridded_comparison(
           model_variable="foobar",
          recipe={"temperature": "nsbc"}
     )
-    definitions.add_gridded_comparison(
+    oceanval.add_gridded_comparison(
             model_variable="foobar",
          recipe={"salinity": "nsbc"}
     )
@@ -303,7 +303,7 @@ This data is vertically resolved, so if you want vertically resolved validation 
 
 .. code-block:: python
 
-   definitions.add_gridded_comparison(
+   oceanval.add_gridded_comparison(
             model_variable="foobar",
        recipe={"nitrate": "nsbc"},
        vertical = True
