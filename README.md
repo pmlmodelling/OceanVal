@@ -1,5 +1,5 @@
 [![Documentation Status](https://readthedocs.org/projects/oceanval/badge/?version=latest)](https://oceanval.readthedocs.io/en/latest/?badge=latest)
-[![Conda Badge](https://anaconda.org/conda-forge/oceanval/badges/version.svg)
+[![Conda Badge](https://anaconda.org/conda-forge/oceanval/badges/version.svg)](https://anaconda.org/channels/conda-forge/packages/oceanval/overview)
 
 
 # oceanVal 
