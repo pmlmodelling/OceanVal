@@ -1529,9 +1529,10 @@ def matchup(
                                 import dill
                                 # get the model unit
                                 ds = nc.open_data(paths[0], checks=False)
+                                the_variable = model_variable.split("+")[0]
                                 model_unit = list(
                                     ds.contents.query(
-                                        "variable == @model_variable"
+                                        "variable == @the_variable"
                                     ).unit
                                 )[0]
                                 definitions[variable].model_unit = model_unit
