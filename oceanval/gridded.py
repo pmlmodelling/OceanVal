@@ -619,14 +619,14 @@ def gridded_matchup(
                     max_model = ds_model_surface.to_xarray().model.max()
                     max_obs = ds_model_surface.to_xarray().observation.max()
                     abs_diff = abs(max_model - max_obs)
-                if abs_diff > 40:
-                    if max_model > max_obs:
-                        add_to_obs = +273.15
+                    if abs_diff > 40:
+                        if max_model > max_obs:
+                            add_to_obs = +273.15
+                        else:
+                            add_to_obs = -273.15
+                        ds_model_surface.assign(observation = lambda x: x.observation + add_to_obs)
                     else:
-                        add_to_obs = -273.15
-                    ds_model_surface.assign(observation = lambda x: x.observation + add_to_obs)
-                else:
-                    add_to_obs = 0
+                        add_to_obs = 0
 
                 ds_model_surface.to_nc(out_file, zip=True, overwrite=True)
                 out_file = out_file.replace(".nc", "_definitions.pkl")
