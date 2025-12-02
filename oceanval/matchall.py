@@ -1521,6 +1521,19 @@ def matchup(
                                         df_all = df_all.drop(columns="month")
                                     except:
                                         pass
+                                # special handling of temperature
+                                if variable == "temperature":
+                                    max_model = df_all.model.max()
+                                    max_obs = df_all.observation.max()
+                                    if max_model > 100 and max_obs < 100:
+                                        df_all = df_all.assign(
+                                            observation=lambda x: x.observation + 273.15
+                                        )   
+                                    if max_obs > 100 and max_model < 100:
+                                        df_all = df_all.assign(
+                                            observation=lambda x: x.observation - 273.15
+                                        )
+
                                 df_all.to_csv(out, index=False)
                                 # save the definitions
                                 out_definitions = out.replace(

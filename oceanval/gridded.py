@@ -614,6 +614,20 @@ def gridded_matchup(
 #                ds_model_surface.subset(lon=[lon_min, lon_max], lat=[lat_min, lat_max])
                 ds_model_surface.run()
 
+                # special handling of temperature
+                if vv == "temperature":
+                    max_model = ds_model_surface.to_xarray().model.max()
+                    max_obs = ds_model_surface.to_xarray().observation.max()
+                    abs_diff = abs(max_model - max_obs)
+                if abs_diff > 40:
+                    if max_model > max_obs:
+                        add_to_obs = +273.15
+                    else:
+                        add_to_obs = -273.15
+                    ds_model_surface.assign(observation = lambda x: x.observation + add_to_obs)
+                else:
+                    add_to_obs = 0
+
                 ds_model_surface.to_nc(out_file, zip=True, overwrite=True)
                 out_file = out_file.replace(".nc", "_definitions.pkl")
                 # save definitions
@@ -703,7 +717,26 @@ def gridded_matchup(
                     lon_min = lons.min()
                     lat_max = df_test[lat_name].max()
                     lat_min = df_test[lat_name].min()
+
+
+
                     ds_model.subset(lon=[lon_min, lon_max], lat=[lat_min, lat_max])
+
+                    # special handling of temperature
+                    if vv == "temperature":
+                        max_model = ds_model.to_xarray().model.max()
+                        max_obs = ds_model.to_xarray().observation.max()
+                        abs_diff = abs(max_model - max_obs)
+                    if abs_diff > 40:
+                        if max_model > max_obs:
+                            add_to_obs = +273.15
+                        else:
+                            add_to_obs = -273.15
+                        ds_model.assign(observation = lambda x: x.observation + add_to_obs)
+                    else:
+                        add_to_obs = 0
+
+
                     ds_model.to_nc(out_file_vertical, zip=True, overwrite=True)
                 out_file = out_file.replace(".nc", "_definitions.pkl")
                 # save definitions
