@@ -23,7 +23,7 @@ lat_min = lat_lim[0]
 df = df.query(f"lon >= {lon_min} and lon <= {lon_max} and lat >= {lat_min} and lat <= {lat_max}").reset_index(drop = True) 
 # drop duplicates
 df = df.drop_duplicates().reset_index(drop = True)
-ff_dict = f"data_dir_value/oceanval_matchups/point/{layer}/{variable}/matchup_dict.pkl"
+ff_dict = f"data_dir_value/oceanval_matchups/point/{layer}/{variable}/{point_source}/matchup_dict.pkl"
 point_time_res = ["year", "month", "day"]
 point_time_res = [x for x in point_time_res if x in df.columns]
 
