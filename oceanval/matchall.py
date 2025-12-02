@@ -1253,6 +1253,14 @@ def matchup(
                         ensemble = [
                             x for x in ensemble if f"{exc}" not in os.path.basename(x)
                         ]
+                    # find length of example file
+                    if strict_names:
+                        len_example = len(os.path.basename(example_files[pattern]))
+                        ensemble = [
+                            x
+                            for x in ensemble
+                            if len(os.path.basename(x)) == len_example
+                        ]
 
                     df_times = []
                     days = []
