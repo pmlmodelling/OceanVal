@@ -234,26 +234,50 @@ How do I make sure oceanVal uses the correct simulation files?
 ------------------------------------
 
 oceanVal will automatically identify the file path pattern in a directory that identifies the simulation
-files that contain a specific variable. In most cases this will work fine.
-However, in some cases the files may not have a totally strict naming convention, which can trip up oceanVal.
-In this case you will want to use the `exclude` parameters in the `oceanval.matchup` function. This will ignore certain files that contain
-particular character strings.
+files that contain a specific variable. 
+
+It will tell you the file pattern it has identified, along with an example of a file it will use.
+Furthermore, by default oceanVal is strict about the naming convention, so a file will have to have as many characters as the example given.
 
 For example, consider a case where the general file pattern was something like this:
 
 eORCA1_1m_**_**_grid_T_**-**.nc
 
-In this case a typical would be something like "eORCA1_1m_20060101_20060131_grid_T_200601-200601.nc".
-However, confusing you could have something like "eORCA1_1m_test_grid_T_200601-200601.nc" in the same directory.
-In this case, our file pattern matching would pick up this file, which we do not want.
-To get around this, you could do:
+and an example file was:
+
+eORCA1_1m_20100101_grid_T_20101231.nc
+
+oceanval would then only consider files with basename lengths of 36 characters (the length of the example file).
+
+In almost all cases this will pull out the correct files. 
+
+However, in some cases the files may not have a totally strict naming convention, which can trip up oceanVal.
+In this case you will want to use the `exclude` parameters in the `oceanval.matchup` function. This will ignore certain files that contain
+particular character strings.
 
 .. code:: ipython3
 
     oceanval.matchup(
         ...,
-        exclude = ["test_grid"],
+        exclude = ["badpattern1", "badpattern2"],
         ...
     )
 
 This would then ignore any files with "test_grid" in the name.
+
+
+**Note**: If you have not followed a totally strict naming convention, you may want to 
+set the `strict_names` argument in the `oceanval.matchup` function to `False`.
+This is possibly useful if you have done written files like "simulation_output_1.nc",..., "simulation_output_10.nc", where the lengths of the basenames differ.
+
+Just set strict_names to False as follows:
+
+.. code:: ipython3
+
+    oceanval.matchup(
+        ...,
+        strict_names = False,
+        ...
+    )
+
+In this case, the pattern stays the same, but oceanVal will not filter files based on the length of the basenames.
