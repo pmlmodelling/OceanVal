@@ -127,6 +127,7 @@ def find_recipe(x, start = None, end = None):
             output["thredds"] = True
             output["climatology"] = False
             output["vertical"] = False
+            output["obs_variable"] = "sst"
 
             return output 
 
