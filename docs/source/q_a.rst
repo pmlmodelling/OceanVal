@@ -216,3 +216,16 @@ If you do not specify if this is a climatology, there is no way of knowing if it
 and therefore should only be matched up for the year 2000, or if it is a climatology and should therefore be compared with a
 multi-year average from the simulation.
 
+
+Can I change oceanVal's analysis?
+------------------------------------
+Yes. If you want to fine-tune things, such as changing a plot-colour scale or tweaking language, you can.
+You will need to open the jupyter notebooks located in the "oceanval_report/notebooks" directory.
+
+Once you have modified them you can then rebuild the report using:
+
+.. code:: ipython3
+
+    oceanval.rebuild(data_dir = "/foo/bar")
+
+This will overwrite your original report with the results of the modified analysis.
