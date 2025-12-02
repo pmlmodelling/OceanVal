@@ -599,7 +599,7 @@ class Validator:
 
         else:
             if self[name].model_variable != model_variable:
-                raise ValueError(f"Model variable for {name} already exists as {old_model_variable}, cannot change to {model_variable}")
+                raise ValueError(f"Model variable for {name} already exists as {self[name].model_variable}, cannot change to {model_variable}")
             if self[name].sources is not None:
                 orig_sources = self[name].sources
             if list(source.keys())[0] in orig_sources:
