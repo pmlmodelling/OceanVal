@@ -694,6 +694,8 @@ class Validator:
         binning (list): Binning information [lon_resolution, lat_resolution]
 
         """
+        if name is None:
+            raise ValueError("Name must be supplied")
 
         # check what is supplied is valid
         # name can only have str or numbers
