@@ -236,3 +236,11 @@ The following options are available:
 - `concise`: A boolean indicating whether to generate a concise html summary page. This defaults to True.
 
 This will then generate and open an html page that can be viewed in a web browser.
+
+
+.. admonition:: Can I access and use oceanVal's validation code? 
+
+    Yes. oceanVal uses juypyter notebooks to carry out the validation calculations and generate plots.
+    These notebooks can be found in the `oceanval_report/notebooks` directory where the validation output was stored.
+    You can copy these notebooks and use them to create a more customized validation.
+    The notebooks themselves are designed for internal use by oceanVal, and are not designed to be user-friendly, but they should be clear enough. 
