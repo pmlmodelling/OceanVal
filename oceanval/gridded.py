@@ -362,6 +362,8 @@ def gridded_matchup(
 
                 if climatology is False:
                     year_sel = [x for x in ds_model.years if x in ds_obs.years]
+                    if len(year_sel) == 0:
+                        raise ValueError("There do not appear to be any years in common between model and observation!  ")
                     sim_years = year_sel
                     min_year = min(year_sel)
                     max_year = max(year_sel)
