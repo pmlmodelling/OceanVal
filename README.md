@@ -1,4 +1,6 @@
 [![Documentation Status](https://readthedocs.org/projects/oceanval/badge/?version=latest)](https://oceanval.readthedocs.io/en/latest/?badge=latest)
+https://anaconda.org/conda-forge/oceanval/badges/version.svg
+
 
 # oceanVal 
 Marine ecosystem model validation made easy in Python
