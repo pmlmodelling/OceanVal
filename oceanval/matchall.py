@@ -334,6 +334,7 @@ def extract_variable_mapping(folder, exclude=[], n_check=None):
     # add restart to exclude
     exclude.append("restart")
 
+    n = 0
     while True:
 
         levels = session_info["levels_down"]
@@ -362,6 +363,11 @@ def extract_variable_mapping(folder, exclude=[], n_check=None):
 
         if len([x for x in options if ".nc" in x]) > 0:
             break
+
+        n += 1
+
+        if n > 10* 10000:
+            raise ValueError("Unable to find any netCDF files in the provided directory. Check n_dirs_down arg and simulation directory structure.")
 
     all_df = []
     print("********************************")
