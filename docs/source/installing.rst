@@ -50,8 +50,7 @@ Note: you should run this from an empty directory.
 
    oceanval.add_gridded_comparison(
       recipe = {"temperature":"cobe2"},
-       model_variable = "tos",
-       obs_variable = "sst"
+       model_variable = "tos"
    )
 
    oceanval.matchup(sim_dir = ".",
