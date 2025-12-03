@@ -307,9 +307,6 @@ def find_recipe(x, start = None, end = None):
 # create a validator class
 # create a variable class to hold metadata
 class Variable:
-    def __init__(self):
-        self.long_name = None
-        self.gridded = None 
     def __str__(self):
     # add a print method for each atrribute
         attrs = vars(self)
@@ -321,22 +318,17 @@ class Variable:
 
 
 class Validator:
-    def __init__(self):
-        self.rules = {}
-
-    def add_rule(self, field, rule):
-        self.rules[field] = rule
 
     keys = session_info["keys"]
     # add a deleter that removes from keys list
     def __delattr__(self, name):
-        if name != "keys" and "rules" not in name:
+        if name != "keys":
             if name in self.keys:
                 self.keys.remove(name)
         super().__delattr__(name)
     # add remove method
     def remove(self, name):
-        if name != "keys" and "rules" not in name:
+        if name != "keys":
             if name in self.keys:
                 self.keys.remove(name)
         super().__delattr__(name)
@@ -344,14 +336,12 @@ class Validator:
     # add reset method
     def reset(self):
         for key in self.keys:
-            # do not remove rules
-            if "rules" not in key:
-                super().__delattr__(key)
+            super().__delattr__(key)
         self.keys = []
 
     # ensure self.x = y, adds x to the keys list
     def __setattr__(self, name, value):
-        if name != "keys" and "rules" not in name:
+        if name != "keys":
             if name not in self.keys:
                 self.keys.append(name)
                 # ensure this can be accessed via self[name]
@@ -382,7 +372,8 @@ class Validator:
                                obs_multiplier = 1,
                                obs_adder = 0,
                                thredds = False,
-                               recipe = None
+                               recipe = None,
+                               file_check = True
                                    ): 
         """
 
@@ -419,6 +410,8 @@ class Validator:
         obs_multiplier (float): Multiplier for the observation
 
         obs_adder (float): Adder for the observation
+
+        file_check (bool): Whether to check if the obs_path exists and variables are valid
 
         """
 
@@ -512,10 +505,12 @@ class Validator:
             raise ValueError("obs_variable be provided")
 
         gridded_dir = obs_path
-        if gridded_dir != "auto":
-            if thredds is False:
-                if not os.path.exists(gridded_dir):
-                    raise ValueError(f"Gridded directory {gridded_dir} does not exist")
+
+        if file_check:
+            if gridded_dir != "auto":
+                if thredds is False:
+                    if not os.path.exists(gridded_dir):
+                        raise ValueError(f"Gridded directory {gridded_dir} does not exist")
         # thredds must be boolean
         if not isinstance(thredds, bool):
             raise ValueError("thredds must be a boolean value")
@@ -536,8 +531,9 @@ class Validator:
         except:
             raise ValueError(f"Could not open observation data file {sample_file}")
         ds_variables = ds.variables
-        if obs_variable not in ds_variables:
-            raise ValueError(f"obs_variable {obs_variable} not found in observation data files")
+        if file_check:
+            if obs_variable not in ds_variables:
+                raise ValueError(f"obs_variable {obs_variable} not found in observation data files")
 
         if name in session_info["short_title"]:
             if short_title is not None:
