@@ -180,6 +180,8 @@ An example is shown below:
     If there are subdirectories, **they must** only contain integers.
     This the typical way of storing simulation output for ocean models. 
     If you have a different folder structure, you can just create symbolic links to the relevant files in a single directory. 
+    
+    Directories should only contain results from a single simulation.
 
 **Note**: If you are validating a simulation with only monthly resolution, then you probably want to set the `point_time_res` parameter to `["year", "month"]` when matching up in-situ observations.
 This will result in day of year being ignored when matching up observations with the simulation output. If you use the default for `point_time_res`, then very few matchups will be found, as the day of year in the observations will almost never match that in the simulation output. 
