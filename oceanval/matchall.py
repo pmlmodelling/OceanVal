@@ -374,9 +374,13 @@ def extract_variable_mapping(folder, exclude=[], n_check=None):
     print("Parsing model information from netCDF files")
 
     # remove any files from options if parts of exclude are in them
-    options_thickness = copy.deepcopy(options)
     for exc in exclude:
         options = [x for x in options if f"{exc}" not in os.path.basename(x)]
+    
+    # handle required
+    if session_info["require"] is not None:
+        for req in session_info["require"]:
+            options = [x for x in options if f"{req}" in os.path.basename(x)]
 
     print("Searching through files in a random directory to identify variable mappings")
     # randomize options
@@ -473,6 +477,7 @@ def matchup(
     ask=True,
     out_dir="",
     exclude=[],
+    require = None,
     cache=False,
     n_check=None,
     as_missing=None,
@@ -508,6 +513,8 @@ def matchup(
         If you provide this list make sure all variables have keys, or else provide a key called "default" with a value to use when the variable is not stated explicitly.
     exclude : list
         List of strings to exclude. This is useful if you have files in the directory that you do not want to include in the matchup.
+    require : list
+        List of strings to require. This is useful if you want to only include files that have certain strings in their names. Defaults to None, so there are no requirements.
     lon_lim : list
         List of two floats, which must be provided. The first is the minimum longitude, the second is the maximum longitude. Default is None.
     lat_lim : list
@@ -529,6 +536,13 @@ def matchup(
     """
     session_info["strict_names"] = strict_names
     session_info["as_missing"] = as_missing
+    # convert require to list if it's not None and is a string
+    if require is not None:
+        if isinstance(require, str):
+            require = [require]
+        if not isinstance(require, list):
+            raise TypeError("require must be a list or a string")
+    session_info["require"] = require
 
 
     # store short title
@@ -1153,6 +1167,10 @@ def matchup(
         print(f"Indexing file time information for {pattern} files")
         final_extension = extension_of_directory(sim_dir)
         ensemble = glob.glob(sim_dir + final_extension + pattern)
+        # handle required
+        if session_info["require"] is not None:
+            for req in session_info["require"]:
+                ensemble = [x for x in ensemble if f"{req}" in os.path.basename(x)]
         for exc in exclude:
             ensemble = [x for x in ensemble if f"{exc}" not in os.path.basename(x)]
         # find length of example file

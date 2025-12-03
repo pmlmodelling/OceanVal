@@ -145,6 +145,11 @@ def gridded_matchup(
                 paths = [
                     x for x in paths if f"{exc}" not in os.path.basename(x)
                 ]
+            
+            # handle required
+            if session_info["require"] is not None:
+                for req in session_info["require"]:
+                    paths = [x for x in paths if f"{req}" in os.path.basename(x)]
 
 
             all_years = []
@@ -212,6 +217,8 @@ def gridded_matchup(
 
             paths = list(set(new_paths))
             paths.sort()
+
+            # handle 
 
             var_dict["clim_years"] = [min(sim_years), max(sim_years)]
 
@@ -343,8 +350,6 @@ def gridded_matchup(
                         else:
                             ds_obs.cdo_command("topvalue")
 
-                if definitions[vv].obs_variable != "auto":
-                    ds_obs.subset(variables=definitions[vv].obs_variable)
 
                 try:
                     min_obs_year = min(ds_obs.years)
@@ -359,6 +364,7 @@ def gridded_matchup(
                                 return None
                     if climatology is False:
                         ds_obs.subset(years=sim_years)
+                    ds_obs.subset(variables=definitions[vv].obs_variable)
                     ds_obs.tmean(["year", "month"], align="left")
                     ds_obs.merge("time")
                     ds_obs.tmean(["year", "month"], align="left")
@@ -374,6 +380,7 @@ def gridded_matchup(
                     max_year = max(year_sel)
                     ds_obs.subset(years=year_sel)
                     ds_model.subset(years=year_sel)
+                    ds_obs.subset(variables=definitions[vv].obs_variable)
                     ds_obs.run()
 
                 obs_unit_multiplier = definitions[vv].obs_multiplier_gridded
