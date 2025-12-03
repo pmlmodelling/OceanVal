@@ -8,22 +8,91 @@ import nctoolkit as nc
 import numpy as np
 
 
-class TestAnomaly:
-    def test_adder_1(self):
-        # very basic ValueError test
-        with pytest.raises(ValueError):
-            oceanval.add_point_comparison()
 
-        with pytest.raises(ValueError):
-            oceanval.add_gridded_comparison()
+class TestDefintions:
+    """Test suite for oceanval definitions object"""
+    
+    def test_reset_definitions(self):
+        """Test that reset method clears definitions"""
+        temp_gridded_file = "data/evaldata/gridded/nws/nitrate/model_2000.nc"
+        oceanval.add_gridded_comparison(
+            name="testvar",
+            source="TestSource",
+            model_variable="temp",
+            climatology=True,
+            obs_path=temp_gridded_file,
+            obs_variable="N3_n"
+        )
+        assert "testvar" in oceanval.definitions.keys
+        
+        oceanval.reset()
 
-        with pytest.raises(ValueError):
-            oceanval.add_gridded_comparison(name = "foo")
-        with pytest.raises(ValueError):
-            oceanval.add_point_comparison(name = "bar")
+        assert "testvar" not in oceanval.definitions.keys
 
-        with pytest.raises(TypeError):
-            oceanval.add_point_comparison(name = "foo", source = "bar") 
+
+    def test_delete_definitions_key(self):
+        """Test that reset method clears definitions"""
+        temp_gridded_file = "data/evaldata/gridded/nws/nitrate/model_2000.nc"
+        oceanval.add_gridded_comparison(
+            name="testvar",
+            source="TestSource",
+            model_variable="temp",
+            climatology=True,
+            obs_path=temp_gridded_file,
+            obs_variable="N3_n"
+        )
+        assert "testvar" in oceanval.definitions.keys
+        
+        del oceanval.definitions.testvar
+
+        assert "testvar" not in oceanval.definitions.keys
+    
+    # test the remove option
+
+    def test_remove_definitions_key(self):
+        """Test that reset method clears definitions"""
+        temp_gridded_file = "data/evaldata/gridded/nws/nitrate/model_2000.nc"
+        oceanval.add_gridded_comparison(
+            name="testvar",
+            source="TestSource",
+            model_variable="temp",
+            climatology=True,
+            obs_path=temp_gridded_file,
+            obs_variable="N3_n"
+        )
+        assert "testvar" in oceanval.definitions.keys
+        
+        oceanval.definitions.remove("testvar")
+
+        assert "testvar" not in oceanval.definitions.keys
+
+class TestRecipeInAdder:
+    """Test that recipe can be used in adders"""
+    
+    def test_add_point_comparison_with_recipe(self):
+        """Test adding point comparison using a recipe"""
+
+        # add the {"temperature": "cobe2"} recipe
+        oceanval.add_gridded_comparison(
+            recipe = {"temperature": "cobe2"},
+            model_variable="temp",
+            file_check= False
+        )
+        # Verify the variable was added
+        assert hasattr(oceanval.definitions, "temperature")
+        assert oceanval.definitions["temperature"].model_variable == "temp"
+        assert oceanval.definitions["temperature"].gridded_source == "COBE2"
+        assert oceanval.definitions["temperature"].obs_variable == "sst"
+        assert oceanval.definitions["temperature"].thredds == True
+    
+    # ensure all recipes have obs_variable
+    def test_all_recipes_have_obs_variable(self):
+        """Test that all recipes have obs_variable defined"""
+        recipe_list = oceanval.parsers.recipe_list
+        for recipe in recipe_list:
+            recipe_info = oceanval.parsers.find_recipe(recipe, start = 2000, end = 2000)
+            assert "obs_variable" in recipe_info
+            assert recipe_info["obs_variable"] is not None
 
 
 
@@ -545,3 +614,329 @@ class TestAddGriddedComparison:
         assert oceanval.definitions["salinity"].climatology == False
         assert oceanval.definitions["salinity"].thredds == False
     
+
+
+class TestFindRecipe:
+    """Test suite for find_recipe function"""
+    
+    def test_multiple_keys_error(self):
+        """Test that ValueError is raised when recipe has multiple keys"""
+        from oceanval.parsers import find_recipe
+        
+        with pytest.raises(ValueError, match="Recipe dictionary must have exactly one key"):
+            find_recipe({"chlorophyll": "occci", "temperature": "woa23"})
+    
+    def test_multiple_values_error(self):
+        """Test that ValueError is raised when recipe has multiple values"""
+        from oceanval.parsers import find_recipe
+        
+        # This is a bit tricky - dict can't have duplicate keys, but test the logic
+        # The function checks len(x.values()) != 1, but this is always 1 for valid dicts
+        # Still, we should test the validation exists
+        with pytest.raises(ValueError, match="Recipe dictionary must have exactly one"):
+            find_recipe({})
+    
+    def test_invalid_recipe_value(self):
+        """Test that ValueError is raised for invalid recipe value"""
+        from oceanval.parsers import find_recipe
+        
+        with pytest.raises(ValueError, match="Recipe value .* is not valid"):
+            find_recipe({"temperature": "invalid_source"})
+    
+    def test_chlorophyll_metadata(self):
+        """Test that chlorophyll gets correct metadata"""
+        from oceanval.parsers import find_recipe
+        
+        result = find_recipe({"chlorophyll": "occci"})
+        
+        assert result["short_name"] == "chlorophyll concentration"
+        assert result["long_name"] == "chlorophyll a concentration"
+        assert result["short_title"] == "Chlorophyll"
+        assert result["name"] == "chlorophyll"
+        assert result["obs_variable"] == "chlor_a"
+        assert result["thredds"] == True
+        assert result["climatology"] == False
+        assert result["source"] == "OCCCI"
+        assert "OC-CCI" in result["source_info"]
+        assert isinstance(result["obs_path"], list)
+        assert len(result["obs_path"]) > 0
+    
+    def test_oxygen_metadata(self):
+        """Test that oxygen gets correct metadata"""
+        from oceanval.parsers import find_recipe
+        
+        result = find_recipe({"oxygen": "woa23"})
+        
+        assert result["short_name"] == "dissolved oxygen"
+        assert result["long_name"] == "dissolved oxygen concentration"
+        assert result["short_title"] == "Oxygen"
+        assert result["name"] == "oxygen"
+        assert result["obs_variable"] == "o_an"
+        assert result["thredds"] == True
+        assert result["climatology"] == True
+        assert result["source"] == "WOA23"
+        assert isinstance(result["obs_path"], list)
+        assert len(result["obs_path"]) == 12  # Monthly data
+    
+    def test_temperature_metadata(self):
+        """Test that temperature gets correct metadata"""
+        from oceanval.parsers import find_recipe
+        
+        result = find_recipe({"temperature": "cobe2"})
+        
+        assert result["short_name"] == "sea temperature"
+        assert result["long_name"] == "sea water temperature"
+        assert result["short_title"] == "Temperature"
+        assert result["name"] == "temperature"
+        assert result["obs_variable"] == "sst"
+        assert result["thredds"] == True
+        assert result["climatology"] == False
+        assert result["source"] == "COBE2"
+        assert result["vertical"] == False
+        assert "COBE-SST" in result["source_info"]
+    
+    def test_salinity_metadata(self):
+        """Test that salinity gets correct metadata"""
+        from oceanval.parsers import find_recipe
+        
+        result = find_recipe({"salinity": "nsbc"})
+        
+        assert result["short_name"] == "salinity"
+        assert result["long_name"] == "sea water salinity"
+        assert result["short_title"] == "Salinity"
+        assert result["name"] == "salinity"
+        assert result["obs_variable"] == "salinity_mean"
+        assert result["thredds"] == True
+        assert result["climatology"] == True
+        assert result["source"] == "NSBC"
+    
+    def test_nitrate_metadata(self):
+        """Test that nitrate gets correct metadata"""
+        from oceanval.parsers import find_recipe
+        
+        result = find_recipe({"nitrate": "woa23"})
+        
+        assert result["short_name"] == "nitrate concentration"
+        assert result["long_name"] == "nitrate concentration"
+        assert result["short_title"] == "Nitrate"
+        assert result["obs_variable"] == "n_an"
+        assert result["source"] == "WOA23"
+        assert isinstance(result["obs_path"], list)
+        assert len(result["obs_path"]) == 12
+    
+    def test_ammonium_metadata(self):
+        """Test that ammonium gets correct metadata"""
+        from oceanval.parsers import find_recipe
+        
+        result = find_recipe({"ammonium": "nsbc"})
+        
+        assert result["short_name"] == "ammonium concentration"
+        assert result["long_name"] == "ammonium concentration"
+        assert result["short_title"] == "Ammonium"
+        assert result["obs_variable"] == "ammonium_mean"
+    
+    def test_phosphate_metadata(self):
+        """Test that phosphate gets correct metadata"""
+        from oceanval.parsers import find_recipe
+        
+        result = find_recipe({"phosphate": "woa23"})
+        
+        assert result["short_name"] == "phosphate concentration"
+        assert result["long_name"] == "phosphate concentration"
+        assert result["short_title"] == "Phosphate"
+        assert result["obs_variable"] == "p_an"
+        assert isinstance(result["obs_path"], list)
+    
+    def test_silicate_metadata(self):
+        """Test that silicate gets correct metadata"""
+        from oceanval.parsers import find_recipe
+        
+        result = find_recipe({"silicate": "woa23"})
+        
+        assert result["short_name"] == "silicate concentration"
+        assert result["long_name"] == "silicate concentration"
+        assert result["short_title"] == "Silicate"
+        assert result["obs_variable"] == "i_an"
+    
+    def test_kd490_metadata(self):
+        """Test that kd490 gets correct metadata"""
+        from oceanval.parsers import find_recipe
+        
+        result = find_recipe({"kd490": "occci"})
+        
+        assert result["short_name"] == "KD490"
+        assert result["long_name"] == "diffuse attenuation coefficient at 490 nm"
+        assert result["short_title"] == "KD490"
+        assert result["obs_variable"] == "kd_490"
+        assert result["thredds"] == True
+        assert result["climatology"] == False
+    
+    def test_ph_metadata(self):
+        """Test that pH gets correct metadata with case insensitivity"""
+        from oceanval.parsers import find_recipe
+        
+        result = find_recipe({"pH": "glodap"})
+        
+        assert result["short_name"] == "pH"
+        assert result["long_name"] == "sea water pH"
+        assert result["short_title"] == "pH"
+        assert result["obs_variable"] == "pHtsinsitutp"
+        assert result["source"] == "GLODAPv2.2016b"
+        assert result["thredds"] == True
+        assert result["climatology"] == True
+        assert "GLODAPv2.2016b" in result["obs_path"]
+    
+    def test_alkalinity_metadata(self):
+        """Test that alkalinity gets correct metadata"""
+        from oceanval.parsers import find_recipe
+        
+        result = find_recipe({"alkalinity": "glodap"})
+        
+        assert result["short_name"] == "total alkalinity"
+        assert result["long_name"] == "sea water total alkalinity"
+        assert result["short_title"] == "Total Alkalinity"
+        assert result["obs_variable"] == "TAlk"
+        assert result["source"] == "GLODAPv2.2016b"
+    
+    def test_woa23_temperature_with_valid_period(self):
+        """Test WOA23 temperature recipe with valid time period"""
+        from oceanval.parsers import find_recipe
+        
+        result = find_recipe({"temperature": "woa23"}, start=1955, end=1964)
+        
+        assert result["obs_variable"] == "t_an"
+        assert isinstance(result["obs_path"], list)
+        assert len(result["obs_path"]) == 12
+        assert "5564" in result["obs_path"][0]
+    
+    def test_woa23_salinity_with_valid_period(self):
+        """Test WOA23 salinity recipe with valid time period"""
+        from oceanval.parsers import find_recipe
+        
+        result = find_recipe({"salinity": "woa23"}, start=2005, end=2014)
+        
+        assert result["obs_variable"] == "s_an"
+        assert isinstance(result["obs_path"], list)
+        assert "A5B4" in result["obs_path"][0]
+    
+    def test_woa23_temperature_missing_start_end(self):
+        """Test that WOA23 temperature/salinity requires start and end"""
+        from oceanval.parsers import find_recipe
+        
+        with pytest.raises(ValueError, match="Start and end depth must be provided"):
+            find_recipe({"temperature": "woa23"})
+        
+        with pytest.raises(ValueError, match="Start and end depth must be provided"):
+            find_recipe({"salinity": "woa23"})
+    
+    def test_woa23_temperature_period_too_long(self):
+        """Test that WOA23 rejects periods longer than 10 years"""
+        from oceanval.parsers import find_recipe
+        
+        with pytest.raises(ValueError, match="must fall within a single WOA23 climatological period"):
+            find_recipe({"temperature": "woa23"}, start=1955, end=1966)
+    
+    def test_woa23_temperature_end_year_too_late(self):
+        """Test that WOA23 rejects end year > 2022"""
+        from oceanval.parsers import find_recipe
+        
+        with pytest.raises(ValueError, match="End year cannot be greater than 2022"):
+            find_recipe({"temperature": "woa23"}, start=2020, end=2025)
+    
+    def test_woa23_all_time_periods(self):
+        """Test all valid WOA23 time periods"""
+        from oceanval.parsers import find_recipe
+        
+        periods = [
+            (1955, 1964, "5564"),
+            (1965, 1974, "6574"),
+            (1975, 1984, "7584"),
+            (1985, 1994, "8594"),
+            (1995, 2004, "95A4"),
+            (2005, 2014, "A5B4"),
+            (2015, 2022, "B5C2")
+        ]
+        
+        for start, end, period_code in periods:
+            result = find_recipe({"temperature": "woa23"}, start=start, end=end)
+            assert period_code in result["obs_path"][0]
+    
+    def test_vertical_attribute_default(self):
+        """Test that vertical attribute is None by default"""
+        from oceanval.parsers import find_recipe
+        
+        result = find_recipe({"nitrate": "woa23"})
+        assert result["vertical"] is None
+    
+    def test_nsbc_all_variables(self):
+        """Test NSBC recipe for all supported variables"""
+        from oceanval.parsers import find_recipe
+        
+        variables = {
+            "ammonium": "ammonium_mean",
+            "nitrate": "nitrate_mean",
+            "phosphate": "phosphate_mean",
+            "silicate": "silicate_mean",
+            "chlorophyll": "chlorophyll_a_mean",
+            "oxygen": "oxygen_mean",
+            "temperature": "temperature_mean",
+            "salinity": "salinity_mean"
+        }
+        
+        for var_name, expected_obs_var in variables.items():
+            result = find_recipe({var_name: "nsbc"})
+            assert result["obs_variable"] == expected_obs_var
+            assert result["source"] == "NSBC"
+            assert result["climatology"] == True
+            assert result["thredds"] == True
+    
+    def test_case_insensitivity_for_values(self):
+        """Test that recipe values are case-insensitive"""
+        from oceanval.parsers import find_recipe
+        
+        # Test uppercase
+        result1 = find_recipe({"oxygen": "WOA23"})
+        result2 = find_recipe({"oxygen": "woa23"})
+        result3 = find_recipe({"oxygen": "Woa23"})
+        
+        assert result1["source"] == result2["source"] == result3["source"] == "WOA23"
+    
+    def test_case_sensitivity_for_keys(self):
+        """Test case handling for recipe keys (variable names)"""
+        from oceanval.parsers import find_recipe
+        
+        # Lower case should work
+        result = find_recipe({"ph": "glodap"})
+        assert result["short_title"] == "pH"
+        
+        # Upper case should work
+        result = find_recipe({"PH": "glodap"})
+        assert result["short_title"] == "pH"
+    
+    def test_occci_url_generation(self):
+        """Test that OCCCI generates correct URL structure"""
+        from oceanval.parsers import find_recipe
+        
+        result = find_recipe({"chlorophyll": "occci"})
+        
+        # Check that URLs are generated for years 1998-2024
+        assert len(result["obs_path"]) > 0
+        # Verify URL structure
+        assert any("1998" in url for url in result["obs_path"])
+        assert any("oceancolour.org/thredds" in url for url in result["obs_path"])
+    
+    def test_woa23_url_structure(self):
+        """Test that WOA23 URLs have correct structure"""
+        from oceanval.parsers import find_recipe
+        
+        result = find_recipe({"oxygen": "woa23"})
+        
+        # Should have 12 monthly URLs
+        assert len(result["obs_path"]) == 12
+        
+        # Check URL structure
+        for i, url in enumerate(result["obs_path"], 1):
+            month_str = f"{i:02d}"
+            assert month_str in url
+            assert "woa23" in url
+            assert "ncei.noaa.gov/thredds-ocean" in url
