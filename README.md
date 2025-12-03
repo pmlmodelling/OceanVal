@@ -8,6 +8,8 @@ Marine ecosystem model validation made easy in Python
 
 # Installation 
 
+oceanVal should be used with Python versions 3.10-3.13.
+
 You can install the latest release oceanVal from conda-forge as follows:
 
 ```sh

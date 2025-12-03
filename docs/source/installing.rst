@@ -4,6 +4,8 @@ Installation and a quick example
 **System requirements** You will need to run this on a Linux system.
 
 
+oceanVal should be used with Python versions 3.10-3.13.
+
 The best way to install oceanVal is via conda. You will need to have conda installed first. If you do not have conda installed, please follow the instructions at https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html.
 Once you have conda installed, you can create a new conda environment and install oceanVal using the following command:
 
