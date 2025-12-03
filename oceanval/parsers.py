@@ -478,6 +478,9 @@ class Validator:
             recipe = True
         else:
             recipe = False
+
+        if name is None:
+            raise ValueError("Name must be supplied for gridded comparison")
         
         # name can only have str or numbers
         if not re.match("^[A-Za-z0-9]+$", name):
