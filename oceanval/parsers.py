@@ -8,6 +8,30 @@ from oceanval.session import session_info
 
 session_info["keys"] = []
 
+recipe_list = [
+    {"chlorophyll": "occci"},
+    {"oxygen": "woa23"},
+    {"temperature": "cobe2"},
+    {"salinity": "woa23"},
+    {"nitrate": "woa23"},
+    {"ammonium": "nsbc"},
+    {"phosphate": "woa23"},
+    {"silicate": "woa23"},
+    {"kd490": "occci"},
+    {"ph": "glodap"},
+    {"alkalinity": "glodap"},
+    # nsbc
+    {"chlorophyll": "nsbc"},
+    {"oxygen": "nsbc"},
+    {"temperature": "nsbc"},
+    {"salinity": "nsbc"},
+    {"nitrate": "nsbc"},
+    {"ammonium": "nsbc"},
+    {"phosphate": "nsbc"},
+    {"silicate": "nsbc"}
+
+]
+
 def find_recipe(x, start = None, end = None):
     output = dict()
     # check if there is only one key and one value
@@ -431,10 +455,7 @@ class Validator:
             # vertical is not None
             if recipe_info["vertical"] is not None:
                 vertical = recipe_info["vertical"]
-            try:
-                obs_variable = recipe_info["obs_variable"]
-            except:
-                pass
+            obs_variable = recipe_info["obs_variable"]
             recipe = True
         else:
             recipe = False
