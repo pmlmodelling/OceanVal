@@ -13,8 +13,6 @@ def find_recipe(x, start = None, end = None):
     # check if there is only one key and one value
     if len(x.keys()) != 1:
         raise ValueError("Recipe dictionary must have exactly one key") 
-    if len(x.values()) != 1:
-        raise ValueError("Recipe dictionary must have exactly one value") 
     
     valid_recipes = dict()
     valid_recipes["nitrate"] = "nsbc"
@@ -114,8 +112,6 @@ def find_recipe(x, start = None, end = None):
             output["obs_variable"] = 'TAlk'
             return output
 
-
-
     
     if value.lower() == "cobe2":
         if name.lower() == "temperature": 
@@ -182,9 +178,7 @@ def find_recipe(x, start = None, end = None):
                 url.append(f"https://www.ncei.noaa.gov/thredds-ocean/dodsC/woa23/DATA/silicate/netcdf/all/1.00/woa23_all_i{month_str}_01.nc")
             output["obs_path"] = url
             return output
-        # todo
-        # salinity
-        # temperature
+        # temperature/salinity
         if name.lower() in ["salinity", "temperature"]:
             # check if start and end are provided
             if start is None or end is None:
@@ -274,8 +268,6 @@ def find_recipe(x, start = None, end = None):
         output["climatology"] = False
         return output
 
-
-    
     if value.lower() == "nsbc":
         if name.lower() in ["ammonium", "nitrate", "phosphate", "silicate", "chlorophyll", "oxygen", "temperature", "salinity"]:
             if name.lower() == "chlorophyll":
@@ -305,21 +297,12 @@ def find_recipe(x, start = None, end = None):
             if name.lower() == "salinity":
                 output["obs_variable"] = "salinity_mean"
 
-
-
             return output
 
     raise ValueError(f"Recipe value {value} is not valid for recipe name {name}")
 
-
     return x
 
-def get_name(obj):
-    namespace = globals()
-    for name in namespace:
-        if namespace[name] is obj:
-            return name
-    return None
 
 # create a validator class
 # create a variable class to hold metadata
@@ -337,21 +320,10 @@ class Variable:
         return '\n'.join("%s: %s" % item for item in attrs.items()) 
 
 
-
-
 class Validator:
     def __init__(self):
         self.rules = {}
 
-    def validate(self, data):
-        errors = {}
-        for field, rule in self.rules.items():
-            if field not in data:
-                errors[field] = "Field is missing"
-            elif not rule(data[field]):
-                errors[field] = "Validation failed"
-        return errors
-    # add chlorophyll
     def add_rule(self, field, rule):
         self.rules[field] = rule
 
@@ -368,7 +340,6 @@ class Validator:
             if name in self.keys:
                 self.keys.remove(name)
         super().__delattr__(name)
-
 
     # add reset method
     def reset(self):
@@ -390,11 +361,8 @@ class Validator:
     # create a [] style accessor
     # make Validator subsettable, so that validator["chlorophyll"] returns the chlorophyll variable
     def __getitem__(self, key):
-        # if key == "chlorophyll":
-        #     return  
         return getattr(self, key, None)
     
-
     
     # 
     def add_gridded_comparison(self, 
@@ -456,7 +424,6 @@ class Validator:
 
         # maybe include an averaging option: daily, monthly, annual etc.
 
-
         if recipe is not None:
             recipe_info = find_recipe(recipe, start = start, end = end)
             obs_path = recipe_info["obs_path"]
@@ -485,7 +452,6 @@ class Validator:
         # name can only have str or numbers
         if not re.match("^[A-Za-z0-9]+$", name):
             raise ValueError("Name can only contain letters and numbers")
-
 
         if source is None:
             raise ValueError("Source must be supplied")
@@ -533,7 +499,6 @@ class Validator:
                 short_title = name.title()
                 assumed.append("short_title")
 
-
         if source_info is None:
             source_info = f"Source for {source}"
             assumed.append("source_info")
@@ -541,7 +506,7 @@ class Validator:
         source_name = source
         source = {source: source_info}
         # ensure the sourc key does not included "_"
-        if "_" in list(source_name)[0]:
+        if "_" in source_name: 
             raise ValueError("Source cannot contain '_'")
         if not isinstance(obs_variable, str):
             raise ValueError("obs_variable be provided")
@@ -578,9 +543,6 @@ class Validator:
             if short_title is not None:
                 if short_title != session_info["short_title"][name]:
                     raise ValueError(f"Short title for {name} already exists as {session_info['short_title'][name]}, cannot change to {short_title}")
-
-
-
 
 
         # Figure out if name is already 
@@ -761,6 +723,10 @@ class Validator:
         if name in session_info["short_title"]:
             if short_title != session_info["short_title"][name]:
                 raise ValueError(f"Short title for {name} already exists as {session_info['short_title'][name]}, cannot change to {short_title}")
+        
+        # check obs path exists
+        if os.path.exists(obs_path) is False:
+            raise ValueError(f"Observation path {obs_path} does not exist")
 
         point_files = [f for f in glob.glob(os.path.join(obs_path, "*.csv"))] 
         # if no files exists, raise error
@@ -800,7 +766,6 @@ class Validator:
             if not os.path.exists(point_dir):
                 raise ValueError(f"Point directory {point_dir} does not exist")
 
-
         # figure out if self[name] exists already
         if getattr(self, name, None) is None:
             # add it
@@ -814,9 +779,7 @@ class Validator:
             self[name].thredds = None 
             self[name].gridded_dir = None 
             self[name].obs_variable = None 
-
         else:
-
             # ensure short title is the same
             if short_title != session_info["short_title"][name]:
                 raise ValueError(f"Short title for {name} already exists as {session_info['short_title'][name]}, cannot change to {short_title}")
@@ -831,7 +794,6 @@ class Validator:
                     raise ValueError(f"Source {list(source.keys())[0]} already exists with a different value")
 
         self[name].sources[source_name] = source_info
-
         self[name].obs_multiplier_point= obs_multiplier
         self[name].obs_adder_point = obs_adder
         self[name].n_levels = 1
@@ -860,16 +822,12 @@ class Validator:
 
         # figure out if var.binning exists
         self[name].binning = binning 
-
         #  
-
         for vv in assumed:
             print(f"Warning: The attribute {vv} was missing and was assumed for variable {name}")
         session_info["short_title"][name] = short_title
 
-
 definitions = Validator()
-
 
 
 def generate_mapping(ds):
