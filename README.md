@@ -8,6 +8,14 @@ Marine ecosystem model validation made easy in Python
 
 # Installation 
 
+You can install the latest release oceanVal from conda-forge as follows:
+
+```sh
+conda install conda-forge::oceanval
+```
+
+You can install the development version of oceanVal from GitHub using the following steps.
+
 First, clone this directory:
 
 ```sh
