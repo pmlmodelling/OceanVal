@@ -708,6 +708,9 @@ def rebuild(data_dir="."):
     data_dir : str
         The directory where the oceanval_report directory is located. Default is current directory.
     """
+    # check data_dir exists
+    if not os.path.exists(data_dir):
+        raise ValueError(f"data_dir {data_dir} does not exist")
     # add a deprecation notice
     data_dir = os.path.expanduser(data_dir)
     data_dir = os.path.abspath(data_dir)
