@@ -68,7 +68,6 @@ def is_z_up(ff, variable=None):
 
 
 # a list of valid variables for validation
-valid_vars = definitions.keys
 # add some additionals
 
 session_warnings = Manager().list()
@@ -567,8 +566,9 @@ def matchup(
         raise TypeError("End must be an integer")
 
     # check lon_lim and lat_lim are lists
-    if lon_lim is None or lat_lim is None:
-        raise TypeError("lon_lim and lat_lim must be lists")
+    if (lon_lim is None and lat_lim is None) is False:
+        if lon_lim is None or lat_lim is None:
+            raise TypeError("lon_lim and lat_lim must be lists")
 
     # add this info to session_info
     session_info["lon_lim"] = lon_lim
@@ -848,6 +848,8 @@ def matchup(
     var_choice = list(set(var_choice))
     if isinstance(gridded, str):
         var_choice = [gridded]
+    
+    valid_vars = definitions.keys
 
     for vv in var_choice:
         if vv not in valid_vars and vv != "all":

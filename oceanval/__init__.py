@@ -25,6 +25,8 @@ def reset():
     Reset the matchup definitions to their default state.
     This function resets the matchup definitions used in oceanval to their default state.
     """
+    # reset session_info["short_title"] to empty dict
+    session_info["short_title"] = dict()
     definitions.reset()
 
 
