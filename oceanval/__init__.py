@@ -36,31 +36,6 @@ notebook_dict = dict()
 add_point_comparison = definitions.add_point_comparison
 add_gridded_comparison = definitions.add_gridded_comparison
 
-# loop through the keys and make sure all attributes are set
-#for key in definitions.keys:
-for key in session_info["keys"]:
-    try:
-        x = definitions[key].gridded
-    except AttributeError:
-        raise AttributeError(f"Variable '{key}' is missing 'gridded' attribute")
-    try:
-        x = definitions[key].point
-    except AttributeError:
-        raise AttributeError(f"Variable '{key}' is missing 'point' attribute")
-    try:
-        x = definitions[key].sources
-    except AttributeError:
-        raise AttributeError(f"Variable '{key}' is missing 'source' attribute")
-    try:
-        x = definitions[key].short_name
-    except AttributeError:
-        raise AttributeError(f"Variable '{key}' is missing 'short_name' attribute")
-    try:
-        x = definitions[key].long_name
-    except AttributeError:
-        raise AttributeError(f"Variable '{key}' is missing 'long_name' attribute")
-# add a test to make sure definitions is complete
-
 
 def fix_toc(concise = True, data_dir = None, out_dir = None):
     short_titles = dill.load(open(f"{data_dir}/oceanval_matchups/short_titles.pkl", "rb")) 
