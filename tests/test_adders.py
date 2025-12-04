@@ -940,3 +940,5 @@ class TestFindRecipe:
             assert month_str in url
             assert "woa23" in url
             assert "ncei.noaa.gov/thredds-ocean" in url
+
+    shutil.rmtree("oceanval_matchups", ignore_errors=True)

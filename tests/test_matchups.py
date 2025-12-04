@@ -103,7 +103,7 @@ class TestMatchup:
         # We can't fully test matchup without proper simulation data, but we can test parameter handling
         try:
             oceanval.matchup(sim_dir="data/example", start=2000, end=2001, exclude="test", ask=False)
-        except TypeError as e:
+        except ValueError as e:
             # Expected to fail because no variables are defined, but shouldn't fail on exclude type
             assert "exclude must be a list" not in str(e)
     
@@ -123,7 +123,7 @@ class TestMatchup:
         # Test that string is properly converted - should not raise TypeError about require
         try:
             oceanval.matchup(sim_dir="data/example", start=2000, end=2001, require="test", ask=False)
-        except TypeError as e:
+        except ValueError as e:
             # Expected to fail for other reasons, but not require type
             assert "require must be a list" not in str(e)
     
@@ -143,7 +143,7 @@ class TestMatchup:
         # Should not raise TypeError about point_time_res
         try:
             oceanval.matchup(sim_dir="data/example", start=2000, end=2001, point_time_res="year", ask=False)
-        except TypeError as e:
+        except ValueError as e:
             assert "point_time_res must be a list" not in str(e)
     
     def test_nonexistent_thickness_file(self):
@@ -328,3 +328,4 @@ class TestMatchup:
 
                             
         
+    shutil.rmtree("oceanval_matchups", ignore_errors=True)
