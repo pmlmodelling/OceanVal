@@ -177,8 +177,9 @@ def validate(
     region = None,
     data_dir = ".",
     out_dir = ".",
-    test=False,
-    zip = False
+    zip = False,
+    view = True,
+    test=False
 ):
     # docstring
     """
@@ -196,8 +197,11 @@ def validate(
         Whether to use a fixed scale for the seasonal plots. Default is False. If True, the minimum and maximum values are capped to cover the 2nd and 98th percentiles of both model and observations.
     region : str or None
         The region being validated. Must be either "nwes" (northwest European Shelf) or "global". Default is None.
+    view : bool
+        Default is True. Open the validation report in a web browser after it is generated.
     test : bool
         Default is False. Ignore, unless you are testing oceanval.
+
 
     Returns
     -------
@@ -666,9 +670,10 @@ def validate(
     os.symlink(
         os.path.relpath(out_ff, out_dir), f"{out_dir}/oceanval_report.html" 
     )
-    webbrowser.open(
-        "file://" + os.path.abspath(f"{book_dir}/_build/html/index.html")
-    )
+    if view:
+        webbrowser.open(
+            "file://" + os.path.abspath(f"{book_dir}/_build/html/index.html")
+        )
     if zip:
         # zip html only
         shutil.make_archive(f"{out_dir}/oceanval_html", 'zip', f"{book_dir}/_build/html")
