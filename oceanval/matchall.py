@@ -313,6 +313,7 @@ def get_time_res(x, folder=None):
 
 
 random_files = []
+raw_options = []
 
 
 def extract_variable_mapping(folder, exclude=[], n_check=None):
@@ -373,6 +374,10 @@ def extract_variable_mapping(folder, exclude=[], n_check=None):
     print("********************************")
     print("Parsing model information from netCDF files")
 
+    for x in options:
+        raw_options.append(x)
+    # randomize raw_options
+    random.shuffle(raw_options)
     # remove any files from options if parts of exclude are in them
     for exc in exclude:
         options = [x for x in options if f"{exc}" not in os.path.basename(x)]
@@ -763,15 +768,6 @@ def matchup(
     if gridded is None:
         gridded = []
 
-    ignore_invert_check = False
-    # go through kwargs
-    for key, value in kwargs.items():
-        if key == "ignore_invert_check":
-            ignore_invert_check = value
-            # must be a bool
-            if not isinstance(ignore_invert_check, bool):
-                raise TypeError("ignore_invert_check must be a boolean")
-
 
     # if cache is True, create a cache directory in out_dir
     if cache:
@@ -1000,7 +996,7 @@ def matchup(
                     raise ValueError(
                         "Please provide the name of the thickness variable"
                     )
-                for ff in random_files:
+                for ff in raw_options:
                     print("Checking file for thickness: " + ff)
                     # do this quietly
                     with warnings.catch_warnings(record=True) as w:
@@ -1057,13 +1053,20 @@ def matchup(
                 ds_bath.vertical_sum()
                 ds_bath.to_nc(ff_bath, zip=True)
 
-            if invert_thickness and ignore_invert_check is False:
-                # user check
-                x = input(
-                    "The thickness data appears to have the sea surface at the bottom (i.e. increasing depth values down. DO NOT PROCEED IF THIS IS A NEMO SIMULATION. Is this correct? (y/n) "
-                )
-                if x.lower() == "n":
-                    return None
+            if invert_thickness:
+                if ask:
+                    # user check
+                    x = input(
+                        "The thickness data appears to have the sea surface at the bottom (i.e. increasing depth values down. DO NOT PROCEED IF THIS IS A NEMO SIMULATION. Is this correct? (y/n) "
+                    )
+                    if x.lower() == "n":
+                        return None
+                else:
+                    print("###### Inverting thickness automatically")
+                    print(
+                        "The thickness data appears to have the sea surface at the bottom (i.e. increasing depth values down. This has been inverted automatically."
+                    )
+                    print("##########################################################################")
 
             ds_thickness.run()
             if invert_thickness:
