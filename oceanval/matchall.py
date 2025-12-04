@@ -498,6 +498,10 @@ def matchup(
     end : int
         End year. Final year of the simulations to matchup.
         This must be supplied
+    lon_lim : list
+        List of two floats, which must be provided. The first is the minimum longitude, the second is the maximum longitude. Default is None.
+    lat_lim : list
+        List of two float. Default is None, so no spatial subsetting will occur. The first is the minimum latitude, the second is the maximum latitude. Default is None.
     cores : int
         Number of cores to use for parallel extraction and matchups of data.
         Default is 6, or the system cores if less than 6.
@@ -511,20 +515,24 @@ def matchup(
         List of strings or a dict. Default is ['year', 'month', 'day']. This is the time resolution of the point data matchup.
         If you want fine-grained control, provide a dictionary where the key is the variable and the value is a list of strings.
         If you provide this list make sure all variables have keys, or else provide a key called "default" with a value to use when the variable is not stated explicitly.
-    exclude : list
-        List of strings to exclude. This is useful if you have files in the directory that you do not want to include in the matchup.
-    require : list
-        List of strings to require. This is useful if you want to only include files that have certain strings in their names. Defaults to None, so there are no requirements.
-    lon_lim : list
-        List of two floats, which must be provided. The first is the minimum longitude, the second is the maximum longitude. Default is None.
-    lat_lim : list
-        List of two float. Default is None, so no spatial subsetting will occur. The first is the minimum latitude, the second is the maximum latitude. Default is None.
+    overwrite : bool
+        If True, existing matched data will be overwritten. Default is True.
     ask : bool
         If True, the user will be asked if they are happy with the matchups. Default is True.
     out_dir : str
         Path to output directory. Default is "", so the output will be saved in the current directory.
+    exclude : list
+        List of strings to exclude. This is useful if you have files in the directory that you do not want to include in the matchup.
+    require : list
+        List of strings to require. This is useful if you want to only include files that have certain strings in their names. Defaults to None, so there are no requirements.
+    cache : bool
+        If True, caching will be used to speed up future matchups. Default is False.
+    n_check : int
+        Number of files to check when extracting variable mappings. Default is None, so all files will be checked.
     as_missing : float or list
         Value(s) to treat as missing in the model data. Default is None.
+    strict_names : bool
+        If True, variable names must match exactly those in the definitions. Default is True.
     kwargs: dict
         Additional arguments
 
@@ -533,27 +541,154 @@ def matchup(
     None
     Data will be stored in the matched directory.
 
-    """
-    session_info["strict_names"] = strict_names
-    session_info["as_missing"] = as_missing
-    # convert require to list if it's not None and is a string
-    if require is not None:
-        if isinstance(require, str):
-            require = [require]
-        if not isinstance(require, list):
-            raise TypeError("require must be a list or a string")
-    session_info["require"] = require
+  """
+  # check if the sim_dir exists
+    if sim_dir is None:
+        raise ValueError("Please provide a sim_dir directory")
+    if not os.path.exists(sim_dir):
+        raise ValueError(f"{sim_dir} does not exist")
+    # convert sim_dir to hard path
+    if sim_dir is not None:
+        sim_dir = os.path.abspath(sim_dir)
 
+    if start is None:
+        raise ValueError("Please provide a start year")
+    if isinstance(start, int) is False:
+        raise TypeError("Start must be an integer")
 
-    # store short title
-    gridded = None
-    point = None
+    if end is None:
+        raise ValueError("Please provide an end year")
+    if isinstance(end, int) is False:
+        raise TypeError("End must be an integer")
+
+    # check lon_lim and lat_lim are lists
+    if lon_lim is None or lat_lim is None:
+        raise TypeError("lon_lim and lat_lim must be lists")
+
+    # add this info to session_info
+    session_info["lon_lim"] = lon_lim
+    session_info["lat_lim"] = lat_lim
+
+    if cores == 6:
+        if cores > os.cpu_count():
+            cores = os.cpu_count()
+            print(
+                f"Setting cores to {cores} as this is the number of cores available on your system"
+            )
+    # error for cores < 1
+    if cores < 1:
+        raise ValueError("cores must be a positive integer")
+    nc.options(cores=cores)
+    session_info["cores"] = cores
+
+    if thickness is not None:
+        if isinstance(thickness, str):
+            # if it ends with .nc check it exists
+            if thickness.endswith(".nc"):
+                if not os.path.exists(thickness):
+                    raise FileNotFoundError(f"{thickness} does not exist")
+    if thickness == "z-level":
+        thickness = "z_level"
+    if thickness == "z level":
+        thickness = "z_level"
+    if thickness == "z_level":
+        session_info["z_level"] = True
+    else:
+        session_info["z_level"] = False
+
+    # check n_dirs_down is an integer
+    if not isinstance(n_dirs_down, int):
+        raise TypeError("n_dirs_down must be an integer")
+    if n_dirs_down < 0:
+        raise ValueError("n_dirs_down must be a positive integer")
+    if n_dirs_down is not None:
+        session_info["levels_down"] = n_dirs_down
+    else:
+        session_info["levels_down"] = 2
 
     if isinstance(point_time_res, str):
         point_time_res = [point_time_res]
     if isinstance(point_time_res, list) is False:
         raise TypeError("point_time_res must be a list or a string")
     session_info["point_time_res"] = copy.deepcopy(point_time_res)
+
+    if not isinstance(overwrite, bool):
+        raise TypeError("overwrite must be a boolean")
+    session_info["overwrite"] = overwrite
+
+    if not isinstance(ask, bool):
+        raise TypeError("ask must be a boolean")
+
+    # ensure out_dir is a string
+
+    if not isinstance(out_dir, str):
+        raise TypeError("out_dir must be a string")
+    out_dir = os.path.expanduser(out_dir)
+    # add out_dir to session_info
+    if out_dir != "":
+        session_info["out_dir"] = out_dir + "/"
+    else:
+        session_info["out_dir"] = ""
+
+    # check if exclude is a list or str
+    if not isinstance(exclude, list):
+        if isinstance(exclude, str):
+            exclude = [exclude]
+        else:
+            raise TypeError("exclude must be a list or a string")
+    # need to check each item in exclude is a string
+    for ex in exclude:
+        if not isinstance(ex, str):
+            raise TypeError("each item in exclude must be a string")
+
+    if require is not None:
+        if isinstance(require, str):
+            require = [require]
+        if not isinstance(require, list):
+            raise TypeError("require must be a list or a string")
+        # need to check each item in require is a string
+        for rq in require:
+            if not isinstance(rq, str):
+                raise TypeError("each item in require must be a string")
+
+    session_info["require"] = require
+
+
+    # check cache is a boolean
+    if not isinstance(cache, bool):
+        raise TypeError("cache must be a boolean")
+
+    # check n_check is None or an integer
+    if n_check is not None:
+        if not isinstance(n_check, int):
+            raise TypeError("n_check must be an integer")
+    # ensure n_check is positive
+        if n_check < 1:
+            raise ValueError("n_check must be a positive integer")
+
+    # check as_missing is None, float or list
+    if as_missing is not None:
+        if not isinstance(as_missing, list):
+            if not isinstance(as_missing, (int, float)):
+                raise TypeError("as_missing must be a float, int, list or None")
+        # check list elements can be float
+        if isinstance(as_missing, list):
+            for am in as_missing:
+                if not isinstance(am, (int, float)):
+                    raise TypeError("as_missing list elements must be float or int")
+    session_info["as_missing"] = as_missing
+
+    # check strict_names is a boolean
+    if not isinstance(strict_names, bool):
+        raise TypeError("strict_names must be a boolean")
+    session_info["strict_names"] = strict_names
+    # convert require to list if it's not None and is a string
+
+
+    # store short title
+    gridded = None
+    point = None
+
     # check it is str or list
 
     # make point a list if it's None
@@ -637,12 +772,8 @@ def matchup(
             if not isinstance(ignore_invert_check, bool):
                 raise TypeError("ignore_invert_check must be a boolean")
 
-    # convert sim_dir to hard path
-    if sim_dir is not None:
-        sim_dir = os.path.abspath(sim_dir)
 
     # if cache is True, create a cache directory in out_dir
-    out_dir = os.path.expanduser(out_dir)
     if cache:
         if out_dir == "":
             out_dir = "./"
@@ -683,88 +814,8 @@ def matchup(
         session_info["cache_dir"] = None
         session_info["cache"] = False
 
-    if not isinstance(ask, bool):
-        raise TypeError("ask must be a boolean")
-    if not isinstance(overwrite, bool):
-        raise TypeError("overwrite must be a boolean")
-    # check n_dirs_down is an integer
-    if not isinstance(n_dirs_down, int):
-        raise TypeError("n_dirs_down must be an integer")
-    if n_dirs_down < 0:
-        raise ValueError("n_dirs_down must be a positive integer")
-    # check if exclude is a list or str
-    if not isinstance(exclude, list):
-        if isinstance(exclude, str):
-            exclude = [exclude]
-        else:
-            raise TypeError("exclude must be a list or a string")
-
-    if thickness is not None:
-        if isinstance(thickness, str):
-            # if it ends with .nc check it exists
-            if thickness.endswith(".nc"):
-                if not os.path.exists(thickness):
-                    raise FileNotFoundError(f"{thickness} does not exist")
-    if thickness == "z-level":
-        thickness = "z_level"
-    if thickness == "z level":
-        thickness = "z_level"
-    if thickness == "z_level":
-        session_info["z_level"] = True
-    else:
-        session_info["z_level"] = False
-
-    if cores == 6:
-        if cores > os.cpu_count():
-            cores = os.cpu_count()
-            print(
-                f"Setting cores to {cores} as this is the number of cores available on your system"
-            )
-    nc.options(cores=cores)
-    session_info["cores"] = cores
-
-    # check lon_lim and lat_lim are lists
-
-    if lon_lim is None:
-        if lat_lim is not None:
-            raise TypeError("lat_lim must be a list")
-    if lat_lim is None:
-        if lon_lim is not None:
-            raise TypeError("lon_lim must be a list")
-
-    # add this info to session_info
-    session_info["lon_lim"] = lon_lim
-    session_info["lat_lim"] = lat_lim
-
     ds_depths = None
 
-    if start is None:
-        raise ValueError("Please provide a start year")
-
-    if end is None:
-        raise ValueError("Please provide an end year")
-
-    if isinstance(start, int) is False:
-        raise TypeError("Start must be an integer")
-
-    if isinstance(end, int) is False:
-        raise TypeError("End must be an integer")
-
-    # check if the sim_dir exists
-    if sim_dir is None:
-        raise ValueError("Please provide a sim_dir directory")
-
-    if not os.path.exists(sim_dir):
-        raise ValueError(f"{sim_dir} does not exist")
-
-    # set up session info, which will be needed by gridded_matchup
-    session_info["overwrite"] = overwrite
-
-    # add out_dir to session_info
-    if out_dir != "":
-        session_info["out_dir"] = out_dir + "/"
-    else:
-        session_info["out_dir"] = ""
 
     ff = session_info["out_dir"] + "oceanval_matchups/short_titles.pkl"
     if os.path.exists(ff):
@@ -774,12 +825,7 @@ def matchup(
         short_titles = dict()
     session_info["short_title"] = short_titles | session_info["short_title"]
 
-    # raise ValueError(session_info["short_title"])
 
-    if n_dirs_down is not None:
-        session_info["levels_down"] = n_dirs_down
-    else:
-        session_info["levels_down"] = 2
 
     sim_start = -1000
     sim_end = 10000
