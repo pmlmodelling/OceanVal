@@ -250,9 +250,6 @@ class TestFinal:
         
 
 
-        raise ValueError("stop here")
-
-
         paths = glob.glob("oceanval_matchups/**/**/**")
         for p in paths:
             if "oceanval_matchups" in p:
