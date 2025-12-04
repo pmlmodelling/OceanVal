@@ -147,6 +147,110 @@ class TestFinal:
             n_levels = 51
             recipe = False
             thredds = False
+
+        oceanval.reset()
+
+        oceanval.add_point_comparison(
+            name = "temperature",
+            obs_path="data/evaldata/point/nws/all/temperature",
+            source = "foo",
+            model_variable = "votemper",
+            vertical = True
+        )
+        oceanval.matchup(
+            sim_dir = "data/example",
+            start = 2000,
+            end = 2001,
+            ask = False,
+            thickness = "data/example/e3t.nc",
+            cores = 1)
+
+        ff = "oceanval_matchups/point/all/temperature/foo/foo_all_temperature_definitions.pkl"
+        assert os.path.exists(ff)
+        ff = "oceanval_matchups/point/all/temperature/foo/matchup_dict.pkl"
+        assert os.path.exists(ff)
+
+        ff = "oceanval_matchups/point/all/temperature/foo/foo_all_temperature.csv"
+        assert os.path.exists(ff)
+        df = pd.read_csv(ff)
+        # mean absolute difference between model and observation
+        df = df.assign(diff = lambda x: x.model - x.observation)
+        mean_abs_diff = np.abs(df['diff']).mean()
+        assert mean_abs_diff < 0.1 
+
+
+        oceanval.validate(zip = True, view= False, test = True)
+        ff = "oceanval_html.zip"
+        assert os.path.exists(ff)
+        os.remove(ff)
+        ff = "oceanval_report.html"
+        assert os.path.exists(ff)
+        os.remove(ff)
+
+
+        text = "This is getting to the end!"
+        ff_html = "oceanval_report/_build/html/notebooks/002_foo_temperature.html"
+        # check that text appears in ff_html
+        with open(ff_html, 'r') as f:
+            html_data = f.read()
+            assert text in html_data
+        ff_html = "oceanval_report/_build/html/notebooks/001_foo_all_temperature.html"
+
+        with open(ff_html, 'r') as f:
+            html_data = f.read()
+            assert text in html_data
+
     
+        ff = "oceanval_results/annual_mean/annualmean_temperature_foo.nc"
+        assert os.path.exists(ff)
+        ff = "oceanval_results/annual_mean/annualmean_temperature_foo.pkl"
+        assert os.path.exists(ff)
+        ff = "oceanval_results/monthly_mean/monthlymean_temperature_foo.nc"
+        assert os.path.exists(ff)
+        ff = "oceanval_results/monthly_mean/monthlymean_temperature_foo.pkl"
+        assert os.path.exists(ff)
+        ff = "oceanval_results/temporals/temperature_cor_foo.nc"
+        assert os.path.exists(ff)
+        ff = "oceanval_results/temporals/temperature_cor_foo.pkl"
+        assert os.path.exists(ff)
+
+        paths = glob.glob("oceanval_report")
+        for p in paths:
+            if "oceanval_report" in p:
+                # check if it's a directory
+                if os.path.isdir(p) is False:
+                    os.remove(p)
+        shutil.rmtree("oceanval_report", ignore_errors=True)
+
+        paths = glob.glob("oceanval_matchups/**/**/**")
+        nc_paths = [x for x in paths if ".nc" in x]
+
+        for p in paths:
+            if "oceanval_matchups" in p:
+                # check if it's a file
+                if os.path.isfile(p):
+                    os.remove(p)
+        paths = glob.glob("oceanval_matchups/**/**/**")
+        for p in paths:
+            if "oceanval_matchups" in p:
+                # check if it's a file
+                if os.path.isfile(p):
+                    os.remove(p)
+
+        paths = glob.glob("oceanval_matchups/**/**/**")
+        for p in paths:
+            if "oceanval_matchups" in p:
+                # check if it's a file
+                if os.path.isfile(p) is False:
+                    shutil.rmtree(p, ignore_errors=True) 
+        shutil.rmtree("oceanval_matchups/gridded/temperature", ignore_errors=True)
+        shutil.rmtree("oceanval_matchups/gridded", ignore_errors=True)
         shutil.rmtree("oceanval_matchups", ignore_errors=True)
- 
+
+        paths = glob.glob("oceanval_results/**/**/**")
+        for p in paths:
+            if "oceanval_results" in p:
+                # check if it's a file
+                if os.path.isfile(p):
+                    os.remove(p)
+        shutil.rmtree("oceanval_results", ignore_errors=True)
