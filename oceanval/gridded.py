@@ -643,6 +643,9 @@ def gridded_matchup(
                 ds_model_surface.to_nc(out_file, zip=True, overwrite=True)
                 out_file = out_file.replace(".nc", "_definitions.pkl")
                 # save definitions
+                # change start to min year
+                definitions[vv].gridded_start = min_year
+                definitions[vv].gridded_end = max_year
                 with open(out_file, "wb") as f:
                     pickle.dump(definitions, f)
 
