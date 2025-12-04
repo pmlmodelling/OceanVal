@@ -713,7 +713,7 @@ except Exception:
     __version__ = "999"
 
 
-def compare(model_dict=None):
+def compare(model_dict=None, view = True):
     """
     Compare pre-validated simulations.
     This function will compare the validation output from two simulations.
@@ -724,6 +724,8 @@ def compare(model_dict=None):
         A dictionary of model names and the paths to the validation output. Default is None.
         Example: {"model1": "/path/to/model1", "model2": "/path/to/model2"}
         If the models have different grids, put the model with the smallest grid first.
+    view : bool
+        Default is True. Open the comparison report in a web browser after it is generated.
 
     """
 
@@ -979,7 +981,8 @@ def compare(model_dict=None):
     import webbrowser
 
 
-    webbrowser.open("file://" + os.path.abspath("oceanval_comparison/compare/_build/html/index.html"))
+    if view:
+        webbrowser.open("file://" + os.path.abspath("oceanval_comparison/compare/_build/html/index.html"))
 
 import platform
 import tempfile
