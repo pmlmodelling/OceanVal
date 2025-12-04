@@ -161,8 +161,8 @@ def gridded_matchup(
 
             sim_years = range(sim_start, sim_end + 1)
             sim_years = [x for x in all_years if x in sim_years]
-            min_year = min(all_years)
-            max_year = max(all_years)
+            min_year = min(sim_years)
+            max_year = max(sim_years)
 
             start = definitions[vv].gridded_start
             end = definitions[vv].gridded_end
