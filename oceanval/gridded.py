@@ -194,11 +194,11 @@ def gridded_matchup(
             old_years = sim_years
             n_years = len(sim_years)
             sim_years = [x for x in sim_years if x in year_options]
-            if n_years > 0:
-                if len(sim_years) == 0:
-                    raise ValueError(
-                        f"No years in common between model and observation for {vv}. Please check start and end args!"
-                    )
+            #if n_years > 0:
+            #    if len(sim_years) == 0:
+            #        raise ValueError(
+            #            f"No years in common between model and observation for {vv}. Please check start and end args!"
+            #        )
             month_sel = range(1, 13)
             if len(sim_years) == 0:
                 sim_years = old_years
