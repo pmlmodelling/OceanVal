@@ -22,6 +22,8 @@ def ignore_warning(x):
         return True
     if "There is only file in the dataset. No need to merge" in x:
         return True
+    if "warning (find_time_vars): time variable >time< not found" in x:
+        return True
     if "time bounds unsupporte" in x:
         return True
     if "deflate" in x:
