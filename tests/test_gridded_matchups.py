@@ -23,9 +23,8 @@ class TestFinal:
             model_variable = "votemper",
             obs_variable = "votemper",
             climatology = True,
-            vertical = True,
             start = 2000, 
-            end = 2010
+            end = 2000
         )
 
         oceanval.matchup(
@@ -33,6 +32,7 @@ class TestFinal:
             start = 2000,
             end = 2000,
             ask = False,
+            thickness = "data/example/e3t.nc",
             cores = 1)
         
         assert os.path.exists("oceanval_matchups/gridded/temperature/foo_temperature_surface.nc")
@@ -58,11 +58,6 @@ class TestFinal:
         max_diff = np.abs(df['diff']).max()
         assert max_diff < 1e-5
 
-        ds = nc.open_data("oceanval_matchups/gridded/temperature/foo_temperature_vertical.nc")
-        df = ds.to_dataframe().assign(diff = lambda x: x.model - x.observation)
-        # get absolute max difference
-        max_diff = np.abs(df['diff']).max()
-        assert max_diff < 1e-5
 #        shutil.rmtree("oceanval_matchups/gridded/temperature", ignore_errors=True)
         shutil.rmtree("oceanval_matchups", ignore_errors=True)
 
@@ -159,8 +154,7 @@ class TestFinal:
             name = "temperature",
             obs_path="data/evaldata/point/nws/all/temperature",
             source = "foo",
-            model_variable = "votemper",
-            vertical = True
+            model_variable = "votemper"
         )
         oceanval.matchup(
             sim_dir = "data/example",

@@ -19,6 +19,7 @@ class TestMatchup:
             climatology = True
             )
         oceanval.matchup("data/monthly",
+            ask = False,
             start = 2000, end = 2000)
 
         import nctoolkit as nc
