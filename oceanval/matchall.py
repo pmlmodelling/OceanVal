@@ -5,6 +5,7 @@ import re
 import importlib
 import glob
 import subprocess
+import platform
 if platform.system() == "Linux":
     import multiprocessing as mp
 else:
