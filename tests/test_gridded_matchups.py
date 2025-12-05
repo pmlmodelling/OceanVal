@@ -15,7 +15,6 @@ class TestFinal:
     def test_gridded(self):
 
         oceanval.definitions.reset()
-        # raise ValueError(oceanval.definitions.keys)
 
         oceanval.add_gridded_comparison(
             name = "temperature",
@@ -27,7 +26,6 @@ class TestFinal:
             start = 2000, 
             end = 2010
         )
-        # raise ValueError(oceanval.definitions["temperature"])
 
         oceanval.matchup(
             sim_dir = "data/example",
@@ -215,10 +213,9 @@ class TestFinal:
         assert os.path.exists(ff)
 
         # a very basic test of compare, just to make sure it runs
-        print("Getting here")
         oceanval.compare(
             {"sim1": ".",
-            "sim2": "."}, view = False
+            "sim2": "."}, view = False, ask = False
             )
         assert os.path.exists("oceanval_comparison")
         paths = glob.glob("oceanval_comparison/compare/_build/html/notebooks/*")
