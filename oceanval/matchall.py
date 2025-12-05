@@ -72,7 +72,6 @@ def is_z_up(ff, variable=None):
 
 session_warnings = Manager().list()
 
-nc.options(parallel=True)
 nc.options(progress=False)
 
 
@@ -485,8 +484,7 @@ def matchup(
     cache=False,
     n_check=None,
     as_missing=None,
-    strict_names = True,
-    **kwargs,
+    strict_names = True
 ):
     """
     Match up model with observational data
@@ -537,8 +535,6 @@ def matchup(
         Value(s) to treat as missing in the model data. Default is None.
     strict_names : bool
         If True, variable names must match exactly those in the definitions. Default is True.
-    kwargs: dict
-        Additional arguments
 
     Returns
     -------------
@@ -821,18 +817,8 @@ def matchup(
         short_titles = dict()
     session_info["short_title"] = short_titles | session_info["short_title"]
 
-
-
     sim_start = -1000
     sim_end = 10000
-    for key in kwargs:
-        key_failed = True
-        if key[:3] == "fol":
-            if sim_dir is None:
-                sim_dir = kwargs[key]
-                key_failed = False
-        if key_failed:
-            raise ValueError(f"{key} is not a valid argument")
 
     if end is not None:
         sim_end = end
@@ -1507,6 +1493,8 @@ def matchup(
                                 except:
                                     pass
 
+                            if cores > 1:
+                                nc.options(parallel = True)
                             df_all = manager.list()
 
                             grid_setup = False
@@ -1546,6 +1534,7 @@ def matchup(
                                 return False
 
                             df_all = pd.concat(df_all)
+                            nc.options(parallel = False)
 
                             change_this = [
                                 x
