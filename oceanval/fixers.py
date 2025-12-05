@@ -3,16 +3,6 @@ from oceanval.parsers import Validator
 from oceanval.session import session_info
 
 
-# function to convert list to string with , separator, with an "and" at the end
-def list_to_string(lst):
-    if len(lst) == 1:
-        return lst[0]
-    elif len(lst) == 2:
-        return " and ".join(lst)
-    else:
-        return ", ".join(lst[:-1]) + ", and " + lst[-1]
-
-
 def ignore_warning(x):
     """
     Parameters
