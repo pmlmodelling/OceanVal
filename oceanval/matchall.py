@@ -5,7 +5,10 @@ import re
 import importlib
 import glob
 import subprocess
-import multiprocessing
+if platform.system() == "Linux":
+    import multiprocessing as mp
+else:
+    import multiprocess as mp
 import pathlib
 import os
 import pandas as pd
@@ -17,7 +20,7 @@ import xarray as xr
 import oceanval.parsers as parsers
 from oceanval.session import session_info
 from oceanval.parsers import Validator, definitions
-from multiprocessing import Manager
+from mp import Manager
 from tqdm import tqdm
 from oceanval.utils import extension_of_directory
 from oceanval.parsers import generate_mapping
@@ -1498,7 +1501,7 @@ def matchup(
                             df_all = manager.list()
 
                             grid_setup = False
-                            pool = multiprocessing.Pool(cores)
+                            pool = mp.Pool(cores)
 
                             pbar = tqdm(total=len(paths), position=0, leave=True)
                             results = dict()

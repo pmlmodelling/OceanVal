@@ -14,5 +14,6 @@ holoviews
 plotnine
 jupyter-book==1.0.4
 fiona
+multiprocess
 
 
