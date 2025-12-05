@@ -8,8 +8,10 @@ import subprocess
 import platform
 if platform.system() == "Linux":
     import multiprocessing as mp
+    from multiprocessing import Manager
 else:
     import multiprocess as mp
+    from multiprocess import Manager
 import pathlib
 import os
 import pandas as pd
@@ -21,7 +23,6 @@ import xarray as xr
 import oceanval.parsers as parsers
 from oceanval.session import session_info
 from oceanval.parsers import Validator, definitions
-from mp import Manager
 from tqdm import tqdm
 from oceanval.utils import extension_of_directory
 from oceanval.parsers import generate_mapping
