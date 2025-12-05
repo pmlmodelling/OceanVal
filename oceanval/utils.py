@@ -18,16 +18,6 @@ def extension_of_directory(starting_directory, exclude=[]):
     return new_directory + "/"
 
 
-def is_latlon(ff):
-
-    cdo_result = subprocess.run(
-        f"cdo griddes {ff}",
-        shell=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-    return "lonlat" in cdo_result.stdout.decode("utf-8")
-
 
 def get_extent(ff):
     # add docstring

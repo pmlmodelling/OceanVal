@@ -6,7 +6,7 @@ import glob
 import warnings
 from oceanval.session import session_info
 
-session_info["keys"] = []
+#session_info["keys"] = []
 
 recipe_list = [
     {"chlorophyll": "occci"},
@@ -343,7 +343,8 @@ class Variable:
 
 class Validator:
 
-    keys = session_info["keys"]
+    #keys = session_info["keys"]
+    keys = [] 
     # add a deleter that removes from keys list
     def __delattr__(self, name):
         if name != "keys":

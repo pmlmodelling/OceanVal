@@ -10,7 +10,7 @@ import nctoolkit as nc
 import xarray as xr
 
 from oceanval.fixers import tidy_warnings
-from oceanval.utils import extension_of_directory, get_extent, is_latlon, get_resolution
+from oceanval.utils import extension_of_directory, get_extent, get_resolution
 from oceanval.session import session_info
 from oceanval.parsers import Validator, definitions
 
