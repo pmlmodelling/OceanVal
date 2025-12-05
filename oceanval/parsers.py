@@ -446,6 +446,9 @@ class Validator:
             recipe_info = find_recipe(recipe, start = start, end = end)
             obs_path = recipe_info["obs_path"]
             source = recipe_info["source"]
+            if source == "GLODAPv2.2016b": 
+                # no need to check file
+                file_check = False
             source_info = recipe_info["source_info"]
             thredds = recipe_info["thredds"]
             climatology = recipe_info["climatology"]
