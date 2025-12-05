@@ -735,7 +735,7 @@ except Exception:
     __version__ = "999"
 
 
-def compare(model_dict=None, view=True):
+def compare(model_dict=None, view=True, ask = True):
     """
     Compare pre-validated simulations.
     This function will compare the validation output from two simulations.
@@ -748,6 +748,8 @@ def compare(model_dict=None, view=True):
         If the models have different grids, put the model with the smallest grid first.
     view : bool
         Default is True. Open the comparison report in a web browser after it is generated.
+    ask : bool
+        Default is True. If the oceanval_comparison directory already exists, ask the user if
 
     """
 
@@ -760,11 +762,15 @@ def compare(model_dict=None, view=True):
 
     if os.path.exists("oceanval_comparison"):
         # get user input to decide if it should be removed
-        user_input = input(
-            "oceanval_comparison directory already exists. This will be emptied and replaced. Do you want to proceed? (y/n): "
-        )
-        if user_input.lower() == "y":
-            while True:
+        if ask:
+            user_input = input(
+                "oceanval_comparison directory already exists. This will be emptied and replaced. Do you want to proceed? (y/n): "
+            )
+            if user_input.lower() != "y":
+                print("Exiting")
+                return None
+
+        while True:
                 files = glob.glob("oceanval_comparison/**/**/**", recursive=True)
                 # list all files in oceanval_comparison, recursively
                 for ff in files:
