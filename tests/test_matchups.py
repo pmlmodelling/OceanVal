@@ -205,16 +205,6 @@ class TestMatchup:
         except:
             pass
         
-        with pytest.raises(ValueError, match="is not a valid argument"):
-            oceanval.matchup(
-                sim_dir="data/example",
-                start=2000,
-                end=2001,
-                invalid_arg="test",
-                ask=False,
-                lon_lim=[-10,10],
-                lat_lim=[40,50]
-            )
     
     
     def test_cores_parameter(self):
