@@ -23,6 +23,7 @@ class TestFinal:
             model_variable = "votemper",
             obs_variable = "votemper",
             climatology = True,
+            vertical = True,
             start = 2000, 
             end = 2010
         )
@@ -52,6 +53,12 @@ class TestFinal:
             assert end == 2000
         
         ds = nc.open_data("oceanval_matchups/gridded/temperature/foo_temperature_surface.nc")
+        df = ds.to_dataframe().assign(diff = lambda x: x.model - x.observation)
+        # get absolute max difference
+        max_diff = np.abs(df['diff']).max()
+        assert max_diff < 1e-5
+
+        ds = nc.open_data("oceanval_matchups/gridded/temperature/foo_temperature_vertical.nc")
         df = ds.to_dataframe().assign(diff = lambda x: x.model - x.observation)
         # get absolute max difference
         max_diff = np.abs(df['diff']).max()
