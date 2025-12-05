@@ -26,8 +26,6 @@ PROJECT_URLS = {
 extras_require: dict() = dict()
 
 
-extras_require["complete"] = ["geoviews", "rioxarray", "cfchecker", "geocube", "geopandas"]
-
 REQUIREMENTS = [i.strip() for i in open("requirements.txt").readlines()]
 
 setup(name='oceanval',
