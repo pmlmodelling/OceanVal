@@ -12,7 +12,7 @@ class TestMatchup:
         """Test that a simulation with less than 1 Year of data works"""
         oceanval.add_gridded_comparison(
             name = "temperature",
-            obs_path = "/users/modellers/rwi/projects/oceanVal/data/evaldata/gridded/nws/temperature/model_2000.nc",
+            obs_path = "data/evaldata/gridded/nws/temperature/model_2000.nc",
             model_variable = "votemper",
             obs_variable = "votemper",
             source = "foo", 
