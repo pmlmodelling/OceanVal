@@ -219,8 +219,9 @@ def validate(
         else:
             raise ValueError("variables must be either 'all' or a list of strings")
     # some coercise
-    if isinstance(variables, str):
-        variables = [variables]
+    if variables != "all":
+        if isinstance(variables, str):
+            variables = [variables]
     if len(variables) == 0:
         raise ValueError("variables list is empty")
 
