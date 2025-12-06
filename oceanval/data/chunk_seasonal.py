@@ -87,7 +87,6 @@ if len(ds_model.times) == 1:
     concise = True
     time_name = None
     model_unit = ""
-    raw_extent = "foo"
     xlim = "bar"
     ylim = "ba"
 if time_name is not None:
@@ -144,13 +143,9 @@ if time_name is not None:
     except:
         model_unit = ds_obs.contents.unit[0]
         model_unit = fix_unit(model_unit)
-    from oceanval.utils import get_extent
-    raw_extent = get_extent(ds_annual[0])
-    if np.abs(raw_extent[0] - df_model.lon.min()) > 3:
-        # convert longitude to -180-180
-        df_model["lon" ] = [x if x < 180 else x -360 for x in df_model.lon]
-        df_obs["lon" ] = [x if x < 180 else x -360 for x in df_obs.lon]
-        df_diff["lon" ] = [x if x < 180 else x -360 for x in df_diff.lon]
+    df_model["lon" ] = [x if x < 180 else x -360 for x in df_model.lon]
+    df_obs["lon" ] = [x if x < 180 else x -360 for x in df_obs.lon]
+    df_diff["lon" ] = [x if x < 180 else x -360 for x in df_diff.lon]
 
     # generate a temporary csv file name in /tmp
     # create adhoc dir if not
@@ -173,7 +168,7 @@ if time_name is not None:
 
 # %% tags=["remove-input"]
 # %%capture --no-display
-# %%R -i model_unit  -w 800 -h 600 -i variable -i raw_extent -i concise -r 100
+# %%R -i model_unit  -w 800 -h 600 -i variable  -i concise -r 100
 
 
 if(concise == FALSE){
@@ -428,7 +423,7 @@ cowplot::plot_grid(gg1, gg2, gg3, ncol = 1)
 
 # %% tags=["remove-input"]
 # %%capture --no-display
-# %%R -i model_unit -w 800 -h 600 -i variable -i raw_extent -i concise -r 100
+# %%R -i model_unit -w 800 -h 600 -i variable  -i concise -r 100
 
 if (concise == FALSE){
 
@@ -674,39 +669,7 @@ gg1 <- gg1 +
                              b = 0,  # Bottom margin
                              l = 0)) # Left ggmargin 
 
-# figure out if it's a global file
-if(abs(raw_extent[1] - raw_extent[2]) > 350){
-    gg1 <- gg1 + 
-    scale_x_continuous(breaks = c(-180, -90, 0, 90, 180), labels = c("180°W", "90°W", "0°", "90°E", "180°E"))+
-    scale_y_continuous(breaks = c(-90, -45, 0, 45, 90), labels = c("90°S", "45°S", "0°", "45°N", "90°N"))
 
-    gg2 <- gg2 +
-    scale_x_continuous(breaks = c(-180, -90, 0, 90, 180), labels = c("180°W", "90°W", "0°", "90°E", "180°E"))+
-    scale_y_continuous(breaks = c(-90, -45, 0, 45, 90), labels = c("90°S", "45°S", "0°", "45°N", "90°N"))
-
-    gg3 <- gg3 +
-    scale_x_continuous(breaks = c(-180, -90, 0, 90, 180), labels = c("180°W", "90°W", "0°", "90°E", "180°E"))+
-    scale_y_continuous(breaks = c(-90, -45, 0, 45, 90), labels = c("90°S", "45°S", "0°", "45°N", "90°N"))
-
-}
-
-# appropriate plotting for northwest European Shelf
-if((raw_extent[1] > -30) & (raw_extent[2] < 20)){
-    gg1 <- gg1 + 
-    scale_x_continuous(breaks = c(-20, -10, 0, 10), labels = c("20°W", "10°W", "0°", "10°E"))+
-    scale_y_continuous(breaks = c(45, 50, 55, 60, 65), labels = c("45°N", "50°N", "55°N", "60°N", "65°N"))
-    gg2 <- gg2 + 
-    scale_x_continuous(breaks = c(-20, -10, 0, 10), labels = c("20°W", "10°W", "0°", "10°E"))+
-    scale_y_continuous(breaks = c(45, 50, 55, 60, 65), labels = c("45°N", "50°N", "55°N", "60°N", "65°N"))
-    gg3 <- gg3 +
-    scale_x_continuous(breaks = c(-20, -10, 0, 10), labels = c("20°W", "10°W", "0°", "10°E"))+
-    scale_y_continuous(breaks = c(45, 50, 55, 60, 65), labels = c("45°N", "50°N", "55°N", "60°N", "65°N"))
-}
-
-# gg1
-# reduce the size of the plot
-# options(repr.plot.width = 10, repr.plot.height = 3)
-# gg1
 cowplot::plot_grid(gg1, gg2, gg3, ncol = 1)
 
 }
