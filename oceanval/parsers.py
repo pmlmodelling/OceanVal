@@ -806,6 +806,7 @@ class Validator:
                 raise ValueError(f"Short title for {name} already exists as {session_info['short_title'][name]}, cannot change to {short_title}")
 
             if self[name].model_variable != model_variable:
+                old_model_variable = self[name].model_variable
                 raise ValueError(f"Model variable for {name} already exists as {old_model_variable}, cannot change to {model_variable}")
             if self[name].sources is not None:
                 orig_sources = self[name].sources
