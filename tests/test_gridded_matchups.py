@@ -63,17 +63,19 @@ class TestFinal:
 
         oceanval.add_gridded_comparison(
             name = "temperature",
-            obs_path="data/evaldata/gridded/nws/temperature",
+            #obs_path="data/evaldata/gridded/nws/temperature",
+            obs_path = "data/example_temperature",
             source = "foo",
             model_variable = "votemper",
             obs_variable = "votemper",
-            climatology = True,
+            climatology = False,
             start = 2000, 
             end = 2010
         )
 
         oceanval.matchup(
-            sim_dir = "data/example",
+            sim_dir = "data/example_temperature",
+            exclude = "ptrc",
             start = 2000,
             end = 2001,
             ask = False,
@@ -89,10 +91,11 @@ class TestFinal:
         assert os.path.exists("oceanval_matchups/variables_matched.pkl")
         
         ds = nc.open_data("oceanval_matchups/gridded/temperature/foo_temperature_surface.nc")
+        assert ds.years == [2000, 2001]
         df = ds.to_dataframe().assign(diff = lambda x: x.model - x.observation)
         # get absolute max difference
         max_diff = np.abs(df['diff']).max()
-        assert max_diff == np.float32(1.0664015) 
+        assert max_diff < 1e-5 
 
         ff ="oceanval_matchups/gridded/temperature/matchup_dict.pkl"
         with open(ff, 'rb') as f:
@@ -130,8 +133,8 @@ class TestFinal:
             assert obs_variable == "votemper"
             assert start == 2000
             assert end == 2001
-            assert obs_path == "data/evaldata/gridded/nws/temperature"
-            assert climatology is True
+            assert obs_path == "data/example_temperature"
+            assert climatology is False
             assert short_name == "temperature"
             assert long_name == "temperature"
             assert short_title == "Temperature"
