@@ -1508,11 +1508,31 @@ def matchup(
                             pbar = tqdm(total=len(paths), position=0, leave=True)
                             results = dict()
 
-                            for ff in paths:
+                            if cores > 1:
+                                for ff in paths:
 
-                                temp = pool.apply_async(
-                                    mm_match,
-                                    [
+                                    temp = pool.apply_async(
+                                        mm_match,
+                                        [
+                                            ff,
+                                            model_variable,
+                                            df,
+                                            df_times_new,
+                                            ds_depths,
+                                            point_variable,
+                                            df_all,
+                                            layer,
+                                        ],
+                                    )
+
+                                    results[ff] = temp
+
+                                for k, v in results.items():
+                                    value = v.get()
+                                    pbar.update(1)
+                            else:
+                                for ff in paths:
+                                    value = mm_match(
                                         ff,
                                         model_variable,
                                         df,
@@ -1521,14 +1541,8 @@ def matchup(
                                         point_variable,
                                         df_all,
                                         layer,
-                                    ],
-                                )
-
-                                results[ff] = temp
-
-                            for k, v in results.items():
-                                value = v.get()
-                                pbar.update(1)
+                                    )
+                                    pbar.update(1)
 
                             df_all = list(df_all)
                             df_all = [x for x in df_all if x is not None]
