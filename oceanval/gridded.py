@@ -93,12 +93,6 @@ def gridded_matchup(
             if len(out) > 0:
                 if session_info["overwrite"] is False:
                     continue
-            out_vertical = glob.glob(
-                out_dir + f"oceanval_matchups/gridded/{vv}/*_{vv}_vertical.nc"
-            )
-            if len(out_vertical) > 0:
-                if session_info["overwrite"] is False:
-                    continue
             # figure out the data source
             #
             # check if this directory is empty
