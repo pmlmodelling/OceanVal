@@ -115,11 +115,7 @@ def gridded_matchup(
 
             mapping[vv] = list(df.query("variable == @vv").model_variable)[0]
 
-            selection = []
-            try:
-                selection += mapping[vv].split("+")
-            except:
-                selection = selection
+            selection = mapping[vv].split("+")
 
             patterns = set(df.pattern)
             if len(patterns) > 1:
