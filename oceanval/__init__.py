@@ -650,13 +650,6 @@ def validate(
         filedata = filedata.replace("data_dir_value", data_dir)
         filedata = filedata.replace("out_dir_value", out_dir)
 
-        # fix linees using the above
-        def fix_r_magic(x):
-            if "%%R" in x:
-                x = re.sub(r" -r\s+\d+", "", x)
-                x = x.replace("%%R", "%%R -r 120 ")
-            return x
-
         # Write the file out again
         with open(ff, "w") as file:
             file.write(filedata)
