@@ -323,6 +323,65 @@ class TestAddPointComparison:
         assert oceanval.definitions["temperature"].obs_multiplier_point == 1
         assert oceanval.definitions["temperature"].obs_adder_point == 0
         assert oceanval.definitions["temperature"].vertical_point == False
+
+    # check assumed attributes are set correctly
+    # long_name, short_name, short_title, start, end, vertical
+    def test_assumed_attributes_set_correctly(self):
+        """Test that assumed attributes are set correctly"""
+        oceanval.reset()
+        oceanval.add_point_comparison(
+            name="nitrate",
+            source="TestSource",
+            model_variable="nitrate",
+            obs_path = "data/evaldata/point/nws/all/temperature",
+        )
+        
+        assert oceanval.definitions["nitrate"].long_name == "nitrate"
+        assert oceanval.definitions["nitrate"].short_name == "nitrate"
+        assert oceanval.definitions["nitrate"].short_title == "Nitrate"
+
+    
+    # ensure you cannot change things that already exists
+    def test_cannot_change_existing_attributes(self):
+        """Test that existing attributes cannot be changed"""
+        oceanval.reset()
+        oceanval.add_point_comparison(
+            name="temperature",
+            source="TestSource",
+            model_variable="temp",
+            obs_path = "data/evaldata/point/nws/all/temperature",
+            long_name="sea water temperature"
+        )
+        
+        # Attempt to change short_title
+        with pytest.raises(ValueError, match="Short title for temperature already exists"):
+            oceanval.add_point_comparison(
+                name="temperature",
+                source="TestSource",
+                model_variable="temp",
+                obs_path = "data/evaldata/point/nws/all/temperature",
+                short_title="Temp"
+            )
+        # attempt to change the model_variable
+
+        with pytest.raises(ValueError, match="Model variable for temperature already exists"):
+            oceanval.add_point_comparison(
+                name="temperature",
+                source="TestSource",
+                model_variable="temperature_new",
+                obs_path = "data/evaldata/point/nws/all/temperature",
+            )
+        
+        # try to change the source
+        with pytest.raises(ValueError, match="Source TestSource already exists"):
+            oceanval.add_point_comparison(
+                name="temperature",
+                source="TestSource",
+                source_info = "New source info",
+                model_variable="temp",
+                obs_path = "data/evaldata/point/nws/all/temperature",
+            )
+
     
     def test_successful_addition_with_all_params(self, temp_point_dir):
         """Test successful addition with all parameters specified"""
@@ -332,7 +391,6 @@ class TestAddPointComparison:
             long_name="sea water salinity",
             vertical=True,
             short_name="salinity",
-            short_title="Salinity",
             source="TestSource",
             source_info="Test source information",
             model_variable="sal",
@@ -347,7 +405,7 @@ class TestAddPointComparison:
         # Verify all attributes
         assert oceanval.definitions["salinity"].long_name == "sea water salinity"
         assert oceanval.definitions["salinity"].short_name == "salinity"
-        assert oceanval.definitions["salinity"].short_title == "Salinity"
+        assert oceanval.definitions["salinity"].short_title == "Salinity" 
         assert oceanval.definitions["salinity"].vertical_point == True
         assert oceanval.definitions["salinity"].point_start == -500
         assert oceanval.definitions["salinity"].point_end == 2000
