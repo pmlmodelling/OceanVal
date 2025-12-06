@@ -569,11 +569,6 @@ def validate(
         file1 = importlib.resources.files(__name__).joinpath("data/summary.ipynb")
         if len(glob.glob(f"{book_dir}/notebooks/*summary.ipynb")) == 0:
             copyfile(file1, f"{book_dir}/notebooks/{i_pad}_summary.ipynb")
-        else:
-            if i > (i_orig + 1):
-                initial = glob.glob(f"{book_dir}/notebooks/*summary.ipynb")[0]
-                copyfile(initial, f"{book_dir}/notebooks/{i_pad}_summary.ipynb")
-                i += 1
 
         # change domain_title to "Full domain"
 
