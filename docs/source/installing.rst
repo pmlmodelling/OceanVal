@@ -31,7 +31,7 @@ A short example
 
 If you want to quickly understand what oceanVal can do, you can run the following example in a Python script or Jupyter notebook. It should take a couple of minutes to run. 
 
-This example can be viewed (here)[https://pmlmodelling.github.io/oceanval_example/intro.html].
+This example can be viewed [here](https://pmlmodelling.github.io/oceanval_example/intro.html).
 
 Note: you should run this from an empty directory.
 
