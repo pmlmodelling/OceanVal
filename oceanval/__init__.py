@@ -40,7 +40,7 @@ add_point_comparison = definitions.add_point_comparison
 add_gridded_comparison = definitions.add_gridded_comparison
 
 
-def fix_toc(concise=True, data_dir=None, out_dir=None):
+def fix_toc(concise=True, data_dir=None, out_dir=None, info = False):
     short_titles = dill.load(
         open(f"{data_dir}/oceanval_matchups/short_titles.pkl", "rb")
     )
@@ -67,8 +67,10 @@ def fix_toc(concise=True, data_dir=None, out_dir=None):
         x = f.write("format: jb-book\n")
         x = f.write("root: intro\n")
         x = f.write("parts:\n")
-        x = f.write(f"- caption: Introduction\n")
+
+        x = f.write(f"- caption: Summaries\n")
         x = f.write("  chapters:\n")
+
         x = f.write(f"  - file: notebooks/001_methods.ipynb\n")
 
         # open notebook and replace book_chapter with i_chapter
@@ -81,15 +83,16 @@ def fix_toc(concise=True, data_dir=None, out_dir=None):
 
         # Replace the target string
         filedata = filedata.replace("book_chapter", str(i_chapter))
+        if info:
+            filedata = filedata.replace("info_text", "Simulation information and validation metrics summary")
+        else:
+            filedata = filedata.replace("info_text", "Validation metrics summary")
 
         with open(
             f"{out_dir}/oceanval_report/notebooks/001_methods.ipynb", "w"
         ) as file:
             file.write(filedata)
         i_chapter += 1
-
-        x = f.write(f"- caption: Summaries\n")
-        x = f.write("  chapters:\n")
         for ff in ss_paths:
             x = f.write(f"  - file: notebooks/{ff}\n")
             # open notebook and replace book_chapter with i_chapter
@@ -163,6 +166,7 @@ def validate(
     zip=False,
     view=True,
     test=False,
+    sim_info = None 
 ):
     # docstring
     """
@@ -184,6 +188,10 @@ def validate(
         Default is True. Open the validation report in a web browser after it is generated.
     test : bool
         Default is False. Ignore, unless you are testing oceanval.
+    sim_info : dict or None
+        A dictionary containing simulation information to be added to the report. Default is None.
+
+
 
 
     Returns
@@ -244,6 +252,7 @@ def validate(
     # if it doesn't exist, create it
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
+    
 
     # check zip is boolean
     if isinstance(zip, bool) == False:
@@ -282,6 +291,8 @@ def validate(
             if len(files) == 0:
                 break
 
+
+
     # remove the results directory
     x_path = "oceanval_results"
     if os.path.exists(x_path):
@@ -290,11 +301,18 @@ def validate(
 
     if empty:
         from shutil import copyfile
+        # store the sim_info dict if provided in the book_dir
 
         if not os.path.exists(book_dir):
             os.mkdir(book_dir)
         if not os.path.exists(f"{book_dir}/notebooks"):
             os.mkdir(f"{book_dir}/notebooks")
+
+        if sim_info is not None:
+            dill.dump(
+                sim_info,
+                open(f"{book_dir}/sim_info.pkl", "wb"),
+            )
 
         data_path = importlib.resources.files(__name__).joinpath(
             "data/001_methods.ipynb"
@@ -650,7 +668,7 @@ def validate(
 
     # fix the toc using the function
 
-    fix_toc(concise=concise, data_dir=data_dir, out_dir=out_dir)
+    fix_toc(concise=concise, data_dir=data_dir, out_dir=out_dir, info = isinstance(sim_info, dict))
 
     for ff in glob.glob(f"{book_dir}/notebooks/*.ipynb"):
         ff_clean = ff.replace(".ipynb", ".py")

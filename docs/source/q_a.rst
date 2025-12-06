@@ -281,3 +281,33 @@ Just set strict_names to False as follows:
     )
 
 In this case, the pattern stays the same, but oceanVal will not filter files based on the length of the basenames.
+
+Can I add information about my simulation in the report?
+------------------------------------
+
+Yes. This can be done using the `sim_info` argument in the `oceanVal.validate` function.
+
+This should be a dictionary, which supplies the desired information.
+
+For example:
+.. code:: ipython3
+
+    sim_info = {
+        "Model": "NEMO",
+        "Configuration": "eORCA1",
+        "Atmospheric forcing": "DFS5.2",
+        "Horizontal resolution": "1/12°",
+        "Vertical levels": "75 z-levels",
+        "Simulation period": "2010-2015",
+    }
+
+    oceanval.validate(
+        ...,
+        sim_info = sim_info,
+        ...
+    )
+
+This would then be displayed in the report summaries tab as follows
+
+.. image:: sim_info_example.png
+   :alt: sim_info_example
