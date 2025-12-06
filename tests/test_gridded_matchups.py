@@ -176,6 +176,8 @@ class TestFinal:
         mean_abs_diff = np.abs(df['diff']).mean()
         assert mean_abs_diff < 0.1 
 
+        # create the oceanval report directory to make sure validate removes it
+        os.makedirs("oceanval_report", exist_ok=True)
 
         oceanval.validate(zip = True, view= False, test = True)
         ff = "oceanval_html.zip"
