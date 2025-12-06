@@ -267,3 +267,35 @@ class TestFinal:
                     os.remove(p)
         shutil.rmtree("oceanval_results", ignore_errors=True)
 
+
+        oceanval.reset()
+        # add gridded comparison again to make sure reset worked
+        oceanval.add_gridded_comparison(
+            name = "temperature",
+            obs_path="data/evaldata/gridded/nws/temperature",
+            source = "foo",
+            model_variable = "votemper",
+            obs_variable = "votemper",
+            climatology = True,
+            start = 2000,
+            end = 2010,
+            vertical = True
+        )
+
+        oceanval.matchup(
+            sim_dir = "data/example",
+            start = 2000,
+            end = 2000,
+            thickness = "z_level",
+            ask = False,
+            cores = 1)
+        ff = "oceanval_matchups/gridded/temperature/foo_temperature_vertical.nc"
+        assert os.path.exists(ff)
+        ds = nc.open_data(ff)
+        df = ds.to_dataframe().assign(diff = lambda x: x.model - x.observation)
+        # mean absolute difference between model and observation
+        df = df.assign(diff = lambda x: x.model - x.observation)
+        # max absolute difference
+        assert np.abs(df['diff']).max() < 1e-5 
+
+
