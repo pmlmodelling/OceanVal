@@ -12,6 +12,7 @@ __pycache__/
 *.py[codz]
 data/soc/*
 matched/*
+oceanval_*
 
 
 
