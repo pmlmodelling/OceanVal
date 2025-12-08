@@ -203,8 +203,6 @@ def mm_match(ff, model_variable, df, df_times, ds_depths, variable, df_all, laye
                     if session_info["cache"]:
                         cache_dir = session_info["cache_dir"]
                         if cache_dir is not None:
-                            if not os.path.exists(cache_dir):
-                                os.makedirs(cache_dir)
                             # create a random string
                             random_string = "".join(
                                 random.choices(
@@ -684,35 +682,12 @@ def matchup(
     if not isinstance(strict_names, bool):
         raise TypeError("strict_names must be a boolean")
     session_info["strict_names"] = strict_names
-    # convert require to list if it's not None and is a string
 
+    gridded = []
 
-    # store short title
-    gridded = None
-    point = None
-
-    # check it is str or list
-
-    # make point a list if it's None
-    if point is None:
-        point = dict()
-        point["all"] = []
-        point["surface"] = []
-
-    # if point is str, make it a list
-    if isinstance(point, str):
-        point = [point]
-
-    if not isinstance(point, list) and not isinstance(point, dict):
-        raise TypeError("point must be a list or a string")
-    # if point is a list, convert to a dictionary
-    if isinstance(point, list):
-        point_new = copy.deepcopy(point)
-        point = dict()
-        point["all"] = point_new
-        point["surface"] = []
-    # loop through definition keys
-
+    point = dict()
+    point["all"] = []
+    point["surface"] = []
 
     if len(definitions.keys) == 0:
         raise ValueError("You do not appear to have asked for any variables to be validated!")
@@ -738,33 +713,6 @@ def matchup(
                     gridded.append(key)
         except:
             pass
-    
-    if isinstance(point, dict):
-        # check keys are valid
-        for key in point.keys():
-            if key not in ["all", "surface"]:
-                raise ValueError("point dictionary keys must be 'all', 'surface'")
-        # check values are lists
-        for key in point.keys():
-            if isinstance(point[key], str):
-                point[key] = [point[key]]
-            # if it's None, convert to empty list
-            if point[key] is None:
-                point[key] = []
-            if not isinstance(point[key], list):
-                raise TypeError("point dictionary values must be lists or strings")
-        # if any keys are absent, make them empty lists
-        for key in ["all", "surface"]:
-            if key not in point.keys():
-                point[key] = []
-
-    # if gridded is str, make it a list
-    if isinstance(gridded, str):
-        gridded = [gridded]
-    # None too
-    if gridded is None:
-        gridded = []
-
 
     # if cache is True, create a cache directory in out_dir
     if cache:
