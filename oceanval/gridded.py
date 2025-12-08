@@ -569,16 +569,6 @@ def gridded_matchup(
                     ds_model_surface.subset(lon=lon_lim, lat=lat_lim)
 
                 ds_model_surface.run()
-                if (
-                    list(
-                        ds_model_surface.contents.query(
-                            "variable == 'model'"
-                        ).long_name
-                    )[0]
-                    is None
-                ):
-                    ds_model_surface.set_longnames({"model": f"Model {vv_name}"})
-
 
                 # unit may need some fiddling
                 out1 = out_file.replace(
@@ -681,15 +671,6 @@ def gridded_matchup(
                         ds_model.subset(lon=lon_lim, lat=lat_lim)
 
                     ds_model.run()
-                    if (
-                        list(
-                            ds_model.contents.query(
-                                "variable == 'model'"
-                            ).long_name
-                        )[0]
-                        is None
-                    ):
-                        ds_model.set_longnames({"model": f"Model {vv_name}"})
 
                     regrid_later = False
 
