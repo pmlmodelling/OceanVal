@@ -42,7 +42,8 @@ class TestFinal:
             end = 2000, 
             n_dirs_down = 0,
             ask = False,
-            cache = True
+            cache = True,
+            cores = 1
         )
 
         ff = "oceanval_matchups/gridded/chlorophyll/foo_chlorophyll_surface.nc"
