@@ -607,10 +607,7 @@ def matchup(
         raise TypeError("n_dirs_down must be an integer")
     if n_dirs_down < 0:
         raise ValueError("n_dirs_down must be a positive integer")
-    if n_dirs_down is not None:
-        session_info["levels_down"] = n_dirs_down
-    else:
-        session_info["levels_down"] = 2
+    session_info["levels_down"] = n_dirs_down
 
     if isinstance(point_time_res, str):
         point_time_res = [point_time_res]
