@@ -41,7 +41,8 @@ class TestFinal:
             start = 2000, 
             end = 2000, 
             n_dirs_down = 0,
-            ask = False
+            ask = False,
+            cache = True
         )
 
         ff = "oceanval_matchups/gridded/chlorophyll/foo_chlorophyll_surface.nc"
@@ -60,4 +61,11 @@ class TestFinal:
         max_diff = diff.max()
         assert max_diff < 1e-6
 
+        for ff in glob.glob(".cache_oceanval/output/*.pkl"):
+            with open(ff, "rb") as f:
+                df = pickle.load(f)   
 
+                columns = ["lon", "lat", "year", "month", "day", "total"]
+                for col in columns:
+                    assert col in df.columns
+                assert len(df) == 248
