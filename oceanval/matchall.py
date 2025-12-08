@@ -692,27 +692,16 @@ def matchup(
     if len(definitions.keys) == 0:
         raise ValueError("You do not appear to have asked for any variables to be validated!")
     for key in definitions.keys:
-        try:
-            if definitions[key].vertical_point is False:
-                if key not in point["surface"]:
-                    point["surface"].append(key)
-        except:
-            pass
-        try:
-            if definitions[key].vertical_point is True:
-                if key not in point["all"]:
-                    point["all"].append(key)
-        except:
-            pass
+        if definitions[key].vertical_point is False:
+            if key not in point["surface"]:
+                point["surface"].append(key)
+        if definitions[key].vertical_point is True:
+            if key not in point["all"]:
+                point["all"].append(key)
         # do the same for gridded
-        try:
-            if definitions[key].gridded:
-                if gridded is None:
-                    gridded = []
-                if key not in gridded:
+        if definitions[key].gridded:
+            if key not in gridded:
                     gridded.append(key)
-        except:
-            pass
 
     # if cache is True, create a cache directory in out_dir
     if cache:
@@ -775,20 +764,12 @@ def matchup(
 
     # check validity of variables chosen
 
-    all_df = None
-
-    var_choice = gridded
-    var_choice = list(set(var_choice))
-    if isinstance(gridded, str):
-        var_choice = [gridded]
-    
     all_vars = definitions.keys
-
 
     all_df = extract_variable_mapping(sim_dir, exclude=exclude, n_check=n_check)
     # check if any model_variable is None
     var_found = list(all_df.variable.unique())
-    missing = ",".join([x for x in var_choice if x not in var_found])
+    missing = ",".join([x for x in all_vars if x not in var_found])
     # 
     if len(missing) > 0:
         error = f"The model variables specified do not appear to be in the simulation output for the following: {missing}. Please check the model_variable names and try again."
