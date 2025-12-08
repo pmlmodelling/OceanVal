@@ -1,5 +1,4 @@
-import glob
-import copy
+emport copy
 import os
 import warnings
 import pickle
@@ -427,8 +426,6 @@ def gridded_matchup(
                 lat_min_model = lats[0]
                 lat_max_model = lats[1]
 
-                regridding = "model_to_obs"
-
                 ds_obs.rename({ds_obs.variables[0]: "observation"})
                 ds_model.rename({ds_model.variables[0]: "model"})
                 ds_model.run()
@@ -528,10 +525,7 @@ def gridded_matchup(
                 nlevels = contents.nlevels[0]
                 if nlevels > 1: 
                     ds_obs_surface.cdo_command("topvalue")
-                if regridding == "obs_to_model":
-                    ds_obs_surface.regrid(ds_model_surface, method="bil")
-                else:
-                    ds_model_surface.regrid(ds_obs_surface, method="bil")
+                ds_model_surface.regrid(ds_obs_surface, method="bil")
 
                 n_obs_times = len(ds_obs_surface.times)
                 if n_obs_times <= 1:
@@ -649,10 +643,7 @@ def gridded_matchup(
                         else:
                             ds_model.vertical_interp(levels , fixed = True)
 
-                    if regridding == "obs_to_model":
-                        ds_obs.regrid(ds_model, method="bil")
-                    else:
-                        ds_model.regrid(ds_obs, method="bil")
+                    ds_model.regrid(ds_obs, method="bil")
                     n_obs_times = len(ds_obs.times)
                     if n_obs_times <= 1:
                         ds_model.tmean()
