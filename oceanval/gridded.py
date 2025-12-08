@@ -672,8 +672,6 @@ def gridded_matchup(
 
                     ds_model.run()
 
-                    regrid_later = False
-
                     # unit may need some fiddling
                     out1 = out_file.replace(
                         os.path.basename(out_file), "matchup_dict.pkl"
@@ -694,8 +692,6 @@ def gridded_matchup(
                     lon_min = lons.min()
                     lat_max = df_test[lat_name].max()
                     lat_min = df_test[lat_name].min()
-
-
 
                     ds_model.subset(lon=[lon_min, lon_max], lat=[lat_min, lat_max])
 
