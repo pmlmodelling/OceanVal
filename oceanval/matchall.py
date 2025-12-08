@@ -840,22 +840,8 @@ def matchup(
     if isinstance(gridded, str):
         var_choice = [gridded]
     
-    valid_vars = definitions.keys
+    all_vars = definitions.keys
 
-    for vv in var_choice:
-        if vv not in valid_vars and vv != "all":
-            # suggest another variable based on similarity to valid_vars
-            from difflib import get_close_matches
-
-            close = get_close_matches(vv, valid_vars)
-            if len(close) > 0:
-                raise ValueError(
-                    f"{vv} is not a valid variable. Did you mean {close[0]}?"
-                )
-            if vv != "default":
-                raise ValueError(
-                    f"{vv} is not a valid variable. Please choose from {valid_vars}"
-                )
 
     all_df = extract_variable_mapping(sim_dir, exclude=exclude, n_check=n_check)
     # check if any model_variable is None
@@ -867,7 +853,6 @@ def matchup(
         raise ValueError(error)
 
     # add in anything that is missing
-    all_vars = valid_vars
 
     missing_df = pd.DataFrame({"variable": all_vars}).assign(
         model_variable=None, pattern=None
