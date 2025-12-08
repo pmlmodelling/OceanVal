@@ -1172,8 +1172,6 @@ def matchup(
         # if model_variable is None remove from all_df
 
         for key, value in point.items():
-            the_vars = list(df_mapping.dropna().variable)
-            var_choice = [x for x in var_choice if x in the_vars]
             point_vars = value
             depths = copy.deepcopy(key)
             layer = depths
