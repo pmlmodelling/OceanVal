@@ -43,7 +43,9 @@ class TestFinal:
             n_dirs_down = 0,
             ask = False,
             cache = True,
-            cores = 1
+            cores = 1,
+            require = "model", 
+            exclude = "bad"
         )
 
         ff = "oceanval_matchups/gridded/chlorophyll/foo_chlorophyll_surface.nc"
