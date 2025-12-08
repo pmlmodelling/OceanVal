@@ -40,6 +40,8 @@ def ignore_warning(x):
         return True
     if "coordinates variable time" in x and "be assigned" in x:
         return True
+    if "time bounds unsupported by this operator" in x:
+        return True
     return False
 
 

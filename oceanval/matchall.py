@@ -630,11 +630,10 @@ def matchup(
     if not isinstance(out_dir, str):
         raise TypeError("out_dir must be a string")
     out_dir = os.path.expanduser(out_dir)
+    # full path
+    out_dir = os.path.abspath(out_dir)
     # add out_dir to session_info
-    if out_dir != "":
-        session_info["out_dir"] = out_dir + "/"
-    else:
-        session_info["out_dir"] = ""
+    session_info["out_dir"] = out_dir + "/"
 
     # check if exclude is a list or str
     if not isinstance(exclude, list):
@@ -772,8 +771,6 @@ def matchup(
 
     # if cache is True, create a cache directory in out_dir
     if cache:
-        if out_dir == "":
-            out_dir = "./"
         cache_dir = out_dir + "/.cache_oceanval/"
         if not os.path.exists(cache_dir):
             os.makedirs(cache_dir)
@@ -919,11 +916,7 @@ def matchup(
 
     # create oceanval_matchups directory
     if not os.path.exists("oceanval_matchups"):
-        if session_info["out_dir"] != "":
-            # recusively create the directory
-            os.makedirs(session_info["out_dir"] + "/oceanval_matchups", exist_ok=True)
-        else:
-            os.mkdir("oceanval_matchups")
+        os.makedirs(session_info["out_dir"] + "/oceanval_matchups", exist_ok=True)
 
     invert_thickness = False
     point_all = point["all"] + point["surface"]
@@ -1140,10 +1133,7 @@ def matchup(
         print("Please adjust your variable names and try again")
         return None
 
-    if session_info["out_dir"] != "":
-        out = session_info["out_dir"] + "/oceanval_matchups/mapping.csv"
-    else:
-        out = "oceanval_matchups/mapping.csv"
+    out = session_info["out_dir"] + "/oceanval_matchups/mapping.csv"
     # check directory exists for out
     out_folder = os.path.dirname(out)
     if not os.path.exists(out_folder):
@@ -1272,10 +1262,7 @@ def matchup(
                 variable = vv
                 source = definitions[variable].point_source
 
-                if session_info["out_dir"] != "":
-                    out = f"{session_info['out_dir']}/oceanval_matchups/point/{layer}/{variable}/{source}/{source}_{layer}_{variable}.csv"
-                else:
-                    out = f"oceanval_matchups/point/{layer}/{variable}/{source}/{source}_{layer}_{variable}.csv"
+                out = f"{session_info['out_dir']}/oceanval_matchups/point/{layer}/{variable}/{source}/{source}_{layer}_{variable}.csv"
 
                 if os.path.exists(out) and not overwrite:
                     continue
@@ -1354,10 +1341,7 @@ def matchup(
                             # try finding source in definitions
                             source = definitions[variable].point_source
 
-                            if session_info["out_dir"] != "":
-                                out = f"{session_info['out_dir']}/oceanval_matchups/point/{layer}/{variable}/{source}/{source}_{layer}_{variable}.csv"
-                            else:
-                                out = f"oceanval_matchups/point/{layer}/{variable}/{source}/{source}_{layer}_{variable}.csv"
+                            out = f"{session_info['out_dir']}/oceanval_matchups/point/{layer}/{variable}/{source}/{source}_{layer}_{variable}.csv"
 
                             for exc in exclude:
                                 paths = [
@@ -1673,15 +1657,12 @@ def matchup(
 
                     vv_variable = definitions[vv].long_name
 
-                    if session_info["out_dir"] != "":
-                        out = glob.glob(
-                            session_info["out_dir"]
-                            + "/"
-                            + f"oceanval_matchups/point/all/{vv}/**_all_{vv}.csv"
-                        )
+                    out = glob.glob(
+                        session_info["out_dir"]
+                        + "/"
+                        + f"oceanval_matchups/point/all/{vv}/**_all_{vv}.csv"
+                    )
 
-                    else:
-                        out = glob.glob(f"oceanval_matchups/point/all/{vv}/**_all_{vv}.csv")
                     if len(out) > 0:
                         if session_info["overwrite"] is False:
                             continue
