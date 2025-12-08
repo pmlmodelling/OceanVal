@@ -1172,14 +1172,6 @@ def matchup(
 
     print("*************************************")
 
-    if ds_depths is not None:
-        # run cdo griddes on the file and figure out if generic shows up
-
-        output = subprocess.check_output(["cdo", "griddes", ds_depths[0]])
-        if "generic" in str(output):
-            ff1 = path
-            ds_depths.cdo_command(f"setgrid,{ff1}")
-
     ff = session_info["out_dir"] + "oceanval_matchups/times_dict.pkl"
     # read this in
     try:
