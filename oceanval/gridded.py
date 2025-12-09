@@ -109,19 +109,11 @@ def gridded_matchup(
             print("**********************")
             df = df_mapping.query("variable == @vv").reset_index(drop=True)
 
-            if len(df) == 0:
-                print("There appear to be no simulation files that meet your criteria.")
-                continue
-
             mapping[vv] = list(df.query("variable == @vv").model_variable)[0]
 
             selection = mapping[vv].split("+")
 
             patterns = set(df.pattern)
-            if len(patterns) > 1:
-                raise ValueError(
-                    "Something strange going on in the string patterns. Unable to handle this. Bug fix time!"
-                )
             pattern = list(patterns)[0]
 
             final_extension = extension_of_directory(folder)
@@ -129,7 +121,6 @@ def gridded_matchup(
             if session_info["strict_names"]:
                 len_example = len(os.path.basename(example_files[pattern]))
                 paths = [x for x in paths if len(os.path.basename(x)) == len_example]
-
 
             for exc in exclude:
                 paths = [
@@ -184,11 +175,6 @@ def gridded_matchup(
             old_years = sim_years
             n_years = len(sim_years)
             sim_years = [x for x in sim_years if x in year_options]
-            #if n_years > 0:
-            #    if len(sim_years) == 0:
-            #        raise ValueError(
-            #            f"No years in common between model and observation for {vv}. Please check start and end args!"
-            #        )
             month_sel = range(1, 13)
             if len(sim_years) == 0:
                 sim_years = old_years
@@ -239,7 +225,6 @@ def gridded_matchup(
                 # and then the command should be run for each variable
 
                 var_unit = None
-                ignore_later = []
                 for vv in list(df.variable):
                     if "+" in mapping[vv]:
                         command = f"-aexpr,{vv}=" + mapping[vv]
@@ -251,13 +236,8 @@ def gridded_matchup(
                         )
                         var_unit = ds_contents.unit[0]
                         ds_model.drop(variables=drop_these)
-                        ignore_later.append(vv)
 
                         ds_model.run()
-                        for key in mapping:
-                            if key not in ignore_later:
-                                if mapping[key] in ds_model.variables:
-                                    ds_model.rename({mapping[key]: key})
                         if var_unit is not None:
                             ds_model.set_units(
                                 {vv: var_unit}
@@ -421,11 +401,6 @@ def gridded_matchup(
                     lats = [-90, 90]
 
                 # # figure out the lon/lat extent in the model
-
-                lon_min_model = lons[0]
-                lon_max_model = lons[1]
-                lat_min_model = lats[0]
-                lat_max_model = lats[1]
 
                 ds_obs.rename({ds_obs.variables[0]: "observation"})
                 ds_model.rename({ds_model.variables[0]: "model"})
