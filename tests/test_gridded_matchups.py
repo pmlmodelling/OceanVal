@@ -25,7 +25,7 @@ class TestFinal:
             climatology = True,
             start = 2000, 
             end = 2010,
-            obs_add = 273.15
+            obs_adder = 273.15
         )
 
         oceanval.matchup(
