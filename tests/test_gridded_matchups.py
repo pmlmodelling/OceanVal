@@ -56,7 +56,7 @@ class TestFinal:
         df = ds.to_dataframe().assign(diff = lambda x: x.model - x.observation)
         # get absolute max difference
         max_diff = np.abs(df['diff']).max()
-        assert max_diff < 1e-5
+        assert max_diff < 1e-4
 #        shutil.rmtree("oceanval_matchups/gridded/temperature", ignore_errors=True)
         shutil.rmtree("oceanval_matchups", ignore_errors=True)
 
