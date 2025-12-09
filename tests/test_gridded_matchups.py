@@ -24,7 +24,8 @@ class TestFinal:
             obs_variable = "votemper",
             climatology = True,
             start = 2000, 
-            end = 2010
+            end = 2010,
+            obs_add = 273.15
         )
 
         oceanval.matchup(
@@ -156,7 +157,8 @@ class TestFinal:
             obs_path="data/evaldata/point/nws/all/temperature",
             source = "foo",
             model_variable = "votemper",
-            vertical = True
+            vertical = True,
+            obs_adder = 273.15
         )
         oceanval.matchup(
             sim_dir = "data/example",
