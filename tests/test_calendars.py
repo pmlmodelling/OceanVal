@@ -13,7 +13,7 @@ class TestMatchup:
         oceanval.reset()
         oceanval.add_gridded_comparison(
             name = "temperature",
-            obs_path = "data/ukesm/ukesm_subset_tos.nc",
+            obs_path = "data/ukesm/1950/ukesm_subset_tos.nc",
             model_variable = "tos",
             obs_variable = "tos",
             source = "foo", 
