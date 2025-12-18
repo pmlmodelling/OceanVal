@@ -12,20 +12,6 @@ Once you have conda installed, you can create a new conda environment and instal
    $ conda install conda-forge::oceanval 
 
 
-If you want to create a new conda environment purely for validation purposes, you could do the following:
-
-   $ conda create -n validate -y python=3.13 conda-forge::oceanval 
-
-oceanVal has dependencies such as CDO, NCO, jupyter notebooks, pandas, xarray and nctoolkit, as well as the tidyverse R suite. 
-So this is likely a pretty comprehensive environment for many purposes.
-
-Or, if you want the latest development version, install directly from GitHub. There are some system dependencies, so make sure you have them:
-
-   $ conda env create --name oceanval -f https://raw.githubusercontent.com/pmlmodelling/oceanval/main/oceanval.yml
-   $ conda activate oceanval
-   $ pip install git+https://github.com/pmlmodelling/oceanval.git
-
-
 A short example
 -------------------
 
