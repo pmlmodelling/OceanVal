@@ -852,6 +852,181 @@ class Validator:
 definitions = Validator()
 
 
+class SummaryVariable:
+    """Class to hold metadata for summary variables"""
+    def __init__(self):
+        self.name = None
+        self.model_variable = None
+        self.long_name = None
+        self.short_name = None
+        self.units = None
+        self.vertical_integration = False
+        self.vertical_average = False
+        self.horizontal_average = False
+        
+    def __str__(self):
+        attrs = vars(self)
+        return '\n'.join("%s: %s" % item for item in attrs.items())
+    
+    def __repr__(self):
+        attrs = vars(self)
+        return '\n'.join("%s: %s" % item for item in attrs.items())
+
+
+class Summary:
+    """
+    Summary class for defining variables to be summarized from model output.
+    
+    This class allows you to specify how variables should be processed for summaries,
+    including vertical integration, vertical averaging, horizontal averaging, etc.
+    """
+    
+    keys = []
+    
+    def __delattr__(self, name):
+        """Remove variable from keys list when deleted"""
+        if name != "keys":
+            if name in self.keys:
+                self.keys.remove(name)
+        super().__delattr__(name)
+    
+    def remove(self, name):
+        """Remove a variable from the summary definitions"""
+        if name != "keys":
+            if name in self.keys:
+                self.keys.remove(name)
+        super().__delattr__(name)
+    
+    def reset(self):
+        """Reset all summary definitions"""
+        for key in self.keys:
+            super().__delattr__(key)
+        self.keys = []
+    
+    def __setattr__(self, name, value):
+        """Add variable name to keys list when set"""
+        if name != "keys":
+            if name not in self.keys:
+                self.keys.append(name)
+        super().__setattr__(name, value)
+    
+    def __getitem__(self, key):
+        """Allow dictionary-style access to variables"""
+        return getattr(self, key, None)
+    
+    def add_summary(
+        self,
+        name=None,
+        model_variable=None,
+        long_name=None,
+        short_name=None,
+        vertical_integration=False,
+        vertical_average=False,
+        depth_range=None,
+        climatology_years = None
+    ):
+        """
+        Add a variable to be summarized from model output.
+        
+        Parameters
+        ----------
+        name : str
+            Name identifier for the variable. Must contain only letters and numbers.
+        model_variable : str
+            Name of the variable in the model output files.
+        long_name : str, optional
+            Long descriptive name for the variable.
+        short_name : str, optional
+            Short name for the variable. Defaults to name if not provided.
+        vertical_integration : bool, default False
+            Whether to vertically integrate the variable.
+        vertical_average : bool, default False
+            Whether to vertically average the variable.
+        
+        Returns
+        -------
+        None
+        
+        Raises
+        ------
+        ValueError
+            If name is not provided, contains invalid characters, or if both
+            vertical_integration and vertical_average are True.
+        
+        Examples
+        --------
+        >>> summary = Summary()
+        >>> summary.add_summary(
+        ...     name="temperature",
+        ...     model_variable="temp",
+        ...     long_name="Sea Water Temperature",
+        ...     vertical_average=True,
+        ... )
+        """
+
+        # climatology_years must be a list of two integers if provided
+        if climatology_years is None:
+            raise ValueError("climatology_years must be provided as [start_year, end_year]")
+        if climatology_years is not None:
+            if not isinstance(climatology_years, (list, tuple)):
+                raise ValueError("climatology_years must be a list or tuple of two integers [start_year, end_year]")
+            if len(climatology_years) != 2:
+                raise ValueError("climatology_years must contain exactly 2 values [start_year, end_year]")
+            try:
+                start_year = int(climatology_years[0])
+                end_year = int(climatology_years[1])
+                if start_year > end_year:
+                    raise ValueError("start_year must be less than end_year in climatology_years")
+            except (TypeError, ValueError) as e:
+                raise ValueError("climatology_years values must be integers")
+        
+        
+        # Validate required parameters
+        if name is None:
+            raise ValueError("Name must be provided")
+        
+        # Validate name contains only letters and numbers
+        if not re.match("^[A-Za-z0-9]+$", name):
+            raise ValueError("Name can only contain letters and numbers")
+        
+        if model_variable is None:
+            raise ValueError("Model variable must be provided")
+        
+        # Validate that both vertical operations are not True
+        if vertical_integration and vertical_average:
+            raise ValueError("Cannot specify both vertical_integration and vertical_average")
+        
+        
+        # Create variable if it doesn't exist, or get existing one
+        if getattr(self, name, None) is None:
+            var = SummaryVariable()
+            setattr(self, name, var)
+        else:
+            var = self[name]
+        
+        # Set attributes
+        var.name = name
+        var.model_variable = model_variable
+        var.climatology_years = climatology_years
+        
+        # Set optional attributes with defaults
+        if long_name is not None:
+            var.long_name = long_name
+        else:
+            var.long_name = name if var.long_name is None else var.long_name
+        
+        if short_name is not None:
+            var.short_name = short_name
+        else:
+            var.short_name = name if var.short_name is None else var.short_name
+        
+        var.vertical_integration = vertical_integration
+        var.vertical_average = vertical_average
+
+
+summaries = Summary()
+
+
 def generate_mapping(ds):
     """
     Generate mapping of model and observational variables
@@ -890,4 +1065,38 @@ def generate_mapping(ds):
 
     return model_dict
 
+def generate_mapping_summary(ds):
+    """
+    Generate mapping of model and observational variables
+    """
 
+    model_dict = {}
+    try:
+        candidate_variables = summaries.keys
+        ds1 = nc.open_data(ds[0], checks=False)
+        ds_contents = ds1.contents
+
+        ds_contents["long_name"] = [str(x) for x in ds_contents["long_name"]]
+
+        ds_contents_top = ds_contents.query("nlevels == 1").reset_index(drop=True)
+        n_levels = int(ds_contents.nlevels.max())
+        if n_levels > session_info["n_levels"]:
+            session_info["n_levels"] = n_levels
+        # number of rows in ds_contents
+        if len(ds_contents) == 0:
+            ds_contents = ds_contents_top
+    except:
+        return model_dict
+
+    for vv in candidate_variables:
+        variables = summaries[vv].model_variable.split("+")
+        include = True
+        for var in variables:
+            if var not in ds_contents.variable.values:
+                include = False
+        if include:
+            model_dict[vv] = summaries[vv].model_variable
+            n_levels = ds_contents.query("variable in @variables")["nlevels"].max()
+            continue
+
+    return model_dict
