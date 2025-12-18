@@ -106,5 +106,13 @@ html_static_path = ['_static']
 # 'searchbox.html']``.
 #
 # html_sidebars = {}
+googleanalytics_id = '516786994' 
 
+googleanalytics_enabled = True
+
+html_theme_options = {
+
+    'analytics_id': '516786994' ## 'UA-46143561-3'
+
+        }
 
