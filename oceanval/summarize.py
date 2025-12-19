@@ -774,13 +774,29 @@ def summarize(
     copyfile(data_path, out)
 
     data_path = importlib.resources.files(__name__).joinpath("data/intro_summarize.md")
-    out = f"{book_dir}/" + os.path.basename(data_path)
+    out = f"{book_dir}/" + os.path.basename(data_path).replace("intro_summarize", "intro")
     copyfile(data_path, out)
 
     # copy config
 
     data_path = importlib.resources.files(__name__).joinpath("data/_config.yml")
     out = f"{book_dir}/" + os.path.basename(data_path)
+    copyfile(data_path, out)
+
+    # open config and replace oceanval_report with oceanval_summaries
+    with open(out, "r") as file:
+        filedata = file.read()
+    # Replace the target string
+    filedata = filedata.replace("oceanval_report", "book")
+    # write
+    with open(out, "w") as file:
+        file.write(filedata)
+                            
+
+    copyfile(
+        importlib.resources.files(__name__).joinpath("data/pml_logo.jpg"),
+        f"{book_dir}/pml_logo.jpg",
+    )
 
     # identify variables to be summarized
     #f"{out_dir}/data"
