@@ -1086,16 +1086,6 @@ def matchup(
 
     times_dict = dict()
 
-    print("*************************************")
-
-    ff = session_info["out_dir"] + "oceanval_matchups/times_dict.pkl"
-    # read this in
-    try:
-        with open(ff, "rb") as f:
-            times_dict = pickle.load(f)
-    except:
-        times_dict = dict()
-        pass
 
     print("*************************************")
     for pattern in patterns:
@@ -1146,11 +1136,6 @@ def matchup(
                 }
             )
             times_dict[ff] = df_ff
-
-
-    # save this as a pickle
-    with open(session_info["out_dir"] + "oceanval_matchups/times_dict.pkl", "wb") as f:
-        pickle.dump(times_dict, f)
 
     # figure out the lon/lat extent in the model
     with warnings.catch_warnings(record=True) as w:

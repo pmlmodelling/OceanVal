@@ -773,7 +773,7 @@ def summarize(
     out = f"{book_dir}/" + os.path.basename(data_path)
     copyfile(data_path, out)
 
-    data_path = importlib.resources.files(__name__).joinpath("data/intro.md")
+    data_path = importlib.resources.files(__name__).joinpath("data/intro_summarize.md")
     out = f"{book_dir}/" + os.path.basename(data_path)
     copyfile(data_path, out)
 
