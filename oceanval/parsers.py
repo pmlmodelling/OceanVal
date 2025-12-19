@@ -861,7 +861,7 @@ class SummaryVariable:
         self.short_name = None
         self.units = None
         self.vertical_integration = False
-        self.vertical_average = False
+        self.vertical_merage = False
         self.horizontal_average = False
         
     def __str__(self):
@@ -917,12 +917,14 @@ class Summary:
     def add_summary(
         self,
         name=None,
+        start = None,
+        end = None,
         model_variable=None,
         long_name=None,
         short_name=None,
+        trends = {"period":[-1E9, 1E9], "window":1},
         vertical_integration=False,
-        vertical_average=False,
-        depth_range=None,
+        vertical_mean =False,
         climatology_years = None
     ):
         """
@@ -938,9 +940,13 @@ class Summary:
             Long descriptive name for the variable.
         short_name : str, optional
             Short name for the variable. Defaults to name if not provided.
+        trends : dict
+            Dictionary specifying trend calculation parameters with keys:
+            'period' (list of two ints): Start and end years for trend calculation.
+            'window' (int): Window size in years for trend smoothing.
         vertical_integration : bool, default False
             Whether to vertically integrate the variable.
-        vertical_average : bool, default False
+        vertical_mean : bool, default False
             Whether to vertically average the variable.
         
         Returns
@@ -951,7 +957,7 @@ class Summary:
         ------
         ValueError
             If name is not provided, contains invalid characters, or if both
-            vertical_integration and vertical_average are True.
+            vertical_integration and vertical_mean are True.
         
         Examples
         --------
@@ -960,9 +966,13 @@ class Summary:
         ...     name="temperature",
         ...     model_variable="temp",
         ...     long_name="Sea Water Temperature",
-        ...     vertical_average=True,
+        ...     vertical_mean=True,
         ... )
         """
+        if start is None:
+            raise ValueError("start year must be provided")
+        if end is None:
+            raise ValueError("end year must be provided")
 
         # climatology_years must be a list of two integers if provided
         if climatology_years is None:
@@ -992,10 +1002,11 @@ class Summary:
         if model_variable is None:
             raise ValueError("Model variable must be provided")
         
-        # Validate that both vertical operations are not True
-        if vertical_integration and vertical_average:
-            raise ValueError("Cannot specify both vertical_integration and vertical_average")
-        
+        # check trends is a dict with period and window
+        if not isinstance(trends, dict):
+            raise ValueError("trends must be a dictionary with keys 'period' and 'window'")
+        if "period" not in trends or "window" not in trends:
+            raise ValueError("trends dictionary must contain 'period' and 'window' keys")
         
         # Create variable if it doesn't exist, or get existing one
         if getattr(self, name, None) is None:
@@ -1004,8 +1015,11 @@ class Summary:
         else:
             var = self[name]
         
+        var.trends = trends
         # Set attributes
         var.name = name
+        var.start = start
+        var.end = end
         var.model_variable = model_variable
         var.climatology_years = climatology_years
         
@@ -1021,7 +1035,11 @@ class Summary:
             var.short_name = name if var.short_name is None else var.short_name
         
         var.vertical_integration = vertical_integration
-        var.vertical_average = vertical_average
+        var.vertical_mean= vertical_mean
+        if var.vertical_integration or var.vertical_mean:
+            var.vertical = True
+        else:
+            var.vertical = False
 
 
 summaries = Summary()

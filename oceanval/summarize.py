@@ -1,5 +1,8 @@
 import copy
 import os
+import webbrowser   
+import xarray as xr
+import importlib
 import glob
 import pathlib
 import warnings
@@ -9,12 +12,17 @@ import random
 import pandas as pd
 import re
 
+from shutil import copyfile
 from oceanval.session import session_info
 from oceanval.parsers import summaries, generate_mapping_summary
 from oceanval.utils import extension_of_directory
-from oceanval.matchall import get_time_res
+from oceanval.matchall import get_time_res, is_z_up
 from tqdm import tqdm
 example_files = dict()
+random_files = []
+
+
+
 
 def extract_variable_mapping(folder, exclude=[], n_check=None):
     """
@@ -86,6 +94,7 @@ def extract_variable_mapping(folder, exclude=[], n_check=None):
     print("Searching through files in a random directory to identify variable mappings")
     # randomize options
     for ff in tqdm(options):
+        random_files.append(ff)
         ds = nc.open_data(ff, checks=False)
         stop = True
         ds_dict = generate_mapping_summary(ds)
@@ -177,7 +186,9 @@ def summarize(
     require=None,
     cache=False,
     n_check=None,
-    as_missing=None
+    as_missing=None,
+    strict_names=True,
+    ask = True,
 ):
     """
     Generate summaries of model output based on defined summary variables.
@@ -239,6 +250,7 @@ def summarize(
 
     session_info["levels_down"] = n_dirs_down
     session_info["require"] = require
+    session_info["as_missing"] = as_missing
     
     # Validate sim_dir
     if sim_dir is None:
@@ -288,7 +300,163 @@ def summarize(
             if thickness.endswith(".nc"):
                 if not os.path.exists(thickness):
                     raise FileNotFoundError(f"{thickness} does not exist")
-    
+    if thickness == "z-level":
+        thickness = "z_level"
+    if thickness == "z level":
+        thickness = "z_level"
+    if thickness == "z_level":
+        session_info["z_level"] = True
+    else:
+        session_info["z_level"] = False
+    # Validate out_dir
+    if not isinstance(out_dir, str):
+        raise TypeError("out_dir must be a string")
+    out_dir = os.path.expanduser(out_dir)
+    out_dir = os.path.abspath(out_dir)
+    session_info["out_dir"] = out_dir
+
+    invert_thickness = False
+    thick_check = False
+    # loop through summaries to see if any require thickness
+    for var_name in summaries.keys:
+        var = summaries[var_name]
+        if var.vertical:
+            thick_check = True
+    ds_depths = None
+    if session_info["z_level"]:
+        thick_check = False
+    if thick_check:
+        print("Sorting out thickness")
+        ds_depths = False
+        with warnings.catch_warnings(record=True) as w:
+            # extract the thickness dataset
+            cell_thickness_found = False
+            if thickness is not None and os.path.exists(thickness):
+                ds_thickness = nc.open_data(thickness, checks=False)
+                invert_thickness = is_z_up(ds_thickness[0])
+                if len(ds_thickness.variables) != 1:
+                    if (
+                        len(
+                            [x for x in ds_thickness.variables if "cell_thickness" in x]
+                        )
+                        == 0
+                    ):
+                        raise ValueError(
+                            "The thickness file has more than one variable and none include cell_thickness. Please provide a single variable!"
+                        )
+                ds_thickness.rename({ds_thickness.variables[0]: "cell_thickness"})
+                cell_thickness_found = True
+                thickness = "cell_thickness"
+            else:
+                print(
+                    "Vertical thickness is required for your matchups, but they are not supplied"
+                )
+                print("Searching through simulation output to find it")
+                if thickness is None:
+                    raise ValueError(
+                        "Please provide the name of the thickness variable"
+                    )
+                for ff in raw_options:
+                    print("Checking file for thickness: " + ff)
+                    # do this quietly
+                    with warnings.catch_warnings(record=True) as w:
+                        ds_thickness = nc.open_data(ff, checks=False)
+                        if thickness in ds_thickness.variables:
+                            cell_thickness_found = True
+                            invert_thickness = is_z_up(ff, thickness)
+                            break
+                        else:
+                            if (
+                                len(
+                                    [
+                                        x
+                                        for x in ds_thickness.variables
+                                        if thickness in x
+                                    ]
+                                )
+                                > 0
+                            ):
+                                cell_thickness_found = True
+                                invert_thickness = is_z_up(ff, thickness)
+                                break
+
+            if not cell_thickness_found:
+                raise ValueError("Unable to find cell_thickness")
+
+            if os.path.exists(thickness) == False:
+                if len(ds_thickness.times) > 0:
+                    ds_thickness.subset(time=0, variables=f"{thickness}*")
+                else:
+                    ds_thickness.subset(variables=f"{thickness}*")
+            ds_thickness.run()
+            var_sel = (
+                ds_thickness.contents.query(f"variable.str.contains('{thickness}')")
+                .query("nlevels > 1")
+                .variable
+            )
+            ds_thickness.subset(variables=var_sel)
+            if session_info["as_missing"] is not None:
+                ds_thickness.as_missing(session_info["as_missing"])
+            if len(ds_thickness.variables) > 1:
+                if "cell_thickness" in ds_thickness.variables:
+                    ds_thickness.subset(variables=f"{thickness}*")
+                else:
+                    ds_thickness.subset(variables=ds_thickness.variables[0])
+            ds_thickness.run()
+          #  print(f"Thickness variable is {ds_thickness.variables[0]} from {ff}")
+            #####
+            # now output the bathymetry if it does not exists
+
+
+            if invert_thickness:
+                if ask:
+                    # user check
+                    x = input(
+                        "The thickness data appears to have the sea surface at the bottom (i.e. increasing depth values down. DO NOT PROCEED IF THIS IS A NEMO SIMULATION. Is this correct? (y/n) "
+                    )
+                    if x.lower() == "n":
+                        return None
+                else:
+                    print("###### Inverting thickness automatically")
+                    print(
+                        "The thickness data appears to have the sea surface at the bottom (i.e. increasing depth values down. This has been inverted automatically."
+                    )
+                    print("##########################################################################")
+
+            ds_thickness.run()
+            if invert_thickness:
+                ds_thickness.invert_levels()
+                ds_thickness.run()
+            ds_thickness_sim = ds_thickness.copy()
+
+            ds_depths = ds_thickness.copy()
+
+            ds_depths.vertical_cumsum()
+            ds_cell_thickness = ds_thickness.copy()
+            ds_thickness / 2
+            ds_depths - ds_thickness
+            ds_depths.run()
+            ds_depths.rename({ds_depths.variables[0]: "depth"})
+            ds_depths.run()
+
+        for ww in w:
+            if str(ww.message) not in session_warnings:
+                session_warnings.append(str(ww.message))
+        if ds_depths is False:
+            raise ValueError(
+                "You have asked for variables that require the specification of thickness"
+            )
+        print("Thickness is sorted out")
+
+        ds_depths.run()
+    if ds_depths is not None:
+        session_info["ds_depths"] = ds_depths[0]
+        session_info["ds_thickness"] = ds_thickness_sim[0]
+    else:
+        session_info["ds_depths"] = thickness
+        session_info["ds_thickness"] = None 
+
+    session_info["invert"] = invert_thickness    
     # Validate n_dirs_down
     if not isinstance(n_dirs_down, int):
         raise TypeError("n_dirs_down must be an integer")
@@ -299,11 +467,6 @@ def summarize(
     if not isinstance(overwrite, bool):
         raise TypeError("overwrite must be a boolean")
     
-    # Validate out_dir
-    if not isinstance(out_dir, str):
-        raise TypeError("out_dir must be a string")
-    out_dir = os.path.expanduser(out_dir)
-    out_dir = os.path.abspath(out_dir)
     
     # Validate exclude
     if not isinstance(exclude, list):
@@ -369,7 +532,59 @@ def summarize(
         print("Exiting summarization. Please redefine your summary variables as needed.")
         return
 
+    patterns = list(set(all_df.pattern))
+    times_dict = dict()
+
     # Find model files
+    print("*************************************")
+    for pattern in patterns:
+        print(f"Indexing file time information for {pattern} files")
+        final_extension = extension_of_directory(sim_dir)
+        ensemble = glob.glob(sim_dir + final_extension + pattern)
+        # handle required
+        if session_info["require"] is not None:
+            for req in session_info["require"]:
+                ensemble = [x for x in ensemble if f"{req}" in os.path.basename(x)]
+        for exc in exclude:
+            ensemble = [x for x in ensemble if f"{exc}" not in os.path.basename(x)]
+        # find length of example file
+        if strict_names:
+            len_example = len(os.path.basename(example_files[pattern]))
+            ensemble = [x for x in ensemble if len(os.path.basename(x)) == len_example]
+
+        try:
+            ds = xr.open_dataset(ensemble[0])
+            time_name = [x for x in list(ds.dims) if "time" in x][0]
+        except:
+            ds = xr.open_dataset(ensemble[0], decode_times=False)
+            time_name = [x for x in list(ds.dims) if "time" in x][0]
+
+        for ff in tqdm(ensemble):
+            if ff in times_dict:
+                continue
+            if "restart" in ff:
+                continue
+
+            try:
+                ds = xr.open_dataset(ff)
+                ff_month = [int(x.dt.month) for x in ds[time_name]]
+                ff_year = [int(x.dt.year) for x in ds[time_name]]
+                days = [int(x.dt.day) for x in ds[time_name]]
+            except:
+                ds = nc.open_data(ff, checks=False)
+                ds_times = ds.times
+                ff_month = [int(x.month) for x in ds_times]
+                ff_year = [int(x.year) for x in ds_times]
+                days = [int(x.day) for x in ds_times]
+
+            df_ff = pd.DataFrame(
+                {
+                    "year": ff_year,
+                    "month": ff_month,
+                    "day": days,
+                }
+            )
+            times_dict[ff] = df_ff
 
     
     # Process each summary variable
@@ -382,9 +597,13 @@ def summarize(
         # Find files containing this variable
         pattern = all_df.query(f"variable == '{var_name}'")["pattern"].values[0]     
         final_extension = extension_of_directory(sim_dir, n_dirs_down)
-        ensemble = glob.glob(sim_dir + final_extension + pattern, recursive = True)
-        all_files = list(set(ensemble))
-
+        ensemble = glob.glob(sim_dir + final_extension + pattern)
+        start = summaries[var_name].start
+        end = summaries[var_name].end
+        all_files = []
+        for ff in ensemble:
+            if times_dict[ff].year.min() <= end and times_dict[ff].year.max() >= start:
+                all_files.append(ff)
         
         # Apply exclude filters
         for exc in exclude:
@@ -402,7 +621,6 @@ def summarize(
         # Open and process the data
         try:
             ds = nc.open_data(all_files, checks=False)
-            ds.subset(years=range(start, end + 1))
             
             # Check if variable exists
             if model_var not in ds.variables:
@@ -430,7 +648,7 @@ def summarize(
             # now do the climatology
             clim_years = summaries[var_name].climatology_years
             ds_clim = ds.copy()
-            ds_clim.subset(years=clim_years)
+            ds_clim.subset(years=range(clim_years[0], clim_years[1] + 1))
             ds_clim.top()
             ds_clim.tmean()
             
@@ -444,14 +662,84 @@ def summarize(
                 continue
             
             # Save the result
+            # delete if it iexists
+            if os.path.exists(out_file):
+                os.remove(out_file)
             ds_clim.to_nc(out_file, overwrite=True, zip=True)
             print(f"  Saved: {out_file}")
+            # now figure out if vertical mean is neeed
+            if summaries[var_name].vertical_mean:
+                ds_vertmean = ds.copy()
+                ds_vertmean.subset(years=clim_years)
+                ds_vertmean.tmean()
+                thickness = session_info["ds_thickness"]
+                if thickness is None:
+                    ds_vertmean.vertical_mean(fixed = True)
+                else:
+                    ds_vertmean.vertical_mean(thickness = ds_cell_thickness)
+                # climatological years
+                out_file = f"{summary_dir}/data/{var_name}/{var_name}_verticalmean_climatology.nc"
+                os.makedirs(os.path.dirname(out_file), exist_ok=True)
+                if os.path.exists(out_file):
+                    os.remove(out_file)
+                ds_vertmean.to_nc(out_file, overwrite=True, zip=True)
+                print(f"  Saved: {out_file}")
+            
+            # now do vertical integration if needed
+            if summaries[var_name].vertical_integration:
+                ds_vertint = ds.copy()
+                ds_vertint.subset(years=clim_years)
+                ds_vertint.tmean()
+                thickness = session_info["ds_thickness"]
+                if thickness is None:
+                    ds_vertint.vertical_integration(fixed = True)
+                else:
+                    ds_vertint.vertical_integration(thickness = ds_cell_thickness)
+                # climatological years
+                out_file = f"{summary_dir}/data/{var_name}/{var_name}_verticalintegrated_climatology.nc"
+                os.makedirs(os.path.dirname(out_file), exist_ok=True)
+                if os.path.exists(out_file):
+                    os.remove(out_file)
+                ds_vertint.to_nc(out_file, overwrite=True, zip=True)
+                print(f"  Saved: {out_file}")
+
+                # now do the spatial mean timeseries
+                ds_trends = ds.copy()
+                trend_info = summaries[var_name].trends
+                period = trend_info["period"]
+                ds_trends.subset(years = range(period[0], period[1] + 1))
+                window = trend_info["window"]
+                if window != 1:
+                    ds_trends.rolling_mean(window)
+                if thickness is None:
+                    ds_trends.vertical_integration(fixed = True)
+                else:
+                    ds_trends.vertical_integration(thickness = ds_cell_thickness)
+                ds_trends.fix_amm7_grid()
+                ds_trends.spatial_sum(by_area = True)
+                out_file = f"{summary_dir}/data/{var_name}/{var_name}_verticalintegrated_spatialsumtimeseries.nc"
+                os.makedirs(os.path.dirname(out_file), exist_ok = True)
+                if os.path.exists(out_file):
+                    os.remove(out_file)
+
+                ds_trends.to_nc(out_file, overwrite=True, zip=True)
 
             ds_trends = ds.copy()
+            ds_trends.top()
             ds_trends.spatial_mean()
+            # find out the window
+            trend_info = summaries[var_name].trends
+            period = trend_info["period"]
+            ds_trends.subset(years = range(period[0], period[1] + 1))
+            window = trend_info["window"]
+            if window != 1:
+                ds_trends.rolling_mean(window)
             # save it
-            out_file = f"{summary_dir}/data/{var_name}/{var_name}_spatialmean_timeseries.nc"
+            out_file = f"{summary_dir}/data/{var_name}/{var_name}_surface_spatialmeantimeseries.nc"
             os.makedirs(os.path.dirname(out_file), exist_ok=True)
+            if os.path.exists(out_file):
+                os.remove(out_file)
+
             ds_trends.to_nc(out_file, overwrite=True, zip=True)
 
             
@@ -461,9 +749,71 @@ def summarize(
             continue
     
         # Save summaries configuration
-        config_file = os.path.join(f"{summary_dir}/{var_name}", "summaries_config.pkl")
+        config_file = os.path.join(f"{summary_dir}/data/{var_name}", "summaries_config.pkl")
         with open(config_file, "wb") as f:
             import dill
             dill.dump(summaries, f)
     
     print(f"\nSummarization complete. Output saved to: {summary_dir}")
+
+    # now create the book
+
+    book_dir = f"{out_dir}/oceanval_summaries/book"
+    os.makedirs(book_dir, exist_ok=True)
+
+    data_path = importlib.resources.files(__name__).joinpath("data/_toc.yml")
+
+    out = f"{book_dir}/" + os.path.basename(data_path)
+    copyfile(data_path, out)
+    print(out)
+
+    data_path = importlib.resources.files(__name__).joinpath(
+        "data/requirements.txt"
+    )
+    out = f"{book_dir}/" + os.path.basename(data_path)
+    copyfile(data_path, out)
+
+    data_path = importlib.resources.files(__name__).joinpath("data/intro.md")
+    out = f"{book_dir}/" + os.path.basename(data_path)
+    copyfile(data_path, out)
+
+    # copy config
+
+    data_path = importlib.resources.files(__name__).joinpath("data/_config.yml")
+    out = f"{book_dir}/" + os.path.basename(data_path)
+
+    # identify variables to be summarized
+    #f"{out_dir}/data"
+    # directories in this
+    summary_variables = os.listdir(f"{summary_dir}/data")
+    # variables are the basename
+    variables = [os.path.basename(x) for x in summary_variables]
+
+    for vv in variables:
+        vv_out = f"{book_dir}/notebooks/{vv}_summary.ipynb"
+        file1 = importlib.resources.files(__name__).joinpath(
+                        "data/variable_summary_template.ipynb"
+                    )
+        # create directory
+        os.makedirs(os.path.dirname(vv_out), exist_ok=True)
+         # copy file
+        copyfile(file1, vv_out)
+
+        # read vv_out in and do some replacing
+        with open(vv_out, "r") as file:
+            filedata = file.read()
+        # Replace the target string
+        filedata = filedata.replace("VARIABLE_NAME", vv)
+        
+        # write
+        with open(vv_out, "w") as file:
+            file.write(filedata)
+    
+
+    os.system(f"jupyter-book build  {book_dir}/")
+    webbrowser.open(
+            "file://" + os.path.abspath(f"{book_dir}/_build/html/index.html")
+        )
+
+
+
