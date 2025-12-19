@@ -922,6 +922,7 @@ class Summary:
         model_variable=None,
         long_name=None,
         short_name=None,
+        short_title=None,   
         trends = None, 
         vertical_integration=False,
         vertical_mean =False,
@@ -1014,6 +1015,18 @@ class Summary:
                 raise ValueError("trends must be a dictionary with keys 'period' and 'window'")
             if "period" not in trends or "window" not in trends:
                 raise ValueError("trends dictionary must contain 'period' and 'window' keys")
+       # if short_name doesn't exist, set to name
+        if short_name is None:
+            short_name = name 
+        if long_name is None:
+            long_name = short_name  
+        
+        # if short_title is not provided, take it from short_name and capitalize
+        if short_title is None:
+            if short_name is not None:
+                short_title = short_name.title()
+            else:
+                short_title = name.title()
         
         # Create variable if it doesn't exist, or get existing one
         if getattr(self, name, None) is None:
@@ -1030,6 +1043,7 @@ class Summary:
         var.end = end
         var.model_variable = model_variable
         var.climatology_years = climatology_years
+        var.short_title = short_title
         
         # Set optional attributes with defaults
         if long_name is not None:
