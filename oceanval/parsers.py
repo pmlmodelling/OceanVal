@@ -922,10 +922,11 @@ class Summary:
         model_variable=None,
         long_name=None,
         short_name=None,
-        trends = {"period":[-1E9, 1E9], "window":1},
+        trends = None, 
         vertical_integration=False,
         vertical_mean =False,
-        climatology_years = None
+        climatology_years = None,
+        robust = False
     ):
         """
         Add a variable to be summarized from model output.
@@ -948,6 +949,8 @@ class Summary:
             Whether to vertically integrate the variable.
         vertical_mean : bool, default False
             Whether to vertically average the variable.
+        robust : bool, default False
+            Whether to use a robust plot for climatologies 
         
         Returns
         -------
@@ -990,6 +993,9 @@ class Summary:
             except (TypeError, ValueError) as e:
                 raise ValueError("climatology_years values must be integers")
         
+        # check robust is boolean
+        if not isinstance(robust, bool):
+            raise ValueError("robust must be a boolean value")
         
         # Validate required parameters
         if name is None:
@@ -1003,10 +1009,11 @@ class Summary:
             raise ValueError("Model variable must be provided")
         
         # check trends is a dict with period and window
-        if not isinstance(trends, dict):
-            raise ValueError("trends must be a dictionary with keys 'period' and 'window'")
-        if "period" not in trends or "window" not in trends:
-            raise ValueError("trends dictionary must contain 'period' and 'window' keys")
+        if trends is not None:
+            if not isinstance(trends, dict):
+                raise ValueError("trends must be a dictionary with keys 'period' and 'window'")
+            if "period" not in trends or "window" not in trends:
+                raise ValueError("trends dictionary must contain 'period' and 'window' keys")
         
         # Create variable if it doesn't exist, or get existing one
         if getattr(self, name, None) is None:
@@ -1016,6 +1023,7 @@ class Summary:
             var = self[name]
         
         var.trends = trends
+        var.robust = robust 
         # Set attributes
         var.name = name
         var.start = start

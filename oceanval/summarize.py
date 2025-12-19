@@ -619,93 +619,94 @@ def summarize(
             continue
         
         # Open and process the data
-        try:
-            ds = nc.open_data(all_files, checks=False)
+        ds = nc.open_data(all_files, checks=False)
             
-            # Check if variable exists
-            if model_var not in ds.variables:
-                print(f"  Warning: Variable {model_var} not found in files")
-                continue
+        # Check if variable exists
+        if model_var not in ds.variables:
+            print(f"  Warning: Variable {model_var} not found in files")
+            continue
             
-            # Subset to variable of interest
-            ds.subset(variables=model_var)
+        # Subset to variable of interest
+        ds.subset(variables=model_var)
             
-            # Apply time range
+        # Apply time range
             
-            # Apply spatial subsetting
-            if lon_lim is not None and lat_lim is not None:
-                ds.subset(lon=lon_lim, lat=lat_lim)
+        # Apply spatial subsetting
+        if lon_lim is not None and lat_lim is not None:
+            ds.subset(lon=lon_lim, lat=lat_lim)
             
-            # Handle missing values
-            if as_missing is not None:
-                ds.as_missing(as_missing)
+        # Handle missing values
+        if as_missing is not None:
+            ds.as_missing(as_missing)
             
-            # Apply depth range if specified
-            ds.merge("time")
-            ds.tmean("year")
-            ds.run()
+        # Apply depth range if specified
+        ds.merge("time")
+        ds.tmean("year")
+        ds.run()
 
-            # now do the climatology
-            clim_years = summaries[var_name].climatology_years
-            ds_clim = ds.copy()
-            ds_clim.subset(years=range(clim_years[0], clim_years[1] + 1))
-            ds_clim.top()
-            ds_clim.tmean()
+        # now do the climatology
+        clim_years = summaries[var_name].climatology_years
+        ds_clim = ds.copy()
+        ds_clim.subset(years=range(clim_years[0], clim_years[1] + 1))
+        ds_clim.top()
+        ds_clim.tmean()
             
-            # Prepare output filename
-            out_file = f"{summary_dir}/data/{var_name}/{var_name}_surface_climatology.nc"
+        # Prepare output filename
+        out_file = f"{summary_dir}/data/{var_name}/{var_name}_surface_climatology.nc"
+        os.makedirs(os.path.dirname(out_file), exist_ok=True)
+            
+        # Check if we should overwrite
+        if os.path.exists(out_file) and not overwrite:
+            print(f"  File exists and overwrite=False, skipping: {out_file}")
+            continue
+            
+        # Save the result
+        # delete if it iexists
+        if os.path.exists(out_file):
+            os.remove(out_file)
+        ds_clim.to_nc(out_file, overwrite=True, zip=True)
+        print(f"  Saved: {out_file}")
+        trend_info = summaries[var_name].trends
+        trends = trend_info is not None
+        # now figure out if vertical mean is neeed
+        if summaries[var_name].vertical_mean:
+            ds_vertmean = ds.copy()
+            ds_vertmean.subset(years=clim_years)
+            ds_vertmean.tmean()
+            thickness = session_info["ds_thickness"]
+            if thickness is None:
+                ds_vertmean.vertical_mean(fixed = True)
+            else:
+                ds_vertmean.vertical_mean(thickness = ds_cell_thickness)
+            # climatological years
+            out_file = f"{summary_dir}/data/{var_name}/{var_name}_verticalmean_climatology.nc"
             os.makedirs(os.path.dirname(out_file), exist_ok=True)
-            
-            # Check if we should overwrite
-            if os.path.exists(out_file) and not overwrite:
-                print(f"  File exists and overwrite=False, skipping: {out_file}")
-                continue
-            
-            # Save the result
-            # delete if it iexists
             if os.path.exists(out_file):
                 os.remove(out_file)
-            ds_clim.to_nc(out_file, overwrite=True, zip=True)
+            ds_vertmean.to_nc(out_file, overwrite=True, zip=True)
             print(f"  Saved: {out_file}")
-            # now figure out if vertical mean is neeed
-            if summaries[var_name].vertical_mean:
-                ds_vertmean = ds.copy()
-                ds_vertmean.subset(years=clim_years)
-                ds_vertmean.tmean()
-                thickness = session_info["ds_thickness"]
-                if thickness is None:
-                    ds_vertmean.vertical_mean(fixed = True)
-                else:
-                    ds_vertmean.vertical_mean(thickness = ds_cell_thickness)
-                # climatological years
-                out_file = f"{summary_dir}/data/{var_name}/{var_name}_verticalmean_climatology.nc"
-                os.makedirs(os.path.dirname(out_file), exist_ok=True)
-                if os.path.exists(out_file):
-                    os.remove(out_file)
-                ds_vertmean.to_nc(out_file, overwrite=True, zip=True)
-                print(f"  Saved: {out_file}")
             
-            # now do vertical integration if needed
-            if summaries[var_name].vertical_integration:
-                ds_vertint = ds.copy()
-                ds_vertint.subset(years=clim_years)
-                ds_vertint.tmean()
-                thickness = session_info["ds_thickness"]
-                if thickness is None:
-                    ds_vertint.vertical_integration(fixed = True)
-                else:
-                    ds_vertint.vertical_integration(thickness = ds_cell_thickness)
-                # climatological years
-                out_file = f"{summary_dir}/data/{var_name}/{var_name}_verticalintegrated_climatology.nc"
-                os.makedirs(os.path.dirname(out_file), exist_ok=True)
-                if os.path.exists(out_file):
-                    os.remove(out_file)
-                ds_vertint.to_nc(out_file, overwrite=True, zip=True)
-                print(f"  Saved: {out_file}")
+        # now do vertical integration if needed
+        if summaries[var_name].vertical_integration:
+            ds_vertint = ds.copy()
+            ds_vertint.subset(years=clim_years)
+            ds_vertint.tmean()
+            thickness = session_info["ds_thickness"]
+            if thickness is None:
+                ds_vertint.vertical_integration(fixed = True)
+            else:
+                ds_vertint.vertical_integration(thickness = ds_cell_thickness)
+            # climatological years
+            out_file = f"{summary_dir}/data/{var_name}/{var_name}_verticalintegrated_climatology.nc"
+            os.makedirs(os.path.dirname(out_file), exist_ok=True)
+            if os.path.exists(out_file):
+                os.remove(out_file)
+            ds_vertint.to_nc(out_file, overwrite=True, zip=True)
+            print(f"  Saved: {out_file}")
 
-                # now do the spatial mean timeseries
+            # now do the spatial mean timeseries
+            if trends:
                 ds_trends = ds.copy()
-                trend_info = summaries[var_name].trends
                 period = trend_info["period"]
                 ds_trends.subset(years = range(period[0], period[1] + 1))
                 window = trend_info["window"]
@@ -715,7 +716,6 @@ def summarize(
                     ds_trends.vertical_integration(fixed = True)
                 else:
                     ds_trends.vertical_integration(thickness = ds_cell_thickness)
-                ds_trends.fix_amm7_grid()
                 ds_trends.spatial_sum(by_area = True)
                 out_file = f"{summary_dir}/data/{var_name}/{var_name}_verticalintegrated_spatialsumtimeseries.nc"
                 os.makedirs(os.path.dirname(out_file), exist_ok = True)
@@ -724,6 +724,7 @@ def summarize(
 
                 ds_trends.to_nc(out_file, overwrite=True, zip=True)
 
+        if trends:
             ds_trends = ds.copy()
             ds_trends.top()
             ds_trends.spatial_mean()
@@ -743,10 +744,6 @@ def summarize(
             ds_trends.to_nc(out_file, overwrite=True, zip=True)
 
             
-        except Exception as e:
-            print(f"  Error processing {var_name}: {str(e)}")
-            warnings.warn(f"Failed to process {var_name}: {str(e)}")
-            continue
     
         # Save summaries configuration
         config_file = os.path.join(f"{summary_dir}/data/{var_name}", "summaries_config.pkl")
