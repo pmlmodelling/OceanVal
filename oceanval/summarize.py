@@ -11,6 +11,7 @@ import nctoolkit as nc
 import random
 import pandas as pd
 import re
+import dill
 
 from shutil import copyfile
 from oceanval.session import session_info
@@ -512,7 +513,6 @@ def summarize(
     # Check if any summaries have been defined
     if len(summaries.keys) == 0:
         raise ValueError("You do not appear to have defined any summary variables! Use add_summary() to define them.")
-
     
     # Create output directory
     summary_dir = os.path.join(out_dir, "oceanval_summaries")
@@ -527,10 +527,11 @@ def summarize(
     )
     print("Variable mapping extraction complete.")
     print(all_df)
-    x = input("Are you happy with the variable mappings shown above? Y/N: ")
-    if x.lower() != "y":
-        print("Exiting summarization. Please redefine your summary variables as needed.")
-        return
+    if ask:
+        x = input("Are you happy with the variable mappings shown above? Y/N: ")
+        if x.lower() != "y":
+            print("Exiting summarization. Please redefine your summary variables as needed.")
+            return
 
     patterns = list(set(all_df.pattern))
     times_dict = dict()
@@ -642,14 +643,20 @@ def summarize(
         # Apply depth range if specified
         ds.merge("time")
         ds.tmean("year")
+        short_title = summaries[var_name].short_title
+        ds.set_longnames({model_var: short_title})
         ds.run()
+
 
         # now do the climatology
         clim_years = summaries[var_name].climatology_years
-        ds_clim = ds.copy()
-        ds_clim.subset(years=range(clim_years[0], clim_years[1] + 1))
-        ds_clim.top()
-        ds_clim.tmean()
+        # do this quietly
+        with warnings.catch_warnings(record=True) as w:
+            ds_clim = ds.copy()
+            ds_clim.subset(years=range(clim_years[0], clim_years[1] + 1))
+            ds_clim.top()
+            ds_clim.tmean()
+            ds_clim.run()
             
         # Prepare output filename
         out_file = f"{summary_dir}/data/{var_name}/{var_name}_surface_climatology.nc"
@@ -670,78 +677,104 @@ def summarize(
         trends = trend_info is not None
         # now figure out if vertical mean is neeed
         if summaries[var_name].vertical_mean:
-            ds_vertmean = ds.copy()
-            ds_vertmean.subset(years=clim_years)
-            ds_vertmean.tmean()
-            thickness = session_info["ds_thickness"]
-            if thickness is None:
-                ds_vertmean.vertical_mean(fixed = True)
-            else:
-                ds_vertmean.vertical_mean(thickness = ds_cell_thickness)
-            # climatological years
-            out_file = f"{summary_dir}/data/{var_name}/{var_name}_verticalmean_climatology.nc"
-            os.makedirs(os.path.dirname(out_file), exist_ok=True)
-            if os.path.exists(out_file):
-                os.remove(out_file)
-            ds_vertmean.to_nc(out_file, overwrite=True, zip=True)
-            print(f"  Saved: {out_file}")
+            # quietly
+            with warnings.catch_warnings(record=True) as w:
+                ds_vertmean = ds.copy()
+                ds_vertmean.subset(years=clim_years)
+                ds_vertmean.tmean()
+                thickness = session_info["ds_thickness"]
+                if thickness is None:
+                    ds_vertmean.vertical_mean(fixed = True)
+                else:
+                    ds_vertmean.vertical_mean(thickness = ds_cell_thickness)
+                # climatological years
+                out_file = f"{summary_dir}/data/{var_name}/{var_name}_verticalmean_climatology.nc"
+                os.makedirs(os.path.dirname(out_file), exist_ok=True)
+                if os.path.exists(out_file):
+                    os.remove(out_file)
+                ds_vertmean.to_nc(out_file, overwrite=True, zip=True)
+                print(f"  Saved: {out_file}")
+            
+                # do trends if needed
+            if trends:
+                with warnings.catch_warnings(record=True) as w:
+                    ds_trends = ds.copy()
+                    period = trend_info["period"]
+                    ds_trends.subset(years = range(period[0], period[1] + 1))
+                    window = trend_info["window"]
+                    if window != 1:
+                        ds_trends.rolling_mean(window)
+                    if thickness is None:
+                        ds_trends.vertical_mean(fixed = True)
+                    else:
+                        ds_trends.vertical_mean(thickness = ds_cell_thickness)
+                    ds_trends.spatial_mean()
+                    out_file = f"{summary_dir}/data/{var_name}/{var_name}_verticalmean_spatialmeantimeseries.nc"
+                    os.makedirs(os.path.dirname(out_file), exist_ok = True)
+                    if os.path.exists(out_file):
+                        os.remove(out_file)
+
+                    ds_trends.to_nc(out_file, overwrite=True, zip=True)
             
         # now do vertical integration if needed
         if summaries[var_name].vertical_integration:
-            ds_vertint = ds.copy()
-            ds_vertint.subset(years=clim_years)
-            ds_vertint.tmean()
-            thickness = session_info["ds_thickness"]
-            if thickness is None:
-                ds_vertint.vertical_integration(fixed = True)
-            else:
-                ds_vertint.vertical_integration(thickness = ds_cell_thickness)
-            # climatological years
-            out_file = f"{summary_dir}/data/{var_name}/{var_name}_verticalintegrated_climatology.nc"
-            os.makedirs(os.path.dirname(out_file), exist_ok=True)
-            if os.path.exists(out_file):
-                os.remove(out_file)
-            ds_vertint.to_nc(out_file, overwrite=True, zip=True)
-            print(f"  Saved: {out_file}")
+            with warnings.catch_warnings(record=True) as w:
+                ds_vertint = ds.copy()
+                ds_vertint.subset(years=clim_years)
+                ds_vertint.tmean()
+                thickness = session_info["ds_thickness"]
+                if thickness is None:
+                    ds_vertint.vertical_integration(fixed = True)
+                else:
+                    ds_vertint.vertical_integration(thickness = ds_cell_thickness)
+                # climatological years
+                out_file = f"{summary_dir}/data/{var_name}/{var_name}_verticalintegrated_climatology.nc"
+                os.makedirs(os.path.dirname(out_file), exist_ok=True)
+                if os.path.exists(out_file):
+                    os.remove(out_file)
+                ds_vertint.to_nc(out_file, overwrite=True, zip=True)
+                print(f"  Saved: {out_file}")
 
             # now do the spatial mean timeseries
             if trends:
+                with warnings.catch_warnings(record=True) as w:
+                    ds_trends = ds.copy()
+                    period = trend_info["period"]
+                    ds_trends.subset(years = range(period[0], period[1] + 1))
+                    window = trend_info["window"]
+                    if window != 1:
+                        ds_trends.rolling_mean(window)
+                    if thickness is None:
+                        ds_trends.vertical_integration(fixed = True)
+                    else:
+                        ds_trends.vertical_integration(thickness = ds_cell_thickness)
+                    ds_trends.spatial_sum(by_area = True)
+                    out_file = f"{summary_dir}/data/{var_name}/{var_name}_verticalintegrated_spatialsumtimeseries.nc"
+                    os.makedirs(os.path.dirname(out_file), exist_ok = True)
+                    if os.path.exists(out_file):
+                        os.remove(out_file)
+
+                    ds_trends.to_nc(out_file, overwrite=True, zip=True)
+
+        if trends:
+            with warnings.catch_warnings(record=True) as w:
                 ds_trends = ds.copy()
+                ds_trends.top()
+                ds_trends.spatial_mean()
+                # find out the window
+                trend_info = summaries[var_name].trends
                 period = trend_info["period"]
                 ds_trends.subset(years = range(period[0], period[1] + 1))
                 window = trend_info["window"]
                 if window != 1:
                     ds_trends.rolling_mean(window)
-                if thickness is None:
-                    ds_trends.vertical_integration(fixed = True)
-                else:
-                    ds_trends.vertical_integration(thickness = ds_cell_thickness)
-                ds_trends.spatial_sum(by_area = True)
-                out_file = f"{summary_dir}/data/{var_name}/{var_name}_verticalintegrated_spatialsumtimeseries.nc"
-                os.makedirs(os.path.dirname(out_file), exist_ok = True)
+                # save it
+                out_file = f"{summary_dir}/data/{var_name}/{var_name}_surface_spatialmeantimeseries.nc"
+                os.makedirs(os.path.dirname(out_file), exist_ok=True)
                 if os.path.exists(out_file):
                     os.remove(out_file)
 
                 ds_trends.to_nc(out_file, overwrite=True, zip=True)
-
-        if trends:
-            ds_trends = ds.copy()
-            ds_trends.top()
-            ds_trends.spatial_mean()
-            # find out the window
-            trend_info = summaries[var_name].trends
-            period = trend_info["period"]
-            ds_trends.subset(years = range(period[0], period[1] + 1))
-            window = trend_info["window"]
-            if window != 1:
-                ds_trends.rolling_mean(window)
-            # save it
-            out_file = f"{summary_dir}/data/{var_name}/{var_name}_surface_spatialmeantimeseries.nc"
-            os.makedirs(os.path.dirname(out_file), exist_ok=True)
-            if os.path.exists(out_file):
-                os.remove(out_file)
-
-            ds_trends.to_nc(out_file, overwrite=True, zip=True)
 
             
     
@@ -812,11 +845,18 @@ def summarize(
          # copy file
         copyfile(file1, vv_out)
 
+        ff = f"{summary_dir}/data/{vv}/summaries_config.pkl"
+        with open(ff, "rb") as f:
+            ff_dict = dill.load(f)
+        short_title = ff_dict[vv].short_title
+        # read this in
         # read vv_out in and do some replacing
         with open(vv_out, "r") as file:
             filedata = file.read()
         # Replace the target string
         filedata = filedata.replace("VARIABLE_NAME", vv)
+        filedata = filedata.replace("SHORT_TITLE", short_title)
+        
         
         # write
         with open(vv_out, "w") as file:
