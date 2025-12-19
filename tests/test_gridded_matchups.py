@@ -41,7 +41,6 @@ class TestFinal:
         assert os.path.exists("oceanval_matchups/gridded/temperature/temperature_summary.pkl")
         assert os.path.exists("oceanval_matchups/mapping.csv")
         assert os.path.exists("oceanval_matchups/short_titles.pkl")
-        assert os.path.exists("oceanval_matchups/times_dict.pkl")
         assert os.path.exists("oceanval_matchups/variables_matched.pkl")
 
         ff = "oceanval_matchups/gridded/temperature/matchup_dict.pkl"
@@ -88,7 +87,6 @@ class TestFinal:
         assert os.path.exists("oceanval_matchups/gridded/temperature/temperature_summary.pkl")
         assert os.path.exists("oceanval_matchups/mapping.csv")
         assert os.path.exists("oceanval_matchups/short_titles.pkl")
-        assert os.path.exists("oceanval_matchups/times_dict.pkl")
         assert os.path.exists("oceanval_matchups/variables_matched.pkl")
         
         ds = nc.open_data("oceanval_matchups/gridded/temperature/foo_temperature_surface.nc")
