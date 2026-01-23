@@ -54,7 +54,7 @@ def df_display(df):
     # coerce numeric columns to str
     # if number is in the column title, make sure the variable is int
 
-    df = df.applymap(lambda x: f"{x:.2f}" if isinstance(x, float) else x)
+    df = df.map(lambda x: f"{x:.2f}" if isinstance(x, float) else x)
     # capitalize unit column name, if it exists
     if "unit" in df.columns:
         df = df.rename(columns={"unit": "Unit"})
