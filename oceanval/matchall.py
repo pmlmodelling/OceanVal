@@ -29,16 +29,16 @@ from oceanval.parsers import generate_mapping
 from oceanval.gridded import gridded_matchup
 
 
-def read_point(ff):
+def read_point(ff, nrows = None):
     try:
-        df = pd.read_csv(ff)   
+        df = pd.read_csv(ff, nrows=nrows)   
         return df
     except:
         pass 
     compressions = ['infer', 'gzip', 'bz2', 'zip', 'xz']
     for compression in compressions: 
         try:
-            df = pd.read_csv(ff, compression = compression)   
+            df = pd.read_csv(ff, compression = compression, nrows=nrows)   
             return df
         except:
             pass
