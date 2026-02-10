@@ -6,23 +6,21 @@ import glob
 import warnings
 from oceanval.session import session_info
 
-def read_point(ff):
+
+def read_point(ff, nrows = None):
     try:
-        df = pd.read_csv(ff)   
+        df = pd.read_csv(ff, nrows=nrows)   
         return df
     except:
         pass 
     compressions = ['infer', 'gzip', 'bz2', 'zip', 'xz']
     for compression in compressions: 
         try:
-            df = pd.read_csv(ff, compression = compression)   
+            df = pd.read_csv(ff, compression = compression, nrows=nrows)   
             return df
         except:
             pass
     raise ValueError(f"Could not read file {ff} with any of the following compression types: {compressions}. Error: {e}")
-
-
-#session_info["keys"] = []
 
 recipe_list = [
     {"chlorophyll": "occci"},
