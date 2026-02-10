@@ -6,6 +6,22 @@ import glob
 import warnings
 from oceanval.session import session_info
 
+def read_point(ff):
+    try:
+        df = pd.read_csv(ff)   
+        return df
+    except:
+        pass 
+    compressions = ['infer', 'gzip', 'bz2', 'zip', 'xz']
+    for compression in compressions: 
+        try:
+            df = pd.read_csv(ff, compression = compression)   
+            return df
+        except:
+            pass
+    raise ValueError(f"Could not read file {ff} with any of the following compression types: {compressions}. Error: {e}")
+
+
 #session_info["keys"] = []
 
 recipe_list = [
@@ -757,7 +773,7 @@ class Validator:
         vertical_option = False
         for vv in point_files:
             # read in the first row
-            df = pd.read_csv(vv, nrows=1)
+            df = read_point(vv, nrows=1)
             # throw error something else is in there
             bad_cols = [col for col in df.columns if col not in valid_vars]
             if len(bad_cols) > 0:

@@ -29,6 +29,23 @@ from oceanval.parsers import generate_mapping
 from oceanval.gridded import gridded_matchup
 
 
+def read_point(ff):
+    try:
+        df = pd.read_csv(ff)   
+        return df
+    except:
+        pass 
+    compressions = ['infer', 'gzip', 'bz2', 'zip', 'xz']
+    for compression in compressions: 
+        try:
+            df = pd.read_csv(ff, compression = compression)   
+            return df
+        except:
+            pass
+    raise ValueError(f"Could not read file {ff} with any of the following compression types: {compressions}. Error: {e}")
+
+
+
 def is_z_up(ff, variable=None):
     import netCDF4 as nc4
 
@@ -1260,7 +1277,7 @@ def matchup(
                                 ]
                             
                             def read_csv_simyears(ff, layer = None):
-                                df = pd.read_csv(ff)
+                                df = read_point(ff)
                                 min_year = session_info["min_year"]
                                 max_year = session_info["max_year"]
                                 if "year" in df.columns:
