@@ -29,7 +29,7 @@ extras_require: dict() = dict()
 REQUIREMENTS = [i.strip() for i in open("requirements.txt").readlines()]
 
 setup(name='oceanval',
-      version='0.1.9',
+      version='0.2.0',
       description=DESCRIPTION,
       long_description=LONG_DESCRIPTION,
       python_requires='>=3.6.1',
