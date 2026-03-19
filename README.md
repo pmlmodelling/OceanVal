@@ -8,21 +8,24 @@
 
 
 
-# oceanVal 
-Marine ecosystem model validation made easy in Python
+# OceanVal 
+
+Ocean model validation made easy in Python.
+
+To learn more about the package, visit the [OceanVal website](https://oceanval.readthedocs.io/en/latest/). The
 
 
 # Installation 
 
-oceanVal should be used with Python versions 3.10-3.13.
+OceanVal should be used with Python versions 3.10-3.13.
 
-You can install the latest release oceanVal from conda-forge as follows:
+You can install the latest release OceanVal from conda-forge as follows:
 
 ```sh
 conda install conda-forge::oceanval
 ```
 
-You can install the development version of oceanVal from GitHub using the following steps.
+You can install the development version of OceanVal from GitHub using the following steps.
 
 First, clone this directory:
 
@@ -81,4 +84,3 @@ Alternatively, install the conda environment and package using the following com
     pip install git+https://github.com/pmlmodelling/oceanval.git​
 ```
 
-A website and user guide is available at: https://oceanval.readthedocs.io/en/latest/.

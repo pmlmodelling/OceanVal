@@ -4,10 +4,10 @@ Installation and a quick example
 **System requirements** You will need to run this on a Linux system.
 
 
-oceanVal should be used with Python versions 3.10-3.13.
+OceanVal should be used with Python versions 3.10-3.13.
 
-The best way to install oceanVal is via conda. You will need to have conda installed first. If you do not have conda installed, please follow the instructions at https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html.
-Once you have conda installed, you can create a new conda environment and install oceanVal using the following command:
+The best way to install OceanVal is via conda. You will need to have conda installed first. If you do not have conda installed, please follow the instructions at https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html.
+Once you have conda installed, you can create a new conda environment and install OceanVal using the following command:
 
    $ conda install conda-forge::oceanval 
 
@@ -15,7 +15,7 @@ Once you have conda installed, you can create a new conda environment and instal
 A short example
 -------------------
 
-If you want to quickly understand what oceanVal can do, you can run the following example in a Python script or Jupyter notebook. It should take a couple of minutes to run. 
+If you want to quickly understand what OceanVal can do, you can run the following example in a Python script or Jupyter notebook. It should take a couple of minutes to run. 
 
 This example can be viewed `here <https://pmlmodelling.github.io/oceanval_example/intro.html>`_.
 
@@ -57,4 +57,4 @@ This quick example will compare sea surface temperature for 2014 from a global c
 An html page should open in your browser showing how the two compare.
 In this case a built-in recipe is used for downloading the COBE2 sea surface temperature dataset [https://psl.noaa.gov/data/gridded/data.cobe2.html].
 
-Note: this is just an example of the use of oceanVal, not a rigorous way to validate a climate model.
+Note: this is just an example of the use of OceanVal, not a rigorous way to validate a climate model.

@@ -1,7 +1,7 @@
-How to use oceanVal
+How to use OceanVal
 =====================
 
-Validating simulations using oceanVal involves three steps:
+Validating simulations using OceanVal involves three steps:
 
     **1**. Register the observational datasets you want to use for validation
 
@@ -9,7 +9,7 @@ Validating simulations using oceanVal involves three steps:
 
     **3**. Calculate validation statistics, generate plots and create an html summary of the performance of the simulation
 
-**You should always create a new directory prior to running oceanVal for a new simulation, and then run all oceanVal commands from within that directory.**
+**You should always create a new directory prior to running OceanVal for a new simulation, and then run all OceanVal commands from within that directory.**
 
 Step 1: Register observational datasets
 ------------------------------------
@@ -22,12 +22,12 @@ You can register both gridded and in-situ observational datasets using the `ocea
 
 To register an in-situ observational dataset, you will need to specify the following:
 
-- `name`: A name for the dataset, e.g. "temperature". This is so that oceanVal can keep track of things. You can call this what you want, but it can only contain numbers and letters.
+- `name`: A name for the dataset, e.g. "temperature". This is so that OceanVal can keep track of things. You can call this what you want, but it can only contain numbers and letters.
 - `source`: The source of the observational data (e.g. "NOAA"). 
 - `model_variable`: A string specifying the name of the model variable to compare against the observations. 
 - `obs_path`: The path to a file or directory containing the observational data files.
 
-Note: when specifying a directory as `obs_path` ensure that the directory only contains files relevant to the observational variable being registered, as oceanVal will recursively identify and use all netCDF files in the directory.
+Note: when specifying a directory as `obs_path` ensure that the directory only contains files relevant to the observational variable being registered, as OceanVal will recursively identify and use all netCDF files in the directory.
 
 The following optional parameters can also be specified:
 
@@ -55,9 +55,9 @@ An example is shown below:
         obs_path="/path/to/obs_data/",
     )
 
-.. admonition:: How does oceanVal handle variable names?
+.. admonition:: How does OceanVal handle variable names?
 
-    You can use whatever you want for the `name` parameter when registering observational datasets. This is only used internally by oceanVal to keep track of things, to name files etc.
+    You can use whatever you want for the `name` parameter when registering observational datasets. This is only used internally by OceanVal to keep track of things, to name files etc.
     Reports and plots will use the `short_name`, `long_name` and `short_title` parameters for labelling. If you want a better looking report, you should set these parameters.
 
     You can only validate variables using a single gridded and a single point (in-situ) dataset each time you run a validation.
@@ -68,14 +68,14 @@ An example is shown below:
 
 To register a gridded observational dataset, you will need to specify the following:
 
-- `name`: A name for the dataset, e.g. "temperature". This is so that oceanVal can keep track of things.
+- `name`: A name for the dataset, e.g. "temperature". This is so that OceanVal can keep track of things.
 - `source`: The source of the observational data (e.g. "CMEMS"). 
 - `model_variable`: A string specifying the name of the model variable to compare against the observations.
 - `obs_path`: The path to the directory containing the observational data files.
 - `obs_variable`: A string specifying the name of the variable in the observational data files.
 - `climatology`: A boolean indicating whether the observational data is a climatology. 
 
-Note: if you do not provide `obs_variable`, oceanVal will assume there is only one variable in the observational data files, and will use that variable for validation. 
+Note: if you do not provide `obs_variable`, OceanVal will assume there is only one variable in the observational data files, and will use that variable for validation. 
 
 The following optional parameters can also be specified:
 
@@ -111,20 +111,20 @@ If you are registering the same variable separate for point and gridded data, ma
 You will get an error if you are inconsistent.
 
 
-.. admonition:: How does oceanVal handle gridded data?
+.. admonition:: How does OceanVal handle gridded data?
 
-    oceanVal works on the basis that gridded data can be converted to one of the following:
+    OceanVal works on the basis that gridded data can be converted to one of the following:
 
     1. A time series of multi-year monthly averages for each grid cell
     2. A climatological monthly average for each grid cell 
     3. A climatological annual average for each grid cell
 
-    If you provide multi-year observational data, oceanVal will calculate a mult-year observational average, which is compared with the model in a like-for-like manner.    
+    If you provide multi-year observational data, OceanVal will calculate a mult-year observational average, which is compared with the model in a like-for-like manner.    
 
-    If you provide single-year observational data with monthly resolution, oceanVal will generate a comparable climatological monthly average from the model simulation output for comparison.
+    If you provide single-year observational data with monthly resolution, OceanVal will generate a comparable climatological monthly average from the model simulation output for comparison.
     This will be based on the year range you have specified.
 
-    If you have provided a single-year observational dataset with only one time step, oceanVal will assume this is a climatological annual average.
+    If you have provided a single-year observational dataset with only one time step, OceanVal will assume this is a climatological annual average.
     A model climatological annual average will be generated from the simulation output for comparison.
 
     **The simulation output will always be regridded to the observational grid.**
@@ -157,7 +157,7 @@ The following optional parameters can also be specified:
 - `exclude`: A list of strings that should not appear in any simulation files paths. 
 - `out_dir`: The path to the directory where matchup files should be saved. If not specified, matchup files will be saved in the execution directory.
 - `point_time_res`: The time resolution for the point (in-situ) observation matchup. This defaults ["year", "month", "day"] for totally precise matchups. Set to ["month", "day"], if you want to compare climatological simulation output with observations.
-- `n_check`: The number of files to check when identifying the file naming convention. oceanVal checks all files in a random subdirectory. Set n_check for a random subset in cases where all simulation files are in a single directory. 
+- `n_check`: The number of files to check when identifying the file naming convention. OceanVal checks all files in a random subdirectory. Set n_check for a random subset in cases where all simulation files are in a single directory. 
 - `as_missing`: A float or list of floats providing a range , i.e [min, max], specifying values to be treated as missing in the model output.
 
 An example is shown below:
@@ -175,7 +175,7 @@ An example is shown below:
     )
 .. admonition:: Requirements for simulation folder structure
 
-    oceanVal requires that simulation output is either stored in a single directory
+    OceanVal requires that simulation output is either stored in a single directory
     or in subdirectories that follow something like YYYY/MM/ structure.
     If there are subdirectories, **they must** only contain integers.
     This the typical way of storing simulation output for ocean models. 
@@ -193,26 +193,26 @@ This will result in day of year being ignored when matching up observations with
 Sometimes observational data needs to be compared with the sum of multiple model variable.
 You can do this by setting something like "var1+var2+var3" as the `model_variable` when registering the observational dataset.
 
-.. admonition:: How does oceanVal handle in-situ data?
+.. admonition:: How does OceanVal handle in-situ data?
 
-    oceanVal will handle in-situ data observational data depending on which of the following are provided:
+    OceanVal will handle in-situ data observational data depending on which of the following are provided:
 
     - year 
     - month
     - day
     - depth
 
-    If depth is not provided, oceanVal will assume this represents a surface observational dataset. 
-    If you do provide depth, oceanVal will interpolate to all available depth-resolved data if you have specified `vertical=True` in `add_point_comparison`, otherwise it will only use the top 5m of data.
+    If depth is not provided, OceanVal will assume this represents a surface observational dataset. 
+    If you do provide depth, OceanVal will interpolate to all available depth-resolved data if you have specified `vertical=True` in `add_point_comparison`, otherwise it will only use the top 5m of data.
     By default it only looks at the surface. 
 
-    If you provide year, month and day, oceanVal will look for model output at the exact date of the observation.
+    If you provide year, month and day, OceanVal will look for model output at the exact date of the observation.
 
-    If you provide year and month, but not day, oceanVal will look for model output for the whole month of the observation, and use the monthly average from the simulation.
+    If you provide year and month, but not day, OceanVal will look for model output for the whole month of the observation, and use the monthly average from the simulation.
 
-    If you only provide year, oceanVal will look for model output for the whole year of the observation, and use the annual average from the simulation.
+    If you only provide year, OceanVal will look for model output for the whole year of the observation, and use the annual average from the simulation.
 
-    If no time information is provided, oceanVal will use the multi-year average from the simulation output for comparison with the observation.
+    If no time information is provided, OceanVal will use the multi-year average from the simulation output for comparison with the observation.
 
     In some cases, you may want to ignore the year information in the observational data.
     For example, you may have only a 1-year simulation and you want to validate based on all available years of observations, only using month and day information in the observational data.
@@ -220,9 +220,9 @@ You can do this by setting something like "var1+var2+var3" as the `model_variabl
     Set this to `["month", "day"]` to ignore year information when matching up observations with the simulation output.
 
 
-.. admonition:: Where does oceanVal save matchup files?
+.. admonition:: Where does OceanVal save matchup files?
 
-    By default, oceanVal will save matchup files in the directory where you run the `oceanval.matchup` function.
+    By default, OceanVal will save matchup files in the directory where you run the `oceanval.matchup` function.
     You can find the files in oceanval_matchups/gridded or oceanval_matchups/point subdirectories.
 
     Gridded matchups will end with ".nc", while point matchups will end with ".csv".
@@ -251,9 +251,9 @@ The following options are available:
 This will then generate and open an html page that can be viewed in a web browser.
 
 
-.. admonition:: Can I access and use oceanVal's validation code? 
+.. admonition:: Can I access and use OceanVal's validation code? 
 
-    Yes. oceanVal uses juypyter notebooks to carry out the validation calculations and generate plots.
+    Yes. OceanVal uses juypyter notebooks to carry out the validation calculations and generate plots.
     These notebooks can be found in the `oceanval_report/notebooks` directory where the validation output was stored.
     You can copy these notebooks and use them to create a more customized validation.
-    The notebooks themselves are designed for internal use by oceanVal, and are not designed to be user-friendly, but they should be clear enough. 
+    The notebooks themselves are designed for internal use by OceanVal, and are not designed to be user-friendly, but they should be clear enough. 

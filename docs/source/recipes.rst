@@ -1,7 +1,7 @@
 Data Recipes
 =============
 
-To make life easier, oceanVal provides a number of built in recipes, which will allow you to easily validate common oceanic variables from data that is downloadable.
+To make life easier, OceanVal provides a number of built in recipes, which will allow you to easily validate common oceanic variables from data that is downloadable.
 
 **Note**: recipes are only available for gridded data at present.
 

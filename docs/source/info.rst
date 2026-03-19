@@ -2,7 +2,7 @@
 Package info
 =======================================================
 
-oceanVal was created by Robert Wilson at Plymouth Marine Laboratory (PML).
+OceanVal was created by Robert Wilson at Plymouth Marine Laboratory (PML).
 
 
 Bugs and issues

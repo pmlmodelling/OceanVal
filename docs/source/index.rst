@@ -1,4 +1,4 @@
-oceanVal: Automated ocean model validation 
+OceanVal: Automated ocean model validation 
 =======================================================
 
 Automatic validation of ocean models in Python. 

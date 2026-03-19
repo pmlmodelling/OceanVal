@@ -7,7 +7,7 @@ How do I validate multiple simulations?
 If you want to validate multiple simulations with a single script, 
 you should make use of the `out_dir` option in the 
 `oceanval.matchup` and `data_dir` and `output_dir` options in the  `oceanVal.validate` functions.
-These will enable oceanVal to store output in separate folders.
+These will enable OceanVal to store output in separate folders.
 
 When your code has finished validating one simulation, you should reset things as follows:
 
@@ -24,7 +24,7 @@ you a clean slate to validate the next simulation.
 How do I speed up validations? 
 ------------------------------------
 
-By default, oceanVal will use 6 CPU cores to carry out matchups. 
+By default, OceanVal will use 6 CPU cores to carry out matchups. 
 If you want to speed things up, change this number in the `oceanval.matchup` function using the `cores` argument.
 
 For example, to use 12 cores:
@@ -50,7 +50,7 @@ This message should be ignored. It is a quirk in the behaviour of a dependency o
 Can I validate using gridded observational data from openDAP?
 ------------------------------------
 
-Yes. oceanVal can access gridded observational data from openDAP servers.
+Yes. OceanVal can access gridded observational data from openDAP servers.
 The file path will just need to end with ".nc".
 
 You can use the `oceanval.add_gridded_comparison` function to add the observational data as usual,
@@ -152,22 +152,22 @@ if it is a file containing the thicknesses. If the thickness variable is stored 
         ...
     )   
 
-oceanVal will then search for the variable and extract the thicknesses for you.
+OceanVal will then search for the variable and extract the thicknesses for you.
 
 
 
-I would like a new feature in oceanVal. How can I request this?
+I would like a new feature in OceanVal. How can I request this?
 ------------------------------------
 
-Please open an issue on the oceanVal GitHub page:
+Please open an issue on the OceanVal GitHub page:
 https://github.com/pmlmodelling/oceanVal/issues.
 
 
 
-Can I use oceanVal to compare simulations against each other?
+Can I use OceanVal to compare simulations against each other?
 ------------------------------------
 
-oceanVal is not explicitly designed to compare simulations against each other, but you can do this by treating one simulation as "observations".
+OceanVal is not explicitly designed to compare simulations against each other, but you can do this by treating one simulation as "observations".
 This will only work for the gridded comparison, not the point comparison.
 If you do this, you should see how simulations compare climatologically and across time.
 
@@ -176,9 +176,9 @@ If you do this, you should see how simulations compare climatologically and acro
 How do I remove files hanging over from previous runs?
 ------------------------------------
 
-oceanVal generates some temporary files during the validation process, which should be automatically removed by the end of the session.
+OceanVal generates some temporary files during the validation process, which should be automatically removed by the end of the session.
 However, files can sometimes be left behind due to system crashes etc.
-oceanVal will tell you this when you import it.
+OceanVal will tell you this when you import it.
 
 If this happens, you can remove them as follows:
 
@@ -192,7 +192,7 @@ Alternatively, you can just go to your temporary directory and just find files w
 How do I ensure the model and observational data have the same units?
 ------------------------------------
 
-Internally, oceanVal will assume that the model and observational data are in the same units.
+Internally, OceanVal will assume that the model and observational data are in the same units.
 However, you can modify the the observational data units using the `obs_multiplier` or `model_adder` arguments in the `oceanval.add_point_comparison` and `oceanval.add_gridded_comparison` functions.
 
 For example, if you wanted to convert observational data from mol/m3 to mmol/m3, you could do: 
@@ -205,7 +205,7 @@ For example, if you wanted to convert observational data from mol/m3 to mmol/m3,
         ...
     )
 
-**Note**: there is special handling when you name a variable "temperature", where oceanVal will automatically convert the obseration to the model units. 
+**Note**: there is special handling when you name a variable "temperature", where OceanVal will automatically convert the obseration to the model units. 
 
 Why do I need to say if gridded data is climatological?
 ------------------------------------
@@ -217,7 +217,7 @@ and therefore should only be matched up for the year 2000, or if it is a climato
 multi-year average from the simulation.
 
 
-Can I change oceanVal's analysis?
+Can I change OceanVal's analysis?
 ------------------------------------
 Yes. If you want to fine-tune things, such as changing a plot-colour scale or tweaking language, you can.
 You will need to open the jupyter notebooks located in the "oceanval_report/notebooks" directory.
@@ -230,14 +230,14 @@ Once you have modified them you can then rebuild the report using:
 
 This will overwrite your original report with the results of the modified analysis.
 
-How do I make sure oceanVal uses the correct simulation files?
+How do I make sure OceanVal uses the correct simulation files?
 ------------------------------------
 
-oceanVal will automatically identify the file path pattern in a directory that identifies the simulation
+OceanVal will automatically identify the file path pattern in a directory that identifies the simulation
 files that contain a specific variable. 
 
 It will tell you the file pattern it has identified, along with an example of a file it will use.
-Furthermore, by default oceanVal is strict about the naming convention, so a file will have to have as many characters as the example given.
+Furthermore, by default OceanVal is strict about the naming convention, so a file will have to have as many characters as the example given.
 
 For example, consider a case where the general file pattern was something like this:
 
@@ -251,7 +251,7 @@ oceanval would then only consider files with basename lengths of 36 characters (
 
 In almost all cases this will pull out the correct files. 
 
-However, in some cases the files may not have a totally strict naming convention, which can trip up oceanVal.
+However, in some cases the files may not have a totally strict naming convention, which can trip up OceanVal.
 In this case you will want to use the `exclude` parameters in the `oceanval.matchup` function. This will ignore certain files that contain
 particular character strings.
 
@@ -280,7 +280,7 @@ Just set strict_names to False as follows:
         ...
     )
 
-In this case, the pattern stays the same, but oceanVal will not filter files based on the length of the basenames.
+In this case, the pattern stays the same, but OceanVal will not filter files based on the length of the basenames.
 
 Can I add information about my simulation in the report?
 ------------------------------------
