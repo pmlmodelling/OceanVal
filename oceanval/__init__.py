@@ -329,6 +329,10 @@ def validate(
         out = f"{book_dir}/" + os.path.basename(data_path)
         copyfile(data_path, out)
 
+        data_path = importlib.resources.files(__name__).joinpath("data/intro.md")
+        out = f"{book_dir}/" + os.path.basename(data_path)
+        copyfile(data_path, out)
+
         data_path = importlib.resources.files(__name__).joinpath(
             "data/requirements.txt"
         )
@@ -562,7 +566,6 @@ def validate(
                 os.path.dirname(file1) + "/" + i_pad + "_" + os.path.basename(file1)
             )
             os.rename(file1, new_file)
-            # print(key, value)
 
         # copy the summary.ipynb notebook and add i_pad to the name
 
