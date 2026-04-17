@@ -137,8 +137,6 @@ def validate(
     fixed_scale=False,
     data_dir=".",
     out_dir=".",
-    zip=False,
-    view=True,
     test=False,
     sim_info = None 
 ):
@@ -156,8 +154,6 @@ def validate(
         The variables to run the model evaluation for. Default is "all"
     fixed_scale : bool
         Whether to use a fixed scale for the seasonal plots. Default is False. If True, the minimum and maximum values are capped to cover the 2nd and 98th percentiles of both model and observations.
-    view : bool
-        Default is True. Open the validation report in a web browser after it is generated.
     test : bool
         Default is False. Ignore, unless you are testing oceanval.
     sim_info : dict or None
@@ -218,15 +214,6 @@ def validate(
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
     
-
-    # check zip is boolean
-    if isinstance(zip, bool) == False:
-        raise ValueError("zip must be a boolean")
-
-    # test view is boolean
-
-    if isinstance(view, bool) == False:
-        raise ValueError("view must be a boolean")
 
     path_df = []
 
@@ -653,15 +640,9 @@ def validate(
     # os.symlink(f"{book_dir}/_build/html/index.html", f"{out_dir}/oceanval_report.html")
     # create a symlink with relative directory
     os.symlink(os.path.relpath(out_ff, out_dir), f"{out_dir}/oceanval_report.html")
-    if view:
-        webbrowser.open(
-            "file://" + os.path.abspath(f"{book_dir}/_build/html/index.html")
-        )
-    if zip:
-        # zip html only
-        shutil.make_archive(
-            f"{out_dir}/oceanval_html", "zip", f"{book_dir}/_build/html"
-        )
+    webbrowser.open(
+        "file://" + os.path.abspath(f"{book_dir}/_build/html/index.html")
+    )
 
 
 def rebuild(data_dir="."):
