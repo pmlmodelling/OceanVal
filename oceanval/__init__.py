@@ -19,7 +19,8 @@ import re
 from oceanval.fvcom import fvcom_preprocess
 import importlib
 
-from oceanval.parsers import Validator, definitions, Summary, summaries
+from oceanval.parsers import Validator, definitions#, summaries
+#, Summary, summaries
 
 
 def reset():
@@ -31,7 +32,7 @@ def reset():
     # reset session_info["short_title"] to empty dict
     session_info["short_title"] = dict()
     definitions.reset()
-    summaries.reset()
+    #summaries.reset()
 
 
 notebook_dict = dict()
@@ -39,7 +40,7 @@ notebook_dict = dict()
 
 add_point_comparison = definitions.add_point_comparison
 add_gridded_comparison = definitions.add_gridded_comparison
-add_summary = summaries.add_summary
+#add_summary = summaries.add_summary
 
 
 def fix_toc(concise=True, data_dir=None, out_dir=None, info = False):

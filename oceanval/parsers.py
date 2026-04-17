@@ -866,6 +866,221 @@ class Validator:
 definitions = Validator()
 
 
+#class SummaryVariable:
+#    """Class to hold metadata for summary variables"""
+#    def __init__(self):
+#        self.name = None
+#        self.model_variable = None
+#        self.long_name = None
+#        self.short_name = None
+#        self.units = None
+#        self.vertical_integration = False
+#        self.vertical_merage = False
+#        self.horizontal_average = False
+#        
+#    def __str__(self):
+#        attrs = vars(self)
+#        return '\n'.join("%s: %s" % item for item in attrs.items())
+#    
+#    def __repr__(self):
+#        attrs = vars(self)
+#        return '\n'.join("%s: %s" % item for item in attrs.items())
+
+
+#class Summary:
+#    """
+#    Summary class for defining variables to be summarized from model output.
+#    
+#    This class allows you to specify how variables should be processed for summaries,
+#    including vertical integration, vertical averaging, horizontal averaging, etc.
+#    """
+#    
+#    keys = []
+#    
+#    def __delattr__(self, name):
+#        """Remove variable from keys list when deleted"""
+#        if name != "keys":
+#            if name in self.keys:
+#                self.keys.remove(name)
+#        super().__delattr__(name)
+#    
+#    def remove(self, name):
+#        """Remove a variable from the summary definitions"""
+#        if name != "keys":
+#            if name in self.keys:
+#                self.keys.remove(name)
+#        super().__delattr__(name)
+#    
+#    def reset(self):
+#        """Reset all summary definitions"""
+#        for key in self.keys:
+#            super().__delattr__(key)
+#        self.keys = []
+#    
+#    def __setattr__(self, name, value):
+#        """Add variable name to keys list when set"""
+#        if name != "keys":
+#            if name not in self.keys:
+#                self.keys.append(name)
+#        super().__setattr__(name, value)
+#    
+#    def __getitem__(self, key):
+#        """Allow dictionary-style access to variables"""
+#        return getattr(self, key, None)
+#    
+#    def add_summary(
+#        self,
+#        name=None,
+#        start = None,
+#        end = None,
+#        model_variable=None,
+#        long_name=None,
+#        short_name=None,
+#        short_title=None,   
+#        trends = None, 
+#        vertical_integration=False,
+#        vertical_mean =False,
+#        climatology_years = None,
+#        robust = False
+#    ):
+#        """
+#        Add a variable to be summarized from model output.
+#        
+#        Parameters
+#        ----------
+#        name : str
+#            Name identifier for the variable. Must contain only letters and numbers.
+#        model_variable : str
+#            Name of the variable in the model output files.
+#        long_name : str, optional
+#            Long descriptive name for the variable.
+#        short_name : str, optional
+#            Short name for the variable. Defaults to name if not provided.
+#        trends : dict
+#            Dictionary specifying trend calculation parameters with keys:
+#            'period' (list of two ints): Start and end years for trend calculation.
+#            'window' (int): Window size in years for trend smoothing.
+#        vertical_integration : bool, default False
+#            Whether to vertically integrate the variable.
+#        vertical_mean : bool, default False
+#            Whether to vertically average the variable.
+#        robust : bool, default False
+#            Whether to use a robust plot for climatologies 
+#        
+#        Returns
+#        -------
+#        None
+#        
+#        Raises
+#        ------
+#        ValueError
+#            If name is not provided, contains invalid characters, or if both
+#            vertical_integration and vertical_mean are True.
+#        
+#        Examples
+#        --------
+#        >>> summary = Summary()
+#        >>> summary.add_summary(
+#        ...     name="temperature",
+#        ...     model_variable="temp",
+#        ...     long_name="Sea Water Temperature",
+#        ...     vertical_mean=True,
+#        ... )
+#        """
+#        if start is None:
+#            raise ValueError("start year must be provided")
+#        if end is None:
+#            raise ValueError("end year must be provided")
+#
+#        # climatology_years must be a list of two integers if provided
+#        if climatology_years is None:
+#            raise ValueError("climatology_years must be provided as [start_year, end_year]")
+#        if climatology_years is not None:
+#            if not isinstance(climatology_years, (list, tuple)):
+#                raise ValueError("climatology_years must be a list or tuple of two integers [start_year, end_year]")
+#            if len(climatology_years) != 2:
+#                raise ValueError("climatology_years must contain exactly 2 values [start_year, end_year]")
+#            try:
+#                start_year = int(climatology_years[0])
+#                end_year = int(climatology_years[1])
+#                if start_year > end_year:
+#                    raise ValueError("start_year must be less than end_year in climatology_years")
+#            except (TypeError, ValueError) as e:
+#                raise ValueError("climatology_years values must be integers")
+#        
+#        # check robust is boolean
+#        if not isinstance(robust, bool):
+#            raise ValueError("robust must be a boolean value")
+#        
+#        # Validate required parameters
+#        if name is None:
+#            raise ValueError("Name must be provided")
+#        
+#        # Validate name contains only letters and numbers
+#        if not re.match("^[A-Za-z0-9]+$", name):
+#            raise ValueError("Name can only contain letters and numbers")
+#        
+#        if model_variable is None:
+#            raise ValueError("Model variable must be provided")
+#        
+#        # check trends is a dict with period and window
+#        if trends is not None:
+#            if not isinstance(trends, dict):
+#                raise ValueError("trends must be a dictionary with keys 'period' and 'window'")
+#            if "period" not in trends or "window" not in trends:
+#                raise ValueError("trends dictionary must contain 'period' and 'window' keys")
+#       # if short_name doesn't exist, set to name
+#        if short_name is None:
+#            short_name = name 
+#        if long_name is None:
+#            long_name = short_name  
+#        
+#        # if short_title is not provided, take it from short_name and capitalize
+#        if short_title is None:
+#            if short_name is not None:
+#                short_title = short_name.title()
+#            else:
+#                short_title = name.title()
+#        
+#        # Create variable if it doesn't exist, or get existing one
+#        if getattr(self, name, None) is None:
+#            var = SummaryVariable()
+#            setattr(self, name, var)
+#        else:
+#            var = self[name]
+#        
+#        var.trends = trends
+#        var.robust = robust 
+#        # Set attributes
+#        var.name = name
+#        var.start = start
+#        var.end = end
+#        var.model_variable = model_variable
+#        var.climatology_years = climatology_years
+#        var.short_title = short_title
+#        
+#        # Set optional attributes with defaults
+#        if long_name is not None:
+#            var.long_name = long_name
+#        else:
+#            var.long_name = name if var.long_name is None else var.long_name
+#        
+#        if short_name is not None:
+#            var.short_name = short_name
+#        else:
+#            var.short_name = name if var.short_name is None else var.short_name
+#        
+#        var.vertical_integration = vertical_integration
+#        var.vertical_mean= vertical_mean
+#        if var.vertical_integration or var.vertical_mean:
+#            var.vertical = True
+#        else:
+#            var.vertical = False
+#
+#
+#summaries = Summary()
+
+
 def generate_mapping(ds):
     """
     Generate mapping of model and observational variables
@@ -903,7 +1118,7 @@ def generate_mapping(ds):
             continue
 
     return model_dict
-#
+
 #def generate_mapping_summary(ds):
 #    """
 #    Generate mapping of model and observational variables
