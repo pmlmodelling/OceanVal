@@ -50,21 +50,6 @@ if lon_range > 340:
         global_grid = True
 
 
-data_path = str(importlib.resources.files("oceanval").joinpath(f"data/{sub_regions}_subdomains.nc"))
-
-regional = False
-
-if sub_regions in ["nwes", "global"]: 
-    ds_regions = nc.open_data(data_path, checks = False)
-    if os.path.exists(data_path):
-        regional = True
-    # pull this in from the package data
-    
-    ds_regions.as_missing(0)
-    ds_regions.set_fill(-9999)
-    ds_regions.run()
-    ds_regions.regrid(ds_model, method = "nn")
-    regions_contents = ds_regions.contents
     
 
 # %% tags=["remove-cell"]
