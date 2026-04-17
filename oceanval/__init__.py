@@ -133,7 +133,6 @@ def validate(
     lon_lim=None,
     lat_lim=None,
     concise=True,
-    variables="all",
     fixed_scale=False,
     data_dir=".",
     out_dir=".",
@@ -150,8 +149,6 @@ def validate(
         The longitude limits for the validation. Default is None
     lat_lim : list or None
         The latitude limits for the validation. Default is None
-    variables : str or list
-        The variables to run the model evaluation for. Default is "all"
     fixed_scale : bool
         Whether to use a fixed scale for the seasonal plots. Default is False. If True, the minimum and maximum values are capped to cover the 2nd and 98th percentiles of both model and observations.
     test : bool
@@ -181,22 +178,6 @@ def validate(
     # concise must be boolean
     if isinstance(concise, bool) == False:
         raise ValueError("concise must be a boolean")
-    # check variables is either "all" or a list of strings or a string
-    if variables != "all":
-        if isinstance(variables, str):
-            pass
-        elif isinstance(variables, list):
-            for vv in variables:
-                if isinstance(vv, str) == False:
-                    raise ValueError("variables must be a list of strings")
-        else:
-            raise ValueError("variables must be either 'all' or a list of strings")
-    # some coercise
-    if variables != "all":
-        if isinstance(variables, str):
-            variables = [variables]
-    if len(variables) == 0:
-        raise ValueError("variables list is empty")
 
     # checked fixed_scale is bool
     if isinstance(fixed_scale, bool) == False:
@@ -317,10 +298,6 @@ def validate(
             ff_def = pp.replace(".csv", "_definitions.pkl")
             definitions = dill.load(open(ff_def, "rb"))
             vv = os.path.basename(pp).split("_")[2].replace(".csv", "")
-            if variables != "all":
-                if True:
-                    if vv not in variables:
-                        continue
             source = os.path.basename(pp).split("_")[0]
             variable = vv
             layer = os.path.basename(pp).split("_")[1].replace(".csv", "")
@@ -414,9 +391,6 @@ def validate(
                 ]:
 
                     variable = vv
-                    if variables != "all":
-                        if vv not in variables:
-                            continue
                     if not os.path.exists(
                         f"{book_dir}/notebooks/{source}_{variable}.ipynb"
                     ):
