@@ -35,7 +35,7 @@ notebook_dict = dict()
 add_point_comparison = definitions.add_point_comparison
 add_gridded_comparison = definitions.add_gridded_comparison
 
-def fix_toc(concise=True, data_dir=None, out_dir=None, info = False):
+def fix_toc(concise=True, data_dir=None, out_dir=None):
     short_titles = dill.load(
         open(f"{data_dir}/oceanval_matchups/short_titles.pkl", "rb")
     )
@@ -78,10 +78,7 @@ def fix_toc(concise=True, data_dir=None, out_dir=None, info = False):
 
         # Replace the target string
         filedata = filedata.replace("book_chapter", str(i_chapter))
-        if info:
-            filedata = filedata.replace("info_text", "Simulation information and validation metrics summary")
-        else:
-            filedata = filedata.replace("info_text", "Validation metrics summary")
+        filedata = filedata.replace("info_text", "Validation metrics summary")
 
         with open(
             f"{out_dir}/oceanval_report/notebooks/001_methods.ipynb", "w"
@@ -136,8 +133,7 @@ def validate(
     fixed_scale=False,
     data_dir=".",
     out_dir=".",
-    test=False,
-    sim_info = None 
+    test=False
 ):
     # docstring
     """
@@ -153,8 +149,6 @@ def validate(
         Whether to use a fixed scale for the seasonal plots. Default is False. If True, the minimum and maximum values are capped to cover the 2nd and 98th percentiles of both model and observations.
     test : bool
         Default is False. Ignore, unless you are testing oceanval.
-    sim_info : dict or None
-        A dictionary containing simulation information to be added to the report. Default is None.
 
     Returns
     -------
@@ -234,18 +228,12 @@ def validate(
 
     if empty:
         from shutil import copyfile
-        # store the sim_info dict if provided in the book_dir
 
         if not os.path.exists(book_dir):
             os.mkdir(book_dir)
         if not os.path.exists(f"{book_dir}/notebooks"):
             os.mkdir(f"{book_dir}/notebooks")
 
-        if sim_info is not None:
-            dill.dump(
-                sim_info,
-                open(f"{book_dir}/sim_info.pkl", "wb"),
-            )
 
         data_path = importlib.resources.files(__name__).joinpath(
             "data/001_methods.ipynb"
@@ -576,7 +564,7 @@ def validate(
 
     # fix the toc using the function
 
-    fix_toc(concise=concise, data_dir=data_dir, out_dir=out_dir, info = isinstance(sim_info, dict))
+    fix_toc(concise=concise, data_dir=data_dir, out_dir=out_dir))
 
     for ff in glob.glob(f"{book_dir}/notebooks/*.ipynb"):
         ff_clean = ff.replace(".ipynb", ".py")
