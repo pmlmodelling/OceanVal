@@ -866,43 +866,43 @@ class Validator:
 definitions = Validator()
 
 
-#def generate_mapping(ds):
-#    """
-#    Generate mapping of model and observational variables
-#    """
-#
-#    model_dict = {}
-#    try:
-#        candidate_variables = definitions.keys
-#        ds1 = nc.open_data(ds[0], checks=False)
-#        ds_contents = ds1.contents
-#
-#        ds_contents["long_name"] = [str(x) for x in ds_contents["long_name"]]
-#
-#        ds_contents_top = ds_contents.query("nlevels == 1").reset_index(drop=True)
-#        n_levels = int(ds_contents.nlevels.max())
-#        if n_levels > session_info["n_levels"]:
-#            session_info["n_levels"] = n_levels
-#        # number of rows in ds_contents
-#        if len(ds_contents) == 0:
-#            ds_contents = ds_contents_top
-#    except:
-#        return model_dict
-#
-#    for vv in candidate_variables:
-#        variables = definitions[vv].model_variable.split("+")
-#        include = True
-#        for var in variables:
-#            if var not in ds_contents.variable.values:
-#                include = False
-#        if include:
-#            model_dict[vv] = definitions[vv].model_variable
-#            n_levels = ds_contents.query("variable in @variables")["nlevels"].max()
-#            if n_levels > definitions[vv].n_levels:
-#                definitions[vv].n_levels = n_levels 
-#            continue
-#
-#    return model_dict
+def generate_mapping(ds):
+    """
+    Generate mapping of model and observational variables
+    """
+
+    model_dict = {}
+    try:
+        candidate_variables = definitions.keys
+        ds1 = nc.open_data(ds[0], checks=False)
+        ds_contents = ds1.contents
+
+        ds_contents["long_name"] = [str(x) for x in ds_contents["long_name"]]
+
+        ds_contents_top = ds_contents.query("nlevels == 1").reset_index(drop=True)
+        n_levels = int(ds_contents.nlevels.max())
+        if n_levels > session_info["n_levels"]:
+            session_info["n_levels"] = n_levels
+        # number of rows in ds_contents
+        if len(ds_contents) == 0:
+            ds_contents = ds_contents_top
+    except:
+        return model_dict
+
+    for vv in candidate_variables:
+        variables = definitions[vv].model_variable.split("+")
+        include = True
+        for var in variables:
+            if var not in ds_contents.variable.values:
+                include = False
+        if include:
+            model_dict[vv] = definitions[vv].model_variable
+            n_levels = ds_contents.query("variable in @variables")["nlevels"].max()
+            if n_levels > definitions[vv].n_levels:
+                definitions[vv].n_levels = n_levels 
+            continue
+
+    return model_dict
 #
 #def generate_mapping_summary(ds):
 #    """
