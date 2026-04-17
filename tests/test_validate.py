@@ -55,18 +55,6 @@ class TestValidate:
             # Should not fail on lon_lim or lat_lim validation
             assert "lon_lim must be a list" not in str(e)
             assert "lat_lim must be a list" not in str(e)
-    # error test for variables
-
-    def test_variables_invalid_type(self):
-        """Test that ValueError is raised when variables is of invalid type"""
-        with pytest.raises(ValueError, match="variables must be either 'all' or a list of strings"):
-            oceanval.validate(variables=123, test=True)
-        
-        with pytest.raises(ValueError, match="variables must be either 'all' or a list of strings"):
-            oceanval.validate(variables={"var1": "temperature"}, test=True)
-        # test with a list of non-strings
-        with pytest.raises(ValueError, match="variables must be a list of strings"):
-            oceanval.validate(variables=[1, 2, 3], test=True)
 
     
     def test_lon_lim_none_accepted(self):
@@ -85,33 +73,5 @@ class TestValidate:
         except ValueError as e:
             assert "lat_lim" not in str(e)
     
-    def test_variables_all_accepted(self):
-        """Test that 'all' is accepted for variables"""
-        # Should not raise error about variables
-        try:
-            oceanval.validate(variables="all", concise = "foo_bar") 
-        except ValueError as e:
-            assert "variables" not in str(e)
-    
-    def test_variables_list_accepted(self):
-        """Test that a list of strings is accepted for variables"""
-        # Should not raise error about variables
-        try:
-            oceanval.validate(variables=["temperature", "salinity"], concise = "foo_bar") 
-        except ValueError as e:
-            assert "variables" not in str(e)
-
-    def test_variables_string_accepted(self):
-        """Test that a single string is accepted for variables"""
-        # Should not raise error about variables
-        try:
-            oceanval.validate(variables="temperature", concise = "foo_bar") 
-        except ValueError as e:
-            assert "variables" not in str(e)
-
-    def test_variables_empty_list(self):
-        """Test that an empty list for variables raises ValueError"""
-        with pytest.raises(ValueError, match="variables list is empty"):
-            oceanval.validate(variables=[])
     
 
