@@ -35,11 +35,16 @@ Note: you should run this from an empty directory.
 
    os.system(f"wget {url} -O {out}")
 
-
    oceanval.add_gridded_comparison(
-      recipe = {"temperature":"cobe2"},
-       model_variable = "tos"
+           name = "temperature",
+           obs_path = "https://psl.noaa.gov/thredds/dodsC/Datasets/COBE2/sst.mon.mean.nc",
+           thredds = True,
+           source = "COBE2",
+       model_variable = "tos",
+       climatology = False,
+       obs_variable = "sst"
    )
+
 
    oceanval.matchup(sim_dir = ".",
                   start = 2014, end = 2014,
