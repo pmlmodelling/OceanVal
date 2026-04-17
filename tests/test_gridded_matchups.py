@@ -125,7 +125,6 @@ class TestFinal:
             vertical_point = definitions["temperature"].vertical_point
             binning = definitions["temperature"].binning
             n_levels = definitions["temperature"].n_levels
-            recipe = definitions["temperature"].recipe
             thredds = definitions["temperature"].thredds
 
             assert model_variable == "votemper"
@@ -145,7 +144,6 @@ class TestFinal:
             vertical_point = None
             binning = None
             n_levels = 51
-            recipe = False
             thredds = False
 
         oceanval.reset()
