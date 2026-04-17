@@ -60,6 +60,6 @@ Note: you should run this from an empty directory.
 
 This quick example will compare sea surface temperature for 2014 from a global climate model simulation with an observational dataset.
 An html page should open in your browser showing how the two compare.
-In this case a built-in recipe is used for downloading the COBE2 sea surface temperature dataset [https://psl.noaa.gov/data/gridded/data.cobe2.html].
+In this the COBE2 sea surface temperature dataset [https://psl.noaa.gov/data/gridded/data.cobe2.html] is downloaded from a thredds server.
 
 Note: this is just an example of the use of OceanVal, not a rigorous way to validate a climate model.
