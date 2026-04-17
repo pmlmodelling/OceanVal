@@ -114,13 +114,4 @@ class TestValidate:
         with pytest.raises(ValueError, match="variables list is empty"):
             oceanval.validate(variables=[])
     
-    # ensure zip is bool
 
-    def test_zip_not_bool(self):
-        """Test that ValueError is raised when zip is not a boolean"""
-        with pytest.raises(ValueError, match="zip must be a boolean"):
-            oceanval.validate(zip="not_a_bool") 
-    def test_view_not_bool(self):
-        """Test that ValueError is raised when view is not a boolean"""
-        with pytest.raises(ValueError, match="view must be a boolean"):
-            oceanval.validate(view="not_a_bool")

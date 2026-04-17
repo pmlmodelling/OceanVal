@@ -180,10 +180,7 @@ class TestFinal:
         # create the oceanval report directory to make sure validate removes it
         os.makedirs("oceanval_report", exist_ok=True)
 
-        oceanval.validate(zip = True, view= False, test = True)
-        ff = "oceanval_html.zip"
-        assert os.path.exists(ff)
-        os.remove(ff)
+        oceanval.validate(test = True)
         ff = "oceanval_report.html"
         assert os.path.exists(ff)
         os.remove(ff)
