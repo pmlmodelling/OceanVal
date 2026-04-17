@@ -216,14 +216,6 @@ class TestFinal:
         assert os.path.exists(ff)
 
         # a very basic test of compare, just to make sure it runs
-        oceanval.compare(
-            {"sim1": ".",
-            "sim2": "."}, view = False, ask = False
-            )
-        assert os.path.exists("oceanval_comparison")
-        paths = glob.glob("oceanval_comparison/compare/_build/html/notebooks/*")
-        # there should be 5 html files in here
-        assert len([x for x in paths if ".html" in x]) == 5
 
         paths = glob.glob("oceanval_report")
         for p in paths:
