@@ -135,7 +135,6 @@ def validate(
     concise=True,
     variables="all",
     fixed_scale=False,
-    region=None,
     data_dir=".",
     out_dir=".",
     zip=False,
@@ -157,17 +156,12 @@ def validate(
         The variables to run the model evaluation for. Default is "all"
     fixed_scale : bool
         Whether to use a fixed scale for the seasonal plots. Default is False. If True, the minimum and maximum values are capped to cover the 2nd and 98th percentiles of both model and observations.
-    region : str or None
-        The region being validated. Must be either "nwes" (northwest European Shelf) or "global". Default is None.
     view : bool
         Default is True. Open the validation report in a web browser after it is generated.
     test : bool
         Default is False. Ignore, unless you are testing oceanval.
     sim_info : dict or None
         A dictionary containing simulation information to be added to the report. Default is None.
-
-
-
 
     Returns
     -------
@@ -215,10 +209,6 @@ def validate(
     # convert data_dir to absolute path
     data_dir = os.path.expanduser(data_dir)
     data_dir = os.path.abspath(data_dir)
-    #  regioncan only be nwes or global
-    if region is not None:
-        if region not in ["nwes", "global"]:
-            raise ValueError("region must be either 'nwes' or 'global'")
     # ensure proper handling of ~
     out_dir = os.path.expanduser(out_dir)
     out_dir = os.path.abspath(out_dir)
@@ -477,20 +467,11 @@ def validate(
                             filedata = filedata.replace("template_title", Variable)
                             filedata = filedata.replace("data_dir_value", data_dir)
                             filedata = filedata.replace("source_name", source)
-                            if region == "nwes":
-                                filedata = filedata.replace("zonal_height", "6000")
-                            else:
-                                filedata = filedata.replace("zonal_height", "2000")
                             # make every letter a capital
                             source_capital = source.upper()
                             filedata = filedata.replace("source_title", source_capital)
                             if seasonal is False:
                                 filedata = filedata.replace("chunk_seasonal", "")
-                            # change sub_regions_value to region
-                            if region is not None:
-                                filedata = filedata.replace(
-                                    "sub_regions_value", str(region)
-                                )
 
                             # Write the file out again
                             with open(
