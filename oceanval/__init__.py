@@ -614,9 +614,10 @@ def validate(
     # os.symlink(f"{book_dir}/_build/html/index.html", f"{out_dir}/oceanval_report.html")
     # create a symlink with relative directory
     os.symlink(os.path.relpath(out_ff, out_dir), f"{out_dir}/oceanval_report.html")
-    webbrowser.open(
-        "file://" + os.path.abspath(f"{book_dir}/_build/html/index.html")
-    )
+    if test is False:
+        webbrowser.open(
+            "file://" + os.path.abspath(f"{book_dir}/_build/html/index.html")
+        )
 
 
 def rebuild(data_dir="."):
