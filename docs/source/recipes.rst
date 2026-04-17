@@ -1,5 +1,6 @@
 Data Recipes
 =============
+**Deprecated**: recipes will be removed in a future release. 
 
 To make life easier, OceanVal provides a number of built in recipes, which will allow you to easily validate common oceanic variables from data that is downloadable.
 
