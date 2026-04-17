@@ -261,33 +261,10 @@ def gridded_matchup(
                         vv_file = nc.create_ensemble(dir_var)
                 else:
                     vv_file = dir_var  # thredds URL
-                recipe = definitions[vv].recipe
                 
                 # some special handling for occci files
                 occci = False
-                if recipe:
-                    if vv_source.lower() == "occci":
-                        new_files = []
-                        for yy in sim_years:
-                            for ff in vv_file:
-                                if f"/{yy}/" in ff:
-                                    new_files.append(ff)
-                        vv_file = new_files
-                        occci = True
                 extracted = False
-                if recipe:
-                    if vv_source == "GLODAPv2.2016b":
-                        print("Downloading GLODAPv2.2016b data")
-                        ds_obs = nc.open_url(vv_file)
-                        print("Download complete")
-                        variable = definitions[vv].obs_variable
-                        ds_obs.subset(variables=variable)
-                        ds_obs.run()
-                        # we need to set the time, because it does not exists
-                        ds_obs.cdo_command(f"setreftime,1800-01-01,00:00:00,days -settaxis,2000-01-01,00:00:00,1month")
-                        ds_obs.run()
-                        thredds = False
-                        extracted = True
 
                 if not extracted:
                     if thredds:
@@ -315,10 +292,7 @@ def gridded_matchup(
                     if variable == "auto":
                         variable = ds_zz.variables[0]
                     if ds_zz.contents.query("variable == @variable").nlevels.values[0] > 1:
-                        if recipe:
-                            ds_obs.top()
-                        else:
-                            ds_obs.cdo_command("topvalue")
+                        ds_obs.cdo_command("topvalue")
 
 
                 try:
@@ -428,10 +402,7 @@ def gridded_matchup(
                     contents = ds_model.contents
                     nlevels = contents.nlevels[0]
                     if nlevels > 1:
-                        if recipe:
-                            ds_obs.top()
-                        else:
-                            ds_obs.cdo_command("topvalue")
+                        ds_obs.top()
                 try:
                     n_times = len(ds_obs.times)
                 except:
