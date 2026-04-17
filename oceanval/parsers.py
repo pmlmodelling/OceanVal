@@ -47,6 +47,9 @@ recipe_list = [
 ]
 
 def find_recipe(x, start = None, end = None):
+    # add deprecation warning
+    warnings.warn("The recipe argument is deprecated and will be removed in a future version. Please use the add_gridded_comparison function with the appropriate arguments instead.", DeprecationWarning)
+
     output = dict()
     # check if there is only one key and one value
     if len(x.keys()) != 1:
