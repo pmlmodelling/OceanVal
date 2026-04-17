@@ -13,7 +13,6 @@ Documentation
 
    installing.rst 
    how_to_use.rst 
-   comparisons.rst
    q_a.rst
 
 
