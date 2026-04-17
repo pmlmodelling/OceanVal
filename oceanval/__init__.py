@@ -564,7 +564,7 @@ def validate(
 
     # fix the toc using the function
 
-    fix_toc(concise=concise, data_dir=data_dir, out_dir=out_dir))
+    fix_toc(concise=concise, data_dir=data_dir, out_dir=out_dir)
 
     for ff in glob.glob(f"{book_dir}/notebooks/*.ipynb"):
         ff_clean = ff.replace(".ipynb", ".py")
