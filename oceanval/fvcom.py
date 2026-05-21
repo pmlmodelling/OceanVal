@@ -13,7 +13,7 @@ def bin_value(x, bin_res):
     return np.floor((x + bin_res / 2) / bin_res + 0.5) * bin_res - bin_res / 2
 
 
-def fvcom_regrid(ff=None, new_grid=None, vv=None, lons=None, lats=None, res=None):
+def fvcom_regrid(ff=None, new_grid=None, vv=None, lons=None, lats=None, res=None, model_res = None, missing = None):
     with warnings.catch_warnings(record=True) as w:
         drop_variables = ["siglay", "siglev"]
         ds_xr = xr.open_dataset(ff, drop_variables=drop_variables, decode_times=False)
@@ -60,11 +60,13 @@ def fvcom_regrid(ff=None, new_grid=None, vv=None, lons=None, lats=None, res=None
         else:
             ds2.regrid(new_grid, method="nn")
 
-        ds2.as_missing(0)
+        # ds2.as_missing(0)
+        if missing is not None:
+            ds2.set_fill(missing)
         ds2.run()
         df_mask = grid.assign(value=1)
-        df_mask["lon"] = bin_value(df_mask["lon"], 0.25)
-        df_mask["lat"] = bin_value(df_mask["lat"], 0.25)
+        df_mask["lon"] = bin_value(df_mask["lon"], model_res)
+        df_mask["lat"] = bin_value(df_mask["lat"], model_res)
         df_mask = df_mask.groupby(["lon", "lat"]).sum().reset_index()
         df_mask = df_mask.set_index(["lat", "lon"])
         ds_mask = nc.from_xarray(df_mask.to_xarray())
@@ -90,6 +92,12 @@ def fvcom_regrid(ff=None, new_grid=None, vv=None, lons=None, lats=None, res=None
         ds_mask.set_fill(-9999)
         ds2 * ds_mask
         ds2.set_longnames({ds2.variables[0]: long_name})
+
+        if lon_min > 180:
+            lon_min = lon_min - 360
+        if lon_max > 180:
+            lon_max = lon_max - 360
+
         ds2.subset(lon=[lon_min, lon_max], lat=[lat_min, lat_max])
 
         # if multiple is False:
@@ -97,7 +105,8 @@ def fvcom_regrid(ff=None, new_grid=None, vv=None, lons=None, lats=None, res=None
 
 
 def fvcom_preprocess(
-    variables=None, paths=None, lon_lim=None, lat_lim=None, res=0.05, out_dir=None
+    variables=None, paths=None, lon_lim=None, lat_lim=None, res=0.05, out_dir=None,
+    model_res = None, missing = None,
 ):
     """
     Preprocess FVCOM data for gridding and regridding.
@@ -118,6 +127,7 @@ def fvcom_preprocess(
         Output directory where processed data will be saved. If None, an error is raised.
 
     """
+    # model_res must be supplied
 
     # check if out_dir is None
     if out_dir is None:
@@ -131,7 +141,6 @@ def fvcom_preprocess(
         variables = [variables]
 
     with warnings.catch_warnings(record=True) as w:
-        # print(vv)
         ds_all = nc.open_data()
         for vv in variables:
             print(f"Processing variable: {vv}")
@@ -144,7 +153,7 @@ def fvcom_preprocess(
                 if vv not in ds_variables:
                     continue
                 ds2 = fvcom_regrid(
-                    ff=ff, new_grid=None, vv=vv, lons=lon_lim, lats=lat_lim, res=res
+                    ff=ff, new_grid=None, vv=vv, lons=lon_lim, lats=lat_lim, res=res, model_res = model_res, missing = missing
                 )
                 ds_vv.append(ds2)
             ds_vv.merge("time")
@@ -153,4 +162,5 @@ def fvcom_preprocess(
         if os.path.exists(ff_out):
             os.remove(ff_out)
         ds_all.merge("variables")
+        # ds_all.tmean(["year", "month", "day"])
         ds_all.to_nc(ff_out, zip=True)
