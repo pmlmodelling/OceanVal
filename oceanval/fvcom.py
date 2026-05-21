@@ -60,7 +60,6 @@ def fvcom_regrid(ff=None, new_grid=None, vv=None, lons=None, lats=None, res=None
         else:
             ds2.regrid(new_grid, method="nn")
 
-        # ds2.as_missing(0)
         if missing is not None:
             ds2.as_missing(missing)
         ds2.run()
@@ -85,12 +84,14 @@ def fvcom_regrid(ff=None, new_grid=None, vv=None, lons=None, lats=None, res=None
         ds_mask.regrid(ds2, method="bil")
         # ds_mask.to_nc("/tmp/mask1.nc")
         ds_mask > 0
+        ds_mask.as_missing(0)
+        ds_mask.set_fill(-9999)
+        ds_mask - 1
         # ds_mask.to_nc("/tmp/mask2.nc")
         os.remove("/tmp/mygrid")
         os.remove("/tmp/newgrid")
-        ds_mask.as_missing(0)
         ds_mask.set_fill(-9999)
-        ds2 * ds_mask
+        ds2 + ds_mask
         ds2.set_longnames({ds2.variables[0]: long_name})
 
         if lon_min > 180:
