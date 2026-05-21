@@ -62,7 +62,7 @@ def fvcom_regrid(ff=None, new_grid=None, vv=None, lons=None, lats=None, res=None
 
         # ds2.as_missing(0)
         if missing is not None:
-            ds2.set_fill(missing)
+            ds2.as_missing(missing)
         ds2.run()
         df_mask = grid.assign(value=1)
         df_mask["lon"] = bin_value(df_mask["lon"], model_res)
