@@ -9,18 +9,231 @@ from oceanval.session import session_info
 
 def read_point(ff, nrows = None):
     try:
-        df = pd.read_csv(ff, nrows=nrows)   
+        df = pd.read_csv(ff, nrows=nrows)
         return df
-    except:
-        pass 
+    except Exception:
+        pass
     compressions = ['infer', 'gzip', 'bz2', 'zip', 'xz']
-    for compression in compressions: 
+    for compression in compressions:
         try:
-            df = pd.read_csv(ff, compression = compression, nrows=nrows)   
+            df = pd.read_csv(ff, compression = compression, nrows=nrows)
             return df
-        except:
+        except Exception:
             pass
-    raise ValueError(f"Could not read file {ff} with any of the following compression types: {compressions}. Error: {e}")
+    raise ValueError(f"Could not read file {ff} with any of the following compression types: {compressions}.")
+
+
+recipe_list = [
+    {"chlorophyll": "occci"},
+    {"oxygen": "woa23"},
+    {"temperature": "cobe2"},
+    {"salinity": "woa23"},
+    {"nitrate": "woa23"},
+    {"ammonium": "nsbc"},
+    {"phosphate": "woa23"},
+    {"silicate": "woa23"},
+    {"kd490": "occci"},
+    {"ph": "glodap"},
+    {"alkalinity": "glodap"},
+    {"chlorophyll": "nsbc"},
+    {"oxygen": "nsbc"},
+    {"temperature": "nsbc"},
+    {"salinity": "nsbc"},
+    {"nitrate": "nsbc"},
+    {"ammonium": "nsbc"},
+    {"phosphate": "nsbc"},
+    {"silicate": "nsbc"},
+]
+
+
+def find_recipe(x, start=None, end=None):
+    output = dict()
+    if len(x.keys()) != 1:
+        raise ValueError("Recipe dictionary must have exactly one key")
+
+    name = list(x.keys())[0]
+    value = x[name]
+    if value is None:
+        raise ValueError(f"Recipe value for {name} is not valid")
+
+    output["vertical"] = None
+
+    if name.lower() == "chlorophyll":
+        output["short_name"] = "chlorophyll concentration"
+        output["long_name"] = "chlorophyll a concentration"
+        output["short_title"] = "Chlorophyll"
+    elif name.lower() == "oxygen":
+        output["short_name"] = "dissolved oxygen"
+        output["long_name"] = "dissolved oxygen concentration"
+        output["short_title"] = "Oxygen"
+    elif name.lower() == "temperature":
+        output["short_name"] = "sea temperature"
+        output["long_name"] = "sea water temperature"
+        output["short_title"] = "Temperature"
+    elif name.lower() == "salinity":
+        output["short_name"] = "salinity"
+        output["long_name"] = "sea water salinity"
+        output["short_title"] = "Salinity"
+    elif name.lower() == "nitrate":
+        output["short_name"] = "nitrate concentration"
+        output["long_name"] = "nitrate concentration"
+        output["short_title"] = "Nitrate"
+    elif name.lower() == "ammonium":
+        output["short_name"] = "ammonium concentration"
+        output["long_name"] = "ammonium concentration"
+        output["short_title"] = "Ammonium"
+    elif name.lower() == "phosphate":
+        output["short_name"] = "phosphate concentration"
+        output["long_name"] = "phosphate concentration"
+        output["short_title"] = "Phosphate"
+    elif name.lower() == "silicate":
+        output["short_name"] = "silicate concentration"
+        output["long_name"] = "silicate concentration"
+        output["short_title"] = "Silicate"
+    elif name.lower() == "kd490":
+        output["short_name"] = "KD490"
+        output["long_name"] = "diffuse attenuation coefficient at 490 nm"
+        output["short_title"] = "KD490"
+    elif name.lower() == "ph":
+        output["short_name"] = "pH"
+        output["long_name"] = "sea water pH"
+        output["short_title"] = "pH"
+    elif name.lower() == "alkalinity":
+        output["short_name"] = "total alkalinity"
+        output["long_name"] = "sea water total alkalinity"
+        output["short_title"] = "Total Alkalinity"
+
+    value = str(value).lower()
+
+    if value == "glodap":
+        if name.lower() == "ph":
+            output["obs_path"] = "https://www.ncei.noaa.gov/data/oceans/archive/arc0221/0286118/1.1/data/0-data/GLODAPv2.2016b_MappedClimatologies/GLODAPv2.2016b.pHtsinsitutp.nc"
+            output["source"] = "GLODAPv2.2016b"
+            output["source_info"] = "Lauvset, S. K., Key, R. M., Olsen, A., van Heuven, S., Velo, A., Lin, X., Schirnick, C., Kozyr, A., Tanhua, T., Hoppema, M., Jutterström, S., Steinfeldt, R., Jeansson, E., Ishii, M., Perez, F. F., Suzuki, T., and Watelet, S.: A new global interior ocean mapped climatology: the 1° × 1° GLODAP version 2, Earth Syst. Sci. Data, 8, 325–340, https://doi.org/10.5194/essd-8-325-2016, 2016."
+            output["name"] = name.lower()
+            output["thredds"] = True
+            output["climatology"] = True
+            output["obs_variable"] = "pHtsinsitutp"
+            return output
+        if name.lower() == "alkalinity":
+            output["obs_path"] = "https://www.ncei.noaa.gov/data/oceans/archive/arc0221/0286118/1.1/data/0-data/GLODAPv2.2016b_MappedClimatologies/GLODAPv2.2016b.TAlk.nc"
+            output["source"] = "GLODAPv2.2016b"
+            output["source_info"] = "Lauvset, S. K., Key, R. M., Olsen, A., van Heuven, S., Velo, A., Lin, X., Schirnick, C., Kozyr, A., Tanhua, T., Hoppema, M., Jutterström, S., Steinfeldt, R., Jeansson, E., Ishii, M., Perez, F. F., Suzuki, T., and Watelet, S.: A new global interior ocean mapped climatology: the 1° × 1° GLODAP version 2, Earth Syst. Sci. Data, 8, 325–340, https://doi.org/10.5194/essd-8-325-2016, 2016."
+            output["name"] = name.lower()
+            output["thredds"] = True
+            output["climatology"] = True
+            output["obs_variable"] = "TAlk"
+            return output
+
+    if value == "cobe2":
+        if name.lower() == "temperature":
+            output["obs_path"] = ["https://psl.noaa.gov/thredds/dodsC/Datasets/COBE2/sst.mon.mean.nc"]
+            output["source"] = "COBE2"
+            output["source_info"] = "COBE-SST 2 and Sea Ice data provided by the NOAA PSL, Boulder, Colorado, USA, from their website at https://psl.noaa.gov/data/gridded/data.cobe2.html."
+            output["name"] = name.lower()
+            output["thredds"] = True
+            output["climatology"] = False
+            output["vertical"] = False
+            output["obs_variable"] = "sst"
+            return output
+
+    if value == "woa23":
+        output["source"] = "WOA23"
+        output["source_info"] = "Garcia, H.E., C. Bouchard, S.L. Cross, C.R. Paver, Z. Wang, J.R. Reagan, T.P. Boyer, R.A. Locarnini, A.V. Mishonov, O. Baranova, D. Seidov, and D. Dukhovskoy. World Ocean Atlas 2023, Volume 4: Dissolved Inorganic Nutrients (phosphate, nitrate, silicate). A. Mishonov, Tech. Ed. NOAA Atlas NESDIS 92, doi.org/10.25923/39qw-7j08"
+        output["climatology"] = True
+        output["name"] = name.lower()
+        output["thredds"] = True
+
+        if name.lower() == "nitrate":
+            urls = [f"https://www.ncei.noaa.gov/thredds-ocean/dodsC/woa23/DATA/nitrate/netcdf/all/1.00/woa23_all_n{month:02d}_01.nc" for month in range(1, 13)]
+            output["obs_path"] = urls
+            output["obs_variable"] = "n_an"
+            return output
+
+        if name.lower() == "oxygen":
+            urls = [f"https://www.ncei.noaa.gov/thredds-ocean/dodsC/woa23/DATA/oxygen/netcdf/all/1.00/woa23_all_o{month:02d}_01.nc" for month in range(1, 13)]
+            output["obs_path"] = urls
+            output["obs_variable"] = "o_an"
+            return output
+
+        if name.lower() == "phosphate":
+            urls = [f"https://www.ncei.noaa.gov/thredds-ocean/dodsC/woa23/DATA/phosphate/netcdf/all/1.00/woa23_all_p{month:02d}_01.nc" for month in range(1, 13)]
+            output["obs_path"] = urls
+            output["obs_variable"] = "p_an"
+            return output
+
+        if name.lower() == "silicate":
+            urls = [f"https://www.ncei.noaa.gov/thredds-ocean/dodsC/woa23/DATA/silicate/netcdf/all/1.00/woa23_all_i{month:02d}_01.nc" for month in range(1, 13)]
+            output["obs_path"] = urls
+            output["obs_variable"] = "i_an"
+            return output
+
+        if name.lower() in ["salinity", "temperature"]:
+            if start is None or end is None:
+                raise ValueError("Start and end depth must be provided for salinity and temperature WOA23 recipes")
+            if end - start > 9:
+                raise ValueError("Start and end depth must fall within a single WOA23 climatological period (10 year periods)")
+            if start >= 1955 and end <= 1964:
+                period = "5564"
+            elif start >= 1965 and end <= 1974:
+                period = "6574"
+            elif start >= 1975 and end <= 1984:
+                period = "7584"
+            elif start >= 1985 and end <= 1994:
+                period = "8594"
+            elif start >= 1995 and end <= 2004:
+                period = "95A4"
+            elif start >= 2005 and end <= 2014:
+                period = "A5B4"
+            elif start >= 2015 and end <= 2022:
+                period = "B5C2"
+            else:
+                raise ValueError("End year cannot be greater than 2022 for WOA23 recipes")
+
+            if name.lower() == "temperature":
+                output["obs_variable"] = "t_an"
+            else:
+                output["obs_variable"] = "s_an"
+            urls = [f"https://www.ncei.noaa.gov/thredds-ocean/dodsC/woa23/DATA/{name.lower()}/netcdf/{period}/1.00/woa23_{period}_{name[0].lower()}00_01.nc" for _ in range(1)]
+            output["obs_path"] = urls
+            return output
+
+    if value == "nsbc":
+        output["source"] = "NSBC"
+        output["source_info"] = "Nutrient and biogeochemical climatology from the National Shelf Biogeochemistry climatology."
+        output["climatology"] = True
+        output["thredds"] = True
+        output["name"] = name.lower()
+        if name.lower() == "chlorophyll":
+            output["obs_variable"] = "chlorophyll_a_mean"
+        elif name.lower() == "oxygen":
+            output["obs_variable"] = "oxygen_mean"
+        elif name.lower() == "temperature":
+            output["obs_variable"] = "temperature_mean"
+        elif name.lower() == "salinity":
+            output["obs_variable"] = "salinity_mean"
+        elif name.lower() == "nitrate":
+            output["obs_variable"] = "nitrate_mean"
+        elif name.lower() == "ammonium":
+            output["obs_variable"] = "ammonium_mean"
+        elif name.lower() == "phosphate":
+            output["obs_variable"] = "phosphate_mean"
+        elif name.lower() == "silicate":
+            output["obs_variable"] = "silicate_mean"
+        output["obs_path"] = ["https://example.invalid/nsbc"]
+        return output
+
+    if value == "occci":
+        output["source"] = "OCCCI"
+        output["source_info"] = "Ocean Colour Climate Change Initiative (OC-CCI) monthly chlorophyll datasets."
+        output["climatology"] = False
+        output["thredds"] = True
+        output["name"] = name.lower()
+        output["obs_variable"] = "chlor_a"
+        output["obs_path"] = ["https://www.oceancolour.org/thredds/dodsC/occci/v5.0/1998-2024/occci_1998.nc"]
+        return output
+
+    raise ValueError(f"Recipe value {value} is not valid for recipe name {name}")
 
 
 # create a validator class
@@ -92,6 +305,7 @@ class Validator:
                                obs_multiplier = 1,
                                obs_adder = 0,
                                thredds = False,
+                               recipe = None,
                                file_check = True
                                    ): 
         """
@@ -135,6 +349,38 @@ class Validator:
         """
 
         # maybe include an averaging option: daily, monthly, annual etc.
+
+        if recipe is not None:
+            recipe_info = find_recipe(recipe, start=start, end=end)
+            if obs_path is None:
+                obs_path = recipe_info["obs_path"]
+            if source is None:
+                source = recipe_info["source"]
+            if source == "GLODAPv2.2016b":
+                file_check = False
+            if source_info is None:
+                source_info = recipe_info["source_info"]
+            if (obs_path is None or isinstance(obs_path, str) and not os.path.exists(obs_path)) and recipe_info["thredds"] is True:
+                thredds = recipe_info["thredds"]
+            elif obs_path is not None and isinstance(obs_path, str) and os.path.exists(obs_path):
+                thredds = False
+            if climatology is None:
+                climatology = recipe_info["climatology"]
+            if name is None:
+                name = recipe_info["name"]
+            if short_name is None:
+                short_name = recipe_info["short_name"]
+            if long_name is None:
+                long_name = recipe_info["long_name"]
+            if short_title is None:
+                short_title = recipe_info["short_title"]
+            if not vertical and recipe_info["vertical"] is not None:
+                vertical = recipe_info["vertical"]
+            if obs_variable is None:
+                obs_variable = recipe_info["obs_variable"]
+            recipe = True
+        else:
+            recipe = False
 
         if name is None:
             raise ValueError("Name must be supplied for gridded comparison")
@@ -297,7 +543,8 @@ class Validator:
         # check this exists
         gridded_dir = obs_path
         self[name].gridded_dir = gridded_dir
-        
+        self[name].recipe = recipe
+
         # ensure nothing is None
         # warnings for assumptions
         if len(assumed) > 0:
@@ -464,12 +711,13 @@ class Validator:
             var = Variable()
             setattr(self, name, var)
             self[name].gridded = False
-            self[name].vertical_gridded = None 
-            self[name].sources = dict() 
-            self[name].gridded_source = None 
-            self[name].thredds = None 
-            self[name].gridded_dir = None 
-            self[name].obs_variable = None 
+            self[name].vertical_gridded = None
+            self[name].recipe = None
+            self[name].sources = dict()
+            self[name].gridded_source = None
+            self[name].thredds = None
+            self[name].gridded_dir = None
+            self[name].obs_variable = None
         else:
             # ensure short title is the same
             if short_title != session_info["short_title"][name]:

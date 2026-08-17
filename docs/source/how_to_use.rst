@@ -250,6 +250,52 @@ The following options are available:
 
 This will then generate and open an html page that can be viewed in a web browser.
 
+Using built-in observation recipes
+----------------------------------
+
+To make it easier to register standard observational datasets, OceanVal also supports built-in recipe definitions. These are especially useful when you want to use a standard climatology such as WOA23 or GLODAP without manually specifying all the metadata.
+
+For example, to register a WOA23 temperature climatology recipe:
+
+.. code:: ipython3
+
+    oceanval.add_gridded_comparison(
+        name="temperature",
+        source="WOA23",
+        model_variable="temp",
+        recipe={"temperature": "woa23"},
+        start=2005,
+        end=2014,
+        climatology=True,
+    )
+
+This uses the built-in metadata and file locations for the WOA23 temperature climatology. The `recipe` parameter can also be used with other supported variables, including salinity, oxygen, nitrate, phosphate, silicate, chlorophyll and pH.
+
+The underlying recipe helper can also be used directly:
+
+.. code:: ipython3
+
+    recipe = oceanval.parsers.find_recipe({"temperature": "woa23"}, start=2005, end=2014)
+    print(recipe["source"], recipe["obs_variable"])
+
+Comparing validation outputs from multiple simulations
+------------------------------------------------------
+
+Once you have generated validation reports for different simulations, you can compare them using the `oceanval.compare` function. This creates a comparison report that summarises the differences between the simulations.
+
+.. code:: ipython3
+
+    oceanval.compare(
+        model_dict={
+            "model_a": "/path/to/model_a",
+            "model_b": "/path/to/model_b",
+        },
+        view=True,
+        ask=True,
+    )
+
+The `model_dict` should map a short name for each model to the directory containing that model's validation output. The HTML comparison report is written to `oceanval_comparison/compare/_build/html/index.html`.
+
 
 .. admonition:: Can I access and use OceanVal's validation code? 
 

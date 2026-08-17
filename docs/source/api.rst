@@ -17,6 +17,7 @@ Matchups and validation
    validate 
    reset
    compare
+   find_recipe
    rebuild
    deep_clean
    fvcom_preprocess

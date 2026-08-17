@@ -14,6 +14,44 @@ To learn more about the package, visit the [OceanVal website](https://oceanval.r
 
 OceanVal is designed for the automated creation of validation reports. You provide the model and validation data. OceanVal does the rest. A short example of what the report looks like can be found [here](https://pmlmodelling.github.io/oceanval_example/intro.html). 
 
+## Using built-in recipes
+
+You can register a standard observation climatology without manually listing all metadata:
+
+```python
+import oceanval
+
+oceanval.add_gridded_comparison(
+    name="temperature",
+    source="WOA23",
+    model_variable="temp",
+    recipe={"temperature": "woa23"},
+    start=2005,
+    end=2014,
+    climatology=True,
+)
+```
+
+This uses the v0.2.0 recipe system for datasets such as WOA23, NSBC, OCCCI and GLODAP.
+
+## Comparing multiple validation outputs
+
+To compare validation reports from multiple simulations:
+
+```python
+import oceanval
+
+oceanval.compare(
+    model_dict={
+        "model_a": "/path/to/model_a",
+        "model_b": "/path/to/model_b",
+    },
+    view=True,
+    ask=True,
+)
+```
+
+This recreates the v0.2.0 comparison workflow and writes the shared comparison report to `oceanval_comparison/compare/_build/html/index.html`.
 
 # Installation 
 

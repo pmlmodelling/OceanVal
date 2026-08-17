@@ -633,6 +633,109 @@ def rebuild(data_dir="."):
     )
 
 
+def compare(model_dict=None, view=True, ask=True):
+    """
+    Compare pre-validated simulations.
+    This function will compare the validation output from multiple simulations.
+
+    Parameters
+    ----------
+    model_dict : dict
+        A dictionary mapping model names to the paths of their validation outputs.
+    view : bool
+        Open the comparison report in a web browser after it is generated.
+    ask : bool
+        If the comparison directory already exists, ask before replacing it.
+    """
+    if model_dict is None:
+        raise AttributeError("model_dict must be provided")
+    if not isinstance(model_dict, dict):
+        raise AttributeError("model_dict must be a dictionary")
+
+    for key in model_dict.keys():
+        if not os.path.exists(model_dict[key]):
+            raise ValueError(f"Path {model_dict[key]} does not exist")
+        model_dict[key] = os.path.abspath(model_dict[key])
+
+    if os.path.exists("oceanval_comparison"):
+        if ask:
+            user_input = input(
+                "oceanval_comparison directory already exists. This will be emptied and replaced. Do you want to proceed? (y/n): "
+            )
+            if user_input.lower() != "y":
+                print("Exiting")
+                return None
+
+        while True:
+            files = glob.glob("oceanval_comparison/**/**/**", recursive=True)
+            for ff in files:
+                if ff.startswith("oceanval_comparison"):
+                    try:
+                        os.remove(ff)
+                    except Exception:
+                        pass
+            files = glob.glob("oceanval_comparison/**/**/**", recursive=True)
+            files = [x for x in files if os.path.isfile(x)]
+            if len(files) == 0:
+                break
+
+    if not os.path.exists("oceanval_comparison/compare"):
+        os.makedirs("oceanval_comparison/compare")
+
+    shutil.copyfile(
+        os.path.join(os.path.dirname(__file__), "data", "pml_logo.jpg"),
+        "oceanval_comparison/pml_logo.jpg",
+    )
+
+    src_dir = os.path.join(os.path.dirname(__file__), "..", "oceanval_comparison", "compare")
+    if os.path.exists(src_dir):
+        if not os.path.exists("oceanval_comparison/compare/notebooks"):
+            os.makedirs("oceanval_comparison/compare/notebooks")
+        for root, _, files in os.walk(src_dir):
+            rel_root = os.path.relpath(root, src_dir)
+            dest_root = os.path.join("oceanval_comparison", "compare", rel_root)
+            if rel_root == ".":
+                dest_root = os.path.join("oceanval_comparison", "compare")
+            os.makedirs(dest_root, exist_ok=True)
+            for ff in files:
+                src_file = os.path.join(root, ff)
+                dest_file = os.path.join(dest_root, ff)
+                if not os.path.exists(dest_file):
+                    shutil.copyfile(src_file, dest_file)
+
+    model_dict_str = str(model_dict)
+    for notebook_name in [
+        "comparison_seasonal.ipynb",
+        "comparison_spatial.ipynb",
+        "comparison_regional.ipynb",
+        "comparison_bias.ipynb",
+        "comparison_point_surface.ipynb",
+    ]:
+        path = os.path.join("oceanval_comparison", "compare", "notebooks", notebook_name)
+        if os.path.exists(path):
+            with open(path, "r") as file:
+                filedata = file.read()
+            filedata = filedata.replace("model_dict_str", model_dict_str)
+            with open(path, "w") as file:
+                file.write(filedata)
+
+    os.system("jupytext --set-formats ipynb,py:percent oceanval_comparison/compare/notebooks/*.ipynb")
+    add_chunks(None)
+    for book in glob.glob("oceanval_comparison/compare/notebooks/*.py"):
+        with open(book, "r") as file:
+            filedata = file.read()
+        filedata = filedata.replace("the_test_status", "False")
+        with open(book, "w") as file:
+            file.write(filedata)
+    os.system("jupytext --sync oceanval_comparison/compare/notebooks/*.ipynb")
+    os.system("jupyter-book build oceanval_comparison/compare/")
+
+    if view:
+        webbrowser.open(
+            "file://" + os.path.abspath("oceanval_comparison/compare/_build/html/index.html")
+        )
+
+
 try:
     from importlib.metadata import version as _version
 except ImportError:
