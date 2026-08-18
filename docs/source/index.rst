@@ -50,6 +50,7 @@ Documentation
    :caption: Data handling
 
    obs_data.rst
+   recipes.rst
    info.rst
 
 
