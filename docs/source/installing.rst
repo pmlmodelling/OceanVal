@@ -1,25 +1,43 @@
-Installation and a quick example
-=================================
+Installation
+============
 
-**System requirements** You will need to run this on a Linux system.
+**System requirements**: OceanVal runs on Linux with Python 3.10-3.13.
 
+The recommended way to install OceanVal is via conda, which handles the
+scientific dependencies (including CDO and R) for you. If you do not have
+conda installed, follow the
+`conda installation guide <https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html>`_.
 
-OceanVal should be used with Python versions 3.10-3.13.
+Install the released package from conda-forge:
 
-The best way to install OceanVal is via conda. You will need to have conda installed first. If you do not have conda installed, please follow the instructions at https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html.
-Once you have conda installed, you can create a new conda environment and install OceanVal using the following command:
+.. code-block:: console
 
-   $ conda install conda-forge::oceanval 
+   conda install -c conda-forge oceanval
 
+To keep things clean, install into a dedicated environment:
 
-A short example
+.. code-block:: console
+
+   conda create -n oceanval -c conda-forge oceanval
+   conda activate oceanval
+
+Development version
 -------------------
 
-If you want to quickly understand what OceanVal can do, you can run the following example in a Python script or Jupyter notebook. It should take a couple of minutes to run. 
+To use the latest development version, clone the repository and follow the
+instructions in the
+`README <https://github.com/pmlmodelling/oceanval#installation>`_.
 
-This example can be viewed `here <https://pmlmodelling.github.io/oceanval_example/intro.html>`_.
 
-Note: you should run this from an empty directory.
+A two-minute example
+--------------------
+
+The example below downloads one year of CMIP6 sea surface temperature output
+and validates it against the COBE2 observational dataset. It takes a couple
+of minutes to run and produces `a report like this one
+<https://pmlmodelling.github.io/oceanval_example/intro.html>`_.
+
+Run it from an empty directory, in a Python script or Jupyter notebook:
 
 
 .. code:: ipython3
@@ -52,8 +70,12 @@ Note: you should run this from an empty directory.
 
 
 
-This quick example will compare sea surface temperature for 2014 from a global climate model simulation with an observational dataset.
-An html page should open in your browser showing how the two compare.
-In this case a built-in recipe is used for downloading the COBE2 sea surface temperature dataset [https://psl.noaa.gov/data/gridded/data.cobe2.html].
+When it finishes, an HTML report opens in your browser showing how the model
+and observations compare. The built-in ``cobe2`` :doc:`recipe <recipes>`
+handles downloading the observational data automatically.
 
-Note: this is just an example of the use of OceanVal, not a rigorous way to validate a climate model.
+.. note::
+
+   This is a demonstration of the workflow, not a rigorous way to validate a
+   climate model. For a real validation you would use more years of output
+   and more variables. Continue with the :doc:`quickstart`.

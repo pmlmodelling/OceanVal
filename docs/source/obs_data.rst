@@ -1,5 +1,5 @@
 Compatible data
-============
+===============
 
 OceanVal is designed to validate ocean model simulations using two types of observational data: gridded observations and in-situ observations.
 
@@ -46,7 +46,7 @@ Vertically-resolved files can be supplied. These should be files with depth as a
 **Key OceanVal assumption**: if you supply a gridded file with only one step, OceanVal will assume it represents climatological annual averages.
 
 In-situ observational data
------------------------
+--------------------------
 
 If you want to validate your model against in-situ observational data (e.g. from research cruises or moorings), then the data should be in CSV format.
 

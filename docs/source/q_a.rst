@@ -2,7 +2,7 @@ OceanVal Q&A
 =====================
 
 How do I validate multiple simulations?
-------------------------------------
+---------------------------------------
 
 If you want to validate multiple simulations with a single script, 
 you should make use of the `out_dir` option in the 
@@ -43,12 +43,12 @@ The folder structure should be self-explanatory, with the gridded data stored as
 and the point data stored as .csv files.
 
 I get a "TypeError: clean_all() takes 0 positional arguments but 2 were given". What do I do?
-------------------------------------
+---------------------------------------------------------------------------------------------
 
 This message should be ignored. It is a quirk in the behaviour of a dependency of the Jupyter Book package, and it does not mean anything is going wrong.
 
 Can I validate using gridded observational data from OPeNDAP?
-------------------------------------
+-------------------------------------------------------------
 
 Yes. OceanVal can access gridded observational data from OPeNDAP servers.
 The file path will just need to end with ".nc".
@@ -69,7 +69,7 @@ For example, to validate model temperature against the COBE SST data hosted by N
     )
 
 Something in my simulation should really be a missing value. What can I do?
-------------------------------------
+---------------------------------------------------------------------------
 
 If something in your simulation output should be a missing value, you can just use the `as_missing` argument in `oceanval.matchup`.
 
@@ -80,7 +80,7 @@ For example, if any 0 values should really be missing values, you can do:
     oceanval.matchup(..., as_missing = 0, .... )
 
 How do I spatially subset data before validation?
-------------------------------------
+-------------------------------------------------
 
 You can use the `lon_lim` and `lat_lim` arguments in the `oceanval.matchup` or `oceanval.validate` functions to spatially subset data before validation.
 For example, to only validate data in the North Atlantic (lon: -80 to 0, lat: 0 to 60):
@@ -91,7 +91,7 @@ For example, to only validate data in the North Atlantic (lon: -80 to 0, lat: 0 
 
 
 How do I use only a specific year range?
-------------------------------------
+----------------------------------------
 
 You can use the `start` and `end` arguments in the `oceanval.matchup` function to only validate data in a specific year range.
 For example, to only validate data from 2000 to 2010:
@@ -107,12 +107,13 @@ For example, to only validate data from 2010 to 2015:
     oceanval.add_point_comparison(..., start = 2010, end = 2015, .... )
 
 How do I carry out vertical validation?
-------------------------------------
+---------------------------------------
 
-If you want to carry out vertical validation, you first need to specify the `vertical` argument 
-    in the `oceanval.add_gridded_comparison` or `oceanval.add_point_comparison` function for each variable you want to validate vertically.
+If you want to carry out vertical validation, you first need to specify the `vertical` argument
+in the `oceanval.add_gridded_comparison` or `oceanval.add_point_comparison` function for each variable you want to validate vertically.
 
 For example:
+
 .. code:: ipython3
 
     oceanval.add_point_comparison(
@@ -142,6 +143,7 @@ For a simulation with varying cell thicknesses, you would do something like:
         thickness="/path/to/thickness_file.nc",
         ...
     )
+
 if it is a file containing the thicknesses. If the thickness variable is stored in one of the simulation files, just do:
 
 .. code:: ipython3
@@ -157,7 +159,7 @@ OceanVal will then search for the variable and extract the thicknesses for you.
 
 
 I would like a new feature in OceanVal. How can I request this?
-------------------------------------
+---------------------------------------------------------------
 
 Please open an issue on the OceanVal GitHub page:
 https://github.com/pmlmodelling/oceanVal/issues.
@@ -165,7 +167,7 @@ https://github.com/pmlmodelling/oceanVal/issues.
 
 
 Can I use OceanVal to compare simulations against each other?
-------------------------------------
+-------------------------------------------------------------
 
 OceanVal is not explicitly designed to compare simulations against each other, but you can do this by treating one simulation as "observations".
 This will only work for the gridded comparison, not the point comparison.
@@ -174,7 +176,7 @@ If you do this, you should see how simulations compare climatologically and acro
 
 
 How do I remove files hanging over from previous runs?
-------------------------------------
+------------------------------------------------------
 
 OceanVal generates some temporary files during the validation process, which should be automatically removed by the end of the session.
 However, files can sometimes be left behind due to system crashes etc.
@@ -190,7 +192,7 @@ If this happens, you can remove them as follows:
 Alternatively, you can just go to your temporary directory and just find files with "_ecoval_output" in them and delete them.
 
 How do I ensure the model and observational data have the same units?
-------------------------------------
+---------------------------------------------------------------------
 
 Internally, OceanVal will assume that the model and observational data are in the same units.
 However, you can modify the observational data units using the `obs_multiplier` or `model_adder` arguments in the `oceanval.add_point_comparison` and `oceanval.add_gridded_comparison` functions.
@@ -208,7 +210,7 @@ For example, if you wanted to convert observational data from mol/m3 to mmol/m3,
 **Note**: there is special handling when you name a variable "temperature", where OceanVal will automatically convert the observation to the model units.
 
 Why do I need to say if gridded data is climatological?
-------------------------------------
+-------------------------------------------------------
 
 If you do not provide this, it can be unclear how to handle gridded observational data.
 For example, a file could have a climatological, but will have time information that says the year is 2000.
@@ -231,7 +233,7 @@ Once you have modified them you can then rebuild the report using:
 This will overwrite your original report with the results of the modified analysis.
 
 How do I make sure OceanVal uses the correct simulation files?
-------------------------------------
+--------------------------------------------------------------
 
 OceanVal will automatically identify the file path pattern in a directory that identifies the simulation
 files that contain a specific variable. 
@@ -239,13 +241,13 @@ files that contain a specific variable.
 It will tell you the file pattern it has identified, along with an example of a file it will use.
 Furthermore, by default OceanVal is strict about the naming convention, so a file will have to have as many characters as the example given.
 
-For example, consider a case where the general file pattern was something like this:
+For example, consider a case where the general file pattern was something like this::
 
-eORCA1_1m_**_**_grid_T_**-**.nc
+    eORCA1_1m_**_**_grid_T_**-**.nc
 
-and an example file was:
+and an example file was::
 
-eORCA1_1m_20100101_grid_T_20101231.nc
+    eORCA1_1m_20100101_grid_T_20101231.nc
 
 oceanval would then only consider files with basename lengths of 36 characters (the length of the example file).
 
@@ -283,13 +285,14 @@ Just set strict_names to False as follows:
 In this case, the pattern stays the same, but OceanVal will not filter files based on the length of the basenames.
 
 Can I add information about my simulation in the report?
-------------------------------------
+--------------------------------------------------------
 
 Yes. This can be done using the `sim_info` argument in the `oceanval.validate` function.
 
 This should be a dictionary, which supplies the desired information.
 
 For example:
+
 .. code:: ipython3
 
     sim_info = {

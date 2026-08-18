@@ -1,8 +1,9 @@
 Data Recipes
 ============
 
-OceanVal provides built-in recipes for many popular observational datasets. 
-Downloading and store data can be annoying and tedious, and recipes take care of it for you.
+OceanVal provides built-in recipes for many popular observational datasets.
+Downloading and storing data can be annoying and tedious, and recipes take
+care of it for you.
 
 Recipes are available for gridded data. Use the ``recipe`` argument with
 :func:`oceanval.add_gridded_comparison` and provide the model variable that
@@ -25,23 +26,25 @@ The parts of the call mean:
 
 - ``name`` is the short name OceanVal uses in reports.
 - ``model_variable`` is the variable name in the model NetCDF output.
-- ``recipe`` is a dictionary that must contain one variable and source identifier. For example,
-``{"temperature": "woa23"}`` selects temperature from WOA23.
-- ``climatology`` is a boolean that sets whether to compare climatological means or all available years. Set ``climatology=True`` for a climatological comparison, or
-``climatology=False`` to compare all available years.
+- ``recipe`` is a dictionary that must contain one variable and source
+  identifier. For example, ``{"temperature": "woa23"}`` selects temperature
+  from WOA23.
+- ``climatology`` is a boolean that sets whether to compare climatological
+  means or all available years. Set ``climatology=True`` for a climatological
+  comparison, or ``climatology=False`` to compare all available years.
 
 How are recipes processed?
--------------------------
+--------------------------
 
-oceanVal will automatically download the observational data when the `oceanval.matchup` function is called.
-In most cases this will occur using thredds servers, which will make things efficient and oceanval will only download what is needed.
-Once the data is downloaded the model and observations will be regridded to a common spatial grid, and model and observational data will be averaged per month and year, where appropriate.
-
-
-
+OceanVal will automatically download the observational data when the
+:func:`oceanval.matchup` function is called. In most cases this happens via
+THREDDS servers, which makes things efficient: OceanVal only downloads what
+is needed. Once the data is downloaded, the model and observations are
+regridded to a common spatial grid, and model and observational data are
+averaged per month and year, where appropriate.
 
 What recipes are available?
--------------------------
+---------------------------
 
 
 Global datasets
