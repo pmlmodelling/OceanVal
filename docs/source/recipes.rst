@@ -9,164 +9,49 @@ Recipes are available for gridded data. Use the ``recipe`` argument with
 :func:`oceanval.add_gridded_comparison` and provide the model variable that
 should be compared with the observation.
 
-The examples below show the call for each global recipe:
-
-.. code-block:: python
-
-  import oceanval
-
-.. _recipe-temperature-cobe2:
-
-.. code-block:: python
-
-   oceanval.add_gridded_comparison(
-     name="temperature",
-     model_variable="thetao",
-     recipe={"temperature": "cobe2"},
-     climatology=False,
-   )
-
-.. _recipe-nitrate-woa23:
-
-.. code-block:: python
-
-   oceanval.add_gridded_comparison(
-     name="nitrate",
-     model_variable="no3",
-     recipe={"nitrate": "woa23"},
-     climatology=True,
-   )
-
-.. _recipe-phosphate-woa23:
-
-.. code-block:: python
-
-   oceanval.add_gridded_comparison(
-     name="phosphate",
-     model_variable="po4",
-     recipe={"phosphate": "woa23"},
-     climatology=True,
-   )
-
-.. _recipe-oxygen-woa23:
-
-.. code-block:: python
-
-   oceanval.add_gridded_comparison(
-     name="oxygen",
-     model_variable="o2",
-     recipe={"oxygen": "woa23"},
-     climatology=True,
-   )
-
-.. _recipe-silicate-woa23:
-
-.. code-block:: python
-
-   oceanval.add_gridded_comparison(
-     name="silicate",
-     model_variable="si",
-     recipe={"silicate": "woa23"},
-     climatology=True,
-   )
-
-.. _recipe-temperature-woa23:
-
-.. code-block:: python
-
-   oceanval.add_gridded_comparison(
-     name="temperature",
-     model_variable="thetao",
-     recipe={"temperature": "woa23"},
-     start=2005,
-     end=2014,
-     climatology=True,
-   )
-
-.. _recipe-salinity-woa23:
-
-.. code-block:: python
-
-   oceanval.add_gridded_comparison(
-     name="salinity",
-     model_variable="so",
-     recipe={"salinity": "woa23"},
-     start=2005,
-     end=2014,
-     climatology=True,
-   )
-
-.. _recipe-chlorophyll-occci:
-
-.. code-block:: python
-
-   oceanval.add_gridded_comparison(
-     name="chlorophyll",
-     model_variable="chl",
-     recipe={"chlorophyll": "occci"},
-     climatology=False,
-   )
-
-.. _recipe-kd490-occci:
-
-.. code-block:: python
-
-   oceanval.add_gridded_comparison(
-     name="kd490",
-     model_variable="kd490",
-     recipe={"kd490": "occci"},
-     climatology=False,
-   )
-
-.. _recipe-ph-glodap:
-
-.. code-block:: python
-
-   oceanval.add_gridded_comparison(
-     name="ph",
-     model_variable="ph",
-     recipe={"ph": "glodap"},
-     climatology=True,
-   )
-
-.. _recipe-alkalinity-glodap:
-
-.. code-block:: python
-
-   oceanval.add_gridded_comparison(
-     name="alkalinity",
-     model_variable="talk",
-     recipe={"alkalinity": "glodap"},
-     climatology=True,
-   )
-
-The model variable names in these examples are illustrative; replace them
-with the names used by your model output.
-
-The recipe dictionary must contain one variable and source identifier. For
-example, ``{"temperature": "woa23"}`` selects temperature from WOA23.
-
 Available recipes
 -----------------
 
 Global datasets
 ~~~~~~~~~~~~~~~
-
 .. csv-table:: Global built-in recipes
    :header: "Region", "Variable", "Recipe", "Dataset", "Example"
    :widths: 12, 16, 16, 32, 24
 
-   "Global", "Temperature", "``cobe2``", "COBE-SST 2", ":ref:`Call <recipe-temperature-cobe2>`"
-   "Global", "Nitrate", "``woa23``", "World Ocean Atlas 2023", ":ref:`Call <recipe-nitrate-woa23>`"
-   "Global", "Phosphate", "``woa23``", "World Ocean Atlas 2023", ":ref:`Call <recipe-phosphate-woa23>`"
-   "Global", "Oxygen", "``woa23``", "World Ocean Atlas 2023", ":ref:`Call <recipe-oxygen-woa23>`"
-   "Global", "Silicate", "``woa23``", "World Ocean Atlas 2023", ":ref:`Call <recipe-silicate-woa23>`"
-   "Global", "Temperature", "``woa23``", "World Ocean Atlas 2023", ":ref:`Call <recipe-temperature-woa23>`"
-   "Global", "Salinity", "``woa23``", "World Ocean Atlas 2023", ":ref:`Call <recipe-salinity-woa23>`"
-   "Global", "Chlorophyll", "``occci``", "Ocean Colour CCI", ":ref:`Call <recipe-chlorophyll-occci>`"
-   "Global", "KD490", "``occci``", "Ocean Colour CCI", ":ref:`Call <recipe-kd490-occci>`"
-   "Global", "pH", "``glodap``", "GLODAPv2.2016b", ":ref:`Call <recipe-ph-glodap>`"
-   "Global", "Alkalinity", "``glodap``", "GLODAPv2.2016b", ":ref:`Call <recipe-alkalinity-glodap>`"
+   "Global", "Temperature", "``cobe2``", "COBE-SST 2", ":doc:`Call <recipe_examples/temperature_cobe2>`"
+   "Global", "Nitrate", "``woa23``", "World Ocean Atlas 2023", ":doc:`Call <recipe_examples/nitrate_woa23>`"
+   "Global", "Phosphate", "``woa23``", "World Ocean Atlas 2023", ":doc:`Call <recipe_examples/phosphate_woa23>`"
+   "Global", "Oxygen", "``woa23``", "World Ocean Atlas 2023", ":doc:`Call <recipe_examples/oxygen_woa23>`"
+   "Global", "Silicate", "``woa23``", "World Ocean Atlas 2023", ":doc:`Call <recipe_examples/silicate_woa23>`"
+   "Global", "Temperature", "``woa23``", "World Ocean Atlas 2023", ":doc:`Call <recipe_examples/temperature_woa23>`"
+   "Global", "Salinity", "``woa23``", "World Ocean Atlas 2023", ":doc:`Call <recipe_examples/salinity_woa23>`"
+   "Global", "Chlorophyll", "``occci``", "Ocean Colour CCI", ":doc:`Call <recipe_examples/chlorophyll_occci>`"
+   "Global", "KD490", "``occci``", "Ocean Colour CCI", ":doc:`Call <recipe_examples/kd490_occci>`"
+   "Global", "pH", "``glodap``", "GLODAPv2.2016b", ":doc:`Call <recipe_examples/ph_glodap>`"
+   "Global", "Alkalinity", "``glodap``", "GLODAPv2.2016b", ":doc:`Call <recipe_examples/alkalinity_glodap>`"
+
+Each Example link opens a separate page containing the corresponding call.
+
+.. toctree::
+   :hidden:
+
+   recipe_examples/temperature_cobe2
+   recipe_examples/nitrate_woa23
+   recipe_examples/phosphate_woa23
+   recipe_examples/oxygen_woa23
+   recipe_examples/silicate_woa23
+   recipe_examples/temperature_woa23
+   recipe_examples/salinity_woa23
+   recipe_examples/chlorophyll_occci
+   recipe_examples/kd490_occci
+   recipe_examples/ph_glodap
+   recipe_examples/alkalinity_glodap
+   recipe_examples/oxygen_nsbc
+
+The recipe dictionary must contain one variable and source identifier. For
+example, ``{"temperature": "woa23"}`` selects temperature from WOA23.
+
+
 
 Northwest European Shelf datasets
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -174,14 +59,7 @@ Northwest European Shelf datasets
 The ``nsbc`` recipe provides North Sea Biogeochemical Climatology data for
 chlorophyll, nitrate, phosphate, silicate, oxygen, temperature, and salinity.
 
-.. code-block:: python
-
-   oceanval.add_gridded_comparison(
-       name="oxygen",
-       model_variable="oxygen",
-       recipe={"oxygen": "nsbc"},
-       climatology=True,
-   )
+See the :doc:`Call <recipe_examples/oxygen_nsbc>` example for the NSBC recipe.
 
 Dataset notes
 -------------
