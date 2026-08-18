@@ -9,6 +9,8 @@ Recipes are available for gridded data. Use the ``recipe`` argument with
 :func:`oceanval.add_gridded_comparison` and provide the model variable that
 should be compared with the observation:
 
+.. _recipe-example:
+
 .. code-block:: python
 
    import oceanval
@@ -31,31 +33,70 @@ Available recipes
 Global datasets
 ~~~~~~~~~~~~~~~
 
-+-------------------+----------------+-------------------+----------------------------------------------+
-| Region            | Variable       | Recipe            | Dataset                                      |
-+===================+================+===================+==============================================+
-| Global            | Temperature    | ``cobe2``         | COBE-SST 2                                   |
-+-------------------+----------------+-------------------+----------------------------------------------+
-| Global            | Nitrate        | ``woa23``         | World Ocean Atlas 2023                       |
-+-------------------+----------------+-------------------+----------------------------------------------+
-| Global            | Phosphate      | ``woa23``         | World Ocean Atlas 2023                       |
-+-------------------+----------------+-------------------+----------------------------------------------+
-| Global            | Oxygen         | ``woa23``         | World Ocean Atlas 2023                       |
-+-------------------+----------------+-------------------+----------------------------------------------+
-| Global            | Silicate       | ``woa23``         | World Ocean Atlas 2023                       |
-+-------------------+----------------+-------------------+----------------------------------------------+
-| Global            | Temperature    | ``woa23``         | World Ocean Atlas 2023                       |
-+-------------------+----------------+-------------------+----------------------------------------------+
-| Global            | Salinity       | ``woa23``         | World Ocean Atlas 2023                       |
-+-------------------+----------------+-------------------+----------------------------------------------+
-| Global            | Chlorophyll    | ``occci``         | Ocean Colour CCI                             |
-+-------------------+----------------+-------------------+----------------------------------------------+
-| Global            | KD490          | ``occci``         | Ocean Colour CCI                             |
-+-------------------+----------------+-------------------+----------------------------------------------+
-| Global            | pH             | ``glodap``        | GLODAPv2.2016b                               |
-+-------------------+----------------+-------------------+----------------------------------------------+
-| Global            | Alkalinity     | ``glodap``        | GLODAPv2.2016b                               |
-+-------------------+----------------+-------------------+----------------------------------------------+
+.. list-table:: Global built-in recipes
+   :header-rows: 1
+   :widths: 12 16 16 32 24
+
+   * - Region
+     - Variable
+     - Recipe
+     - Dataset
+     - Example
+   * - Global
+     - Temperature
+     - ``cobe2``
+     - COBE-SST 2
+     - :ref:`Call <recipe-example>`
+   * - Global
+     - Nitrate
+     - ``woa23``
+     - World Ocean Atlas 2023
+     - :ref:`Call <recipe-example>`
+   * - Global
+     - Phosphate
+     - ``woa23``
+     - World Ocean Atlas 2023
+     - :ref:`Call <recipe-example>`
+   * - Global
+     - Oxygen
+     - ``woa23``
+     - World Ocean Atlas 2023
+     - :ref:`Call <recipe-example>`
+   * - Global
+     - Silicate
+     - ``woa23``
+     - World Ocean Atlas 2023
+     - :ref:`Call <recipe-example>`
+   * - Global
+     - Temperature
+     - ``woa23``
+     - World Ocean Atlas 2023
+     - :ref:`Call <recipe-example>`
+   * - Global
+     - Salinity
+     - ``woa23``
+     - World Ocean Atlas 2023
+     - :ref:`Call <recipe-example>`
+   * - Global
+     - Chlorophyll
+     - ``occci``
+     - Ocean Colour CCI
+     - :ref:`Call <recipe-example>`
+   * - Global
+     - KD490
+     - ``occci``
+     - Ocean Colour CCI
+     - :ref:`Call <recipe-example>`
+   * - Global
+     - pH
+     - ``glodap``
+     - GLODAPv2.2016b
+     - :ref:`Call <recipe-example>`
+   * - Global
+     - Alkalinity
+     - ``glodap``
+     - GLODAPv2.2016b
+     - :ref:`Call <recipe-example>`
 
 Northwest European Shelf datasets
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
