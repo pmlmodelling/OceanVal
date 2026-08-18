@@ -70,26 +70,6 @@ See the :doc:`Full details <recipe_examples/oxygen_nsbc>` example for the NSBC r
 Dataset notes
 -------------
 
-COBE-SST 2
-~~~~~~~~~~
-
-The ``cobe2`` recipe provides global sea-surface temperature from NOAA's
-Physical Sciences Laboratory. The data are surface-only and reported in
-degrees Celsius.
-
-See the `COBE2 dataset page <https://psl.noaa.gov/data/gridded/data.cobe2.html>`_.
-
-Inspect a recipe directly
--------------------------
-
-The recipe helper can be used to inspect the metadata selected for a variable:
-
-.. code-block:: python
-
-   from oceanval.parsers import find_recipe
-
-   recipe = find_recipe({"temperature": "woa23"}, start=2005, end=2014)
-   print(recipe["source"], recipe["obs_variable"])
 
 Always check the dataset units and climatology period before comparing the
 result with model output. See :doc:`how_to_use` for matching and time-resolution
