@@ -30,7 +30,6 @@ Documentation
    installing.rst
    quickstart.rst
    how_to_use.rst
-   examples.rst
    q_a.rst
 
 
