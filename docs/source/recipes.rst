@@ -53,6 +53,13 @@ In each example:
    recipe_examples/ph_glodap
    recipe_examples/alkalinity_glodap
    recipe_examples/oxygen_nsbc
+   recipe_examples/ammonium_nsbc
+   recipe_examples/chlorophyll_nsbc
+   recipe_examples/nitrate_nsbc
+   recipe_examples/phosphate_nsbc
+   recipe_examples/salinity_nsbc
+   recipe_examples/silicate_nsbc
+   recipe_examples/temperature_nsbc
 
 The recipe dictionary must contain one variable and source identifier. For
 example, ``{"temperature": "woa23"}`` selects temperature from WOA23.
@@ -65,7 +72,20 @@ Northwest European Shelf datasets
 The ``nsbc`` recipe provides North Sea Biogeochemical Climatology data for
 chlorophyll, nitrate, phosphate, silicate, oxygen, temperature, and salinity.
 
-See the :doc:`Full details <recipe_examples/oxygen_nsbc>` example for the NSBC recipe.
+.. csv-table:: Northwest European Shelf built-in recipes
+   :header: "Region", "Variable", "Recipe", "Dataset", "Example"
+   :widths: 22, 16, 16, 32, 24
+
+   "Northwest European Shelf", "Ammonium", "``nsbc``", "North Sea Biogeochemical Climatology", ":doc:`Full details <recipe_examples/ammonium_nsbc>`"
+   "Northwest European Shelf", "Chlorophyll", "``nsbc``", "North Sea Biogeochemical Climatology", ":doc:`Full details <recipe_examples/chlorophyll_nsbc>`"
+   "Northwest European Shelf", "Nitrate", "``nsbc``", "North Sea Biogeochemical Climatology", ":doc:`Full details <recipe_examples/nitrate_nsbc>`"
+   "Northwest European Shelf", "Oxygen", "``nsbc``", "North Sea Biogeochemical Climatology", ":doc:`Full details <recipe_examples/oxygen_nsbc>`"
+   "Northwest European Shelf", "Phosphate", "``nsbc``", "North Sea Biogeochemical Climatology", ":doc:`Full details <recipe_examples/phosphate_nsbc>`"
+   "Northwest European Shelf", "Salinity", "``nsbc``", "North Sea Biogeochemical Climatology", ":doc:`Full details <recipe_examples/salinity_nsbc>`"
+   "Northwest European Shelf", "Silicate", "``nsbc``", "North Sea Biogeochemical Climatology", ":doc:`Full details <recipe_examples/silicate_nsbc>`"
+   "Northwest European Shelf", "Temperature", "``nsbc``", "North Sea Biogeochemical Climatology", ":doc:`Full details <recipe_examples/temperature_nsbc>`"
+
+Each Example link opens a separate page containing the corresponding call.
 
 Dataset notes
 -------------
