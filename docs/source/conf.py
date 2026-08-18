@@ -111,6 +111,7 @@ html_theme_options = {
     'use_download_button': True,
     'home_page_in_toc': True,
     'navigation_with_keys': True,
+    'collapse_navbar': True,
     'show_navbar_depth': 2,
     'toc_title': 'On this page',
     'extra_footer': (

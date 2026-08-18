@@ -3,7 +3,7 @@ OceanVal: automated ocean model validation
 
 **Point OceanVal at your model output. Get back a complete validation report.**
 
-OceanVal is a Python package that automates the slow, error-prone parts of
+OceanVal is a Python package that automates the slow and tedious parts of
 ocean model validation. It matches your simulation output against gridded and
 in-situ observations, computes validation statistics, and builds a polished,
 shareable HTML report, all with a few lines of code.
@@ -33,13 +33,13 @@ Why OceanVal?
 * **Fast to first result**: install from conda-forge and validate a
   simulation the same day, not after weeks of scripting.
 * **Built-in observation recipes**: WOA23, COBE2, OCC-CI, GLODAP, and NSBC
-  datasets are ready to use, with metadata and remote file locations included.
+   datasets are ready to use, with data downloaded and processed for you.
   See :doc:`recipes`.
 * **Rigorous statistics**: bias, RMSD, correlation, seasonality, spatial
   patterns, and vertical profiles, computed like-for-like on matched data.
 * **Publication-quality reports**: an HTML report you can send to
   collaborators, with figures, tables, and methods documented automatically.
-* **Works with your model**: NEMO, ERSEM, CMIP-style output, and any
+* **Works with your model**: NEMO, CMEMS, CMIP-style output, and any
   CF-compliant NetCDF files. FVCOM output is supported via preprocessing.
 * **Reproducible and hackable**: every report is generated from Jupyter
   notebooks you can inspect, edit, and rebuild with :func:`oceanval.rebuild`.
