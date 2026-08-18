@@ -1,25 +1,37 @@
 .. currentmodule:: oceanval
 
 
-####################
 API Reference
-####################
+=============
 
-Matchups and validation
-------------------
+Configuration and matching
+--------------------------
 
 .. autosummary::
    :toctree: generated/
 
    add_point_comparison
    add_gridded_comparison
-   matchup 
-   validate 
+   matchup
+
+Reports and maintenance
+-----------------------
+
+.. autosummary::
+   :toctree: generated/
+
+   validate
    reset
    compare
-   find_recipe
    rebuild
    deep_clean
+
+Model support
+-------------
+
+.. autosummary::
+   :toctree: generated/
+
    fvcom_preprocess
 
 

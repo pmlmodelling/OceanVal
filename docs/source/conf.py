@@ -1,20 +1,22 @@
 # -*- coding: utf-8 -*-
 #
-import os
 import sys
-sys.path.insert(0, os.path.abspath('../..'))
-# sys.path.insert(0, os.path.abspath('.'))
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(PROJECT_ROOT))
 
 
 # -- Project information -----------------------------------------------------
 
-project = 'oceanval'
+project = 'OceanVal'
 copyright = '2025, Robert Wilson'
 author = 'Robert Wilson'
 
 # The short X.Y version
 # The full version, including alpha/beta/rc tags
-version = '0.0.2'
+version = '0.4.0'
+release = version
 
 
 # -- General configuration ---------------------------------------------------
@@ -35,6 +37,7 @@ extensions = [
     "sphinx.ext.napoleon",
     'sphinx.ext.todo',
     'sphinx.ext.githubpages',
+    'sphinx.ext.viewcode',
 ]
 
 html_theme = "sphinx_book_theme"
@@ -45,8 +48,8 @@ html_theme = "sphinx_book_theme"
 templates_path = ['_templates']
 
 autosummary_generate = True
-
-utodoc_typehints = "none"
+autodoc_member_order = 'bysource'
+autodoc_typehints = 'description'
 
 napoleon_use_param = True
 napoleon_use_rtype = True
@@ -95,6 +98,14 @@ pygments_style = 'sphinx'
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
+html_title = 'OceanVal documentation'
+html_theme_options = {
+    'repository_url': 'https://github.com/pmlmodelling/oceanVal',
+    'use_repository_button': True,
+    'use_issues_button': True,
+    'use_download_button': True,
+    'show_navbar_depth': 2,
+}
 
 
 # Custom sidebar templates, must be a dictionary that maps document names
