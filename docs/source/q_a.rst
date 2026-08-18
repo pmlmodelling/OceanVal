@@ -6,7 +6,7 @@ How do I validate multiple simulations?
 
 If you want to validate multiple simulations with a single script, 
 you should make use of the `out_dir` option in the 
-`oceanval.matchup` and `data_dir` and `output_dir` options in the  `oceanVal.validate` functions.
+`oceanval.matchup`, and the `data_dir` and `output_dir` options in the `oceanval.validate` function.
 These will enable OceanVal to store output in separate folders.
 
 When your code has finished validating one simulation, you should reset things as follows:
@@ -15,7 +15,7 @@ When your code has finished validating one simulation, you should reset things a
 
     oceanval.reset()
 
-This will clear any of the observational matchups you have previous added using 
+This will clear any of the observational matchups you have previously added using
 `oceanval.add_point_comparison` and `oceanval.add_gridded_comparison` functions and will give
 you a clean slate to validate the next simulation.
 
@@ -45,12 +45,12 @@ and the point data stored as .csv files.
 I get a "TypeError: clean_all() takes 0 positional arguments but 2 were given". What do I do?
 ------------------------------------
 
-This message should be ignored. It is a quirk in the behaviour of a dependency of the jupyter book package, and it does not mean anything is going wrong.
+This message should be ignored. It is a quirk in the behaviour of a dependency of the Jupyter Book package, and it does not mean anything is going wrong.
 
-Can I validate using gridded observational data from openDAP?
+Can I validate using gridded observational data from OPeNDAP?
 ------------------------------------
 
-Yes. OceanVal can access gridded observational data from openDAP servers.
+Yes. OceanVal can access gridded observational data from OPeNDAP servers.
 The file path will just need to end with ".nc".
 
 You can use the `oceanval.add_gridded_comparison` function to add the observational data as usual,
@@ -82,7 +82,7 @@ For example, if any 0 values should really be missing values, you can do:
 How do I spatially subset data before validation?
 ------------------------------------
 
-You can use the `lon_lim` and `lat_lim` arguments in the `oceanval.matchup` or `oceanVal.validate` functions to spatially subset data before validation. 
+You can use the `lon_lim` and `lat_lim` arguments in the `oceanval.matchup` or `oceanval.validate` functions to spatially subset data before validation.
 For example, to only validate data in the North Atlantic (lon: -80 to 0, lat: 0 to 60):
 
 .. code:: ipython3
@@ -90,7 +90,7 @@ For example, to only validate data in the North Atlantic (lon: -80 to 0, lat: 0 
     oceanval.matchup(..., lon_lim = [-80, 0], lat_lim = [0, 60], .... )
 
 
-How do I only a specific year range?
+How do I use only a specific year range?
 ------------------------------------
 
 You can use the `start` and `end` arguments in the `oceanval.matchup` function to only validate data in a specific year range.
@@ -99,7 +99,7 @@ For example, to only validate data from 2000 to 2010:
 
     oceanval.matchup(..., start = 2000, end = 2010, .... ) 
 
-If you want fine grained control, you can also specify these in the `oceanVal.add_point_comparison` and `oceanVal.add_gridded_comparison` functions using the `start` and `end` arguments there.
+If you want fine-grained control, you can also specify these in the `oceanval.add_point_comparison` and `oceanval.add_gridded_comparison` functions using the `start` and `end` arguments there.
 For example, to only validate data from 2010 to 2015:
 
 .. code:: ipython3
@@ -110,7 +110,7 @@ How do I carry out vertical validation?
 ------------------------------------
 
 If you want to carry out vertical validation, you first need to specify the `vertical` argument 
-in the `oceanval.add_gridded_comparison` or `oceanval.add_point_comparison` for each variable you want vertical validation for. 
+    in the `oceanval.add_gridded_comparison` or `oceanval.add_point_comparison` function for each variable you want to validate vertically.
 
 For example:
 .. code:: ipython3
@@ -121,7 +121,7 @@ For example:
         ...
     )
 
-Once, you have done this you will need to specify the `thickness` argument in the `oceanVal.matchup` function.
+Once you have done this, you will need to specify the `thickness` argument in the `oceanval.matchup` function.
 If you have z-level data, i.e. the depth levels are at fixed depths in all cells, just set `thickness="z_level"`.
 If the cell thicknesses vary spatially, e.g. in a sigma or hybrid coordinate system, you will need to provide a file containing the thicknesses.
 
@@ -193,7 +193,7 @@ How do I ensure the model and observational data have the same units?
 ------------------------------------
 
 Internally, OceanVal will assume that the model and observational data are in the same units.
-However, you can modify the the observational data units using the `obs_multiplier` or `model_adder` arguments in the `oceanval.add_point_comparison` and `oceanval.add_gridded_comparison` functions.
+However, you can modify the observational data units using the `obs_multiplier` or `model_adder` arguments in the `oceanval.add_point_comparison` and `oceanval.add_gridded_comparison` functions.
 
 For example, if you wanted to convert observational data from mol/m3 to mmol/m3, you could do: 
 
@@ -205,7 +205,7 @@ For example, if you wanted to convert observational data from mol/m3 to mmol/m3,
         ...
     )
 
-**Note**: there is special handling when you name a variable "temperature", where OceanVal will automatically convert the obseration to the model units. 
+**Note**: there is special handling when you name a variable "temperature", where OceanVal will automatically convert the observation to the model units.
 
 Why do I need to say if gridded data is climatological?
 ------------------------------------
@@ -285,7 +285,7 @@ In this case, the pattern stays the same, but OceanVal will not filter files bas
 Can I add information about my simulation in the report?
 ------------------------------------
 
-Yes. This can be done using the `sim_info` argument in the `oceanVal.validate` function.
+Yes. This can be done using the `sim_info` argument in the `oceanval.validate` function.
 
 This should be a dictionary, which supplies the desired information.
 

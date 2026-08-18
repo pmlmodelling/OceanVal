@@ -7,7 +7,7 @@ Validating simulations using OceanVal involves three steps:
 
     **2**. Matchup the model simulation output with the observational datasets
 
-    **3**. Calculate validation statistics, generate plots and create an html summary of the performance of the simulation
+    **3**. Calculate validation statistics, generate plots and create an HTML summary of the performance of the simulation
 
 **You should always create a new directory prior to running OceanVal for a new simulation, and then run all OceanVal commands from within that directory.**
 
@@ -16,7 +16,7 @@ Step 1: Register observational datasets
 
 You first need to register the observational datasets you want to use for validation. 
 This involves specifying the location of the data files and any necessary metadata.
-You can register both gridded and in-situ observational datasets using the `oceanval.add_point_comprison` and `oceanval.add_gridded_comparison` functions. 
+You can register both gridded and in-situ observational datasets using the `oceanval.add_point_comparison` and `oceanval.add_gridded_comparison` functions.
 
 **Setting up point (in-situ) observational data**
 
@@ -49,8 +49,8 @@ An example is shown below:
     oceanval.add_point_comparison(
         name="nitrate",
         source = "ICES",
-        source_info = "In-situ observations from the International Council for the Exploration of the Sea"
-        short_name = "nitrate concentration"
+        source_info = "In-situ observations from the International Council for the Exploration of the Sea",
+        short_name = "nitrate concentration",
         model_variable="temp",
         obs_path="/path/to/obs_data/",
     )
@@ -96,8 +96,8 @@ An example is shown below:
     oceanval.add_gridded_comparison(
         name="oxygen",
         source = "CMEMS",
-        source_info = "Gridded observations from the Copernicus Marine Environment Monitoring Service"
-        short_name = "oxygen concentration"
+        source_info = "Gridded observations from the Copernicus Marine Environment Monitoring Service",
+        short_name = "oxygen concentration",
         model_variable="oxygen",
         obs_variable="O2_concentration",
         obs_path="/path/to/obs_data/",
@@ -119,7 +119,7 @@ You will get an error if you are inconsistent.
     2. A climatological monthly average for each grid cell 
     3. A climatological annual average for each grid cell
 
-    If you provide multi-year observational data, OceanVal will calculate a mult-year observational average, which is compared with the model in a like-for-like manner.    
+    If you provide multi-year observational data, OceanVal will calculate a multi-year observational average, which is compared with the model in a like-for-like manner.
 
     If you provide single-year observational data with monthly resolution, OceanVal will generate a comparable climatological monthly average from the model simulation output for comparison.
     This will be based on the year range you have specified.
@@ -178,7 +178,7 @@ An example is shown below:
     OceanVal requires that simulation output is either stored in a single directory
     or in subdirectories that follow something like YYYY/MM/ structure.
     If there are subdirectories, **they must** only contain integers.
-    This the typical way of storing simulation output for ocean models. 
+    This is the typical way of storing simulation output for ocean models.
     If you have a different folder structure, you can just create symbolic links to the relevant files in a single directory. 
     
     Directories should ideally only contain results from a single simulation.
@@ -190,12 +190,12 @@ This will result in day of year being ignored when matching up observations with
 
 **Summing up simulation output**
 
-Sometimes observational data needs to be compared with the sum of multiple model variable.
+Sometimes observational data needs to be compared with the sum of multiple model variables.
 You can do this by setting something like "var1+var2+var3" as the `model_variable` when registering the observational dataset.
 
 .. admonition:: How does OceanVal handle in-situ data?
 
-    OceanVal will handle in-situ data observational data depending on which of the following are provided:
+    OceanVal will handle in-situ observational data depending on which of the following are provided:
 
     - year 
     - month
@@ -203,7 +203,7 @@ You can do this by setting something like "var1+var2+var3" as the `model_variabl
     - depth
 
     If depth is not provided, OceanVal will assume this represents a surface observational dataset. 
-    If you do provide depth, OceanVal will interpolate to all available depth-resolved data if you have specified `vertical=True` in `add_point_comparison`, otherwise it will only use the top 5m of data.
+    If you do provide depth, OceanVal will interpolate to all available depth-resolved data if you have specified `vertical=True` in `add_point_comparison`; otherwise, it will only use the top 5 m of data.
     By default it only looks at the surface. 
 
     If you provide year, month and day, OceanVal will look for model output at the exact date of the observation.
@@ -228,7 +228,7 @@ You can do this by setting something like "var1+var2+var3" as the `model_variabl
     Gridded matchups will end with ".nc", while point matchups will end with ".csv".
     In each case, the model output will be named "model", while the observations will be named "observation".
 
-Step 3: Calculate validation statistics and generate html summary
+Step 3: Calculate validation statistics and generate HTML summary
 --------------------------------------
 
 Once you have matched up the model simulation output with the observations, you can calculate validation statistics and generate plots using the `oceanval.validate` function.
@@ -246,7 +246,7 @@ The following options are available:
 - `lon_lim`: The longitude limits for the validation region (e.g. [-180, 180]).
 - `lat_lim`: The latitude limits for the validation region (e.g. [-90, 90]).
 - `region`: A string specifying the region being validated. Only "global" and "nwes" (northwest European Shelf are currently available).
-- `concise`: A boolean indicating whether to generate a concise html summary page. This defaults to True.
+- `concise`: A boolean indicating whether to generate a concise HTML summary page. This defaults to True.
 
 This will then generate and open an html page that can be viewed in a web browser.
 

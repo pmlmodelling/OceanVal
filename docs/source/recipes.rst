@@ -29,14 +29,6 @@ Global datasets
    "Global", "Temperature", "``cobe2``", "`COBE-SST 2 <https://psl.noaa.gov/data/gridded/data.cobe2.html>`_", "No", ":doc:`Full details <recipe_examples/temperature_cobe2>`"
    "Global", "Temperature", "``woa23``", "`World Ocean Atlas 2023 <https://www.ncei.noaa.gov/products/world-ocean-atlas>`_", "Yes", ":doc:`Full details <recipe_examples/temperature_woa23>`"
 
-Each Example link opens a separate page containing the corresponding call.
-
-In each example:
-
-* ``model_variable`` is the variable name in the model NetCDF output.
-* Set ``climatology=True`` for a climatological comparison, or
-   ``climatology=False`` to compare all available years.
-* ``name`` is the short name OceanVal uses in reports.
 
 .. toctree::
    :hidden:

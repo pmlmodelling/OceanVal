@@ -1,5 +1,5 @@
 Installation and a quick example
-============
+=================================
 
 **System requirements** You will need to run this on a Linux system.
 
