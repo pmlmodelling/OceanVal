@@ -8,6 +8,18 @@ import glob
 
 class TestValidate:
     """Test suite for validate function"""
+
+    def test_invalid_region(self):
+        """Test that ValueError is raised for invalid region"""
+        with pytest.raises(ValueError, match="region must be either 'nwes' or 'global'"):
+            oceanval.validate(region="invalid_region", test=True)
+
+    def test_valid_regions(self):
+        """Test that supported regions pass validation."""
+        for region in ["nwes", "global"]:
+            with pytest.raises(ValueError) as error:
+                oceanval.validate(region=region, lon_lim="not_a_list", test=True)
+            assert "region must be either" not in str(error.value)
     
     def test_lon_lim_not_list(self):
         """Test that ValueError is raised when lon_lim is not a list"""
