@@ -168,10 +168,10 @@ if(fixed_scale == "True"){
 }
 
 
-library(tidyverse, warn.conflicts = FALSE)
-library(cowplot, warn.conflicts = FALSE)
-#library(tidyr, warn.conflicts = FALSE)
-library(dplyr, warn.conflicts = FALSE)
+library(tidyverse, warn.conflicts = FALSE, quietly = TRUE)
+library(cowplot, warn.conflicts = FALSE, quietly = TRUE)
+#library(tidyr, warn.conflicts = FALSE, quietly = TRUE)
+library(dplyr, warn.conflicts = FALSE, quietly = TRUE)
 
 df_model <- read_csv("adhoc/df_model_model.csv")
 
@@ -418,9 +418,9 @@ if (concise == FALSE){
     if (fixed_scale == "True")
         fixed_scale = TRUE
     
-library(tidyverse, warn.conflicts = FALSE)
-library(cowplot, warn.conflicts = FALSE)
-library(dplyr, warn.conflicts = FALSE)
+library(tidyverse, warn.conflicts = FALSE, quietly = TRUE)
+library(cowplot, warn.conflicts = FALSE, quietly = TRUE)
+library(dplyr, warn.conflicts = FALSE, quietly = TRUE)
 
 df_model <- read_csv("adhoc/df_model_model.csv")
 

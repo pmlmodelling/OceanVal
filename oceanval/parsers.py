@@ -352,6 +352,7 @@ class Validator:
 
         if recipe is not None:
             recipe_info = find_recipe(recipe, start=start, end=end)
+            print(recipe_info)
             if obs_path is None:
                 obs_path = recipe_info["obs_path"]
             if source is None:
@@ -360,10 +361,8 @@ class Validator:
                 file_check = False
             if source_info is None:
                 source_info = recipe_info["source_info"]
-            if (obs_path is None or isinstance(obs_path, str) and not os.path.exists(obs_path)) and recipe_info["thredds"] is True:
-                thredds = recipe_info["thredds"]
-            elif obs_path is not None and isinstance(obs_path, str) and os.path.exists(obs_path):
-                thredds = False
+            print(obs_path)
+            thredds = recipe_info["thredds"]
             if climatology is None:
                 climatology = recipe_info["climatology"]
             if name is None:
@@ -452,6 +451,7 @@ class Validator:
         if file_check:
             if gridded_dir != "auto":
                 if thredds is False:
+                    print("What is going on?")
                     if not os.path.exists(gridded_dir):
                         raise ValueError(f"Gridded directory {gridded_dir} does not exist")
         # thredds must be boolean

@@ -183,9 +183,9 @@ if available:
 # %%capture --no-display
 # %%R -i df_locs -i variable -i available -i unit -i concise -w 500
 if(available & concise == FALSE){
-library(dplyr, warn.conflicts = FALSE)
-library(ggplot2, warn.conflicts = FALSE)
-library(stringr)
+library(dplyr, warn.conflicts = FALSE, quietly = TRUE)
+library(ggplot2, warn.conflicts = FALSE, quietly = TRUE)
+library(stringr, warn.conflicts = FALSE, quietly = TRUE)
 world_map <- map_data("world")
 # get lon, lat limits from profile_mld
 bin_value <- function(x, bin_res) {
@@ -250,9 +250,9 @@ if available and not concise:
 # %%R -i df -i variable -i unit -i layer_long -i vv_name -i available -w 800 
 options(warn=-1)
 options(warn=-1)
-library(tidyverse)
-library(stringr)
-library(ggtext)
+library(tidyverse, warn.conflicts = FALSE, quietly = TRUE)
+library(stringr, warn.conflicts = FALSE, quietly = TRUE)
+library(ggtext, warn.conflicts = FALSE, quietly = TRUE)
 if(available){
 
 bin_value <- function(x, bin_res) {
@@ -394,10 +394,10 @@ bin_value <- function(x, bin_res) {
 	floor((x + bin_res / 2) / bin_res + 0.5) * bin_res - bin_res / 2
 }
 
-library(dplyr, warn.conflicts = FALSE)
-library(ggplot2, warn.conflicts = FALSE)
-library(stringr)
-library(tidyverse)
+library(dplyr, warn.conflicts = FALSE, quietly = TRUE)
+library(ggplot2, warn.conflicts = FALSE, quietly = TRUE)
+library(stringr, warn.conflicts = FALSE, quietly = TRUE)
+library(tidyverse, warn.conflicts = FALSE, quietly = TRUE)
 world_map <- map_data("world")
 # get lon, lat limits from profile_mld
 
@@ -561,7 +561,7 @@ bin_value <- function(x, bin_res) {
 	floor((x + bin_res / 2) / bin_res + 0.5) * bin_res - bin_res / 2
 }
 
-library(tidyverse, warn.conflicts = FALSE)
+library(tidyverse, warn.conflicts = FALSE, quietly = TRUE)
 
 
 x_lab <- str_glue("Model {vv_name} ({unit})")
@@ -646,9 +646,9 @@ if available:
 # %%R -i vv_name -i unit -i concise -w 500  -i available
 
 if(concise & available){
-library(dplyr, warn.conflicts = FALSE)
-library(ggplot2, warn.conflicts = FALSE)
-library(stringr)
+library(dplyr, warn.conflicts = FALSE, quietly = TRUE)
+library(ggplot2, warn.conflicts = FALSE, quietly = TRUE)
+library(stringr, warn.conflicts = FALSE, quietly = TRUE)
 
 bin_value <- function(x, bin_res) {
 	floor((x + bin_res / 2) / bin_res + 0.5) * bin_res - bin_res / 2
