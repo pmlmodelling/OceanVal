@@ -1,10 +1,7 @@
 OCCCI chlorophyll recipe
 =========================
 
-``model_variable`` is the variable name in the model NetCDF output.
-Set ``climatology=True`` for a climatological comparison, or
-``climatology=False`` to compare all available years. ``name`` is the short
-name OceanVal uses in reports.
+Dataset: `Ocean Colour CCI <https://esa-oceancolour-cci.org/>`_.
 
 .. code-block:: python
 
@@ -16,4 +13,8 @@ name OceanVal uses in reports.
        recipe={"chlorophyll": "occci"},
        climatology=False,
    )
-Dataset: `Ocean Colour CCI <https://esa-oceancolour-cci.org/>`_.
+
+``model_variable`` is the variable name in the model NetCDF output.
+Set ``climatology=True`` for a climatological comparison, or
+``climatology=False`` to compare all available years. ``name`` is the short
+name OceanVal uses in reports.

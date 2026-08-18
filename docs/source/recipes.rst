@@ -80,26 +80,6 @@ degrees Celsius.
 
 See the `COBE2 dataset page <https://psl.noaa.gov/data/gridded/data.cobe2.html>`_.
 
-World Ocean Atlas 2023
-~~~~~~~~~~~~~~~~~~~~~~
-
-The ``woa23`` recipe supports nitrate, phosphate, oxygen, silicate, temperature,
-and salinity. Nutrient and temperature/salinity products are vertically
-resolved, with data available to approximately 800 m depending on the product.
-
-Temperature and salinity use decadal climatologies. Set ``start`` and ``end``
-within one of the supported periods:
-
-* 1955-1964
-* 1965-1974
-* 1975-1984
-* 1985-1994
-* 1995-2004
-* 2005-2014
-* 2015-2022
-
-See the `World Ocean Atlas page <https://www.ncei.noaa.gov/products/world-ocean-atlas>`_.
-
 Ocean Colour CCI
 ~~~~~~~~~~~~~~~~
 
