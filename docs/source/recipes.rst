@@ -17,17 +17,17 @@ Global datasets
    :header: "Region", "Variable", "Recipe", "Dataset", "Water-column", "Example"
    :widths: 12, 16, 16, 32, 14, 24
 
-   "Global", "Temperature", "``cobe2``", "`COBE-SST 2 <https://psl.noaa.gov/data/gridded/data.cobe2.html>`_", "No", ":doc:`Full details <recipe_examples/temperature_cobe2>`"
-   "Global", "Nitrate", "``woa23``", "`World Ocean Atlas 2023 <https://www.ncei.noaa.gov/products/world-ocean-atlas>`_", "Yes", ":doc:`Full details <recipe_examples/nitrate_woa23>`"
-   "Global", "Phosphate", "``woa23``", "`World Ocean Atlas 2023 <https://www.ncei.noaa.gov/products/world-ocean-atlas>`_", "Yes", ":doc:`Full details <recipe_examples/phosphate_woa23>`"
-   "Global", "Oxygen", "``woa23``", "`World Ocean Atlas 2023 <https://www.ncei.noaa.gov/products/world-ocean-atlas>`_", "Yes", ":doc:`Full details <recipe_examples/oxygen_woa23>`"
-   "Global", "Silicate", "``woa23``", "`World Ocean Atlas 2023 <https://www.ncei.noaa.gov/products/world-ocean-atlas>`_", "Yes", ":doc:`Full details <recipe_examples/silicate_woa23>`"
-   "Global", "Temperature", "``woa23``", "`World Ocean Atlas 2023 <https://www.ncei.noaa.gov/products/world-ocean-atlas>`_", "Yes", ":doc:`Full details <recipe_examples/temperature_woa23>`"
-   "Global", "Salinity", "``woa23``", "`World Ocean Atlas 2023 <https://www.ncei.noaa.gov/products/world-ocean-atlas>`_", "Yes", ":doc:`Full details <recipe_examples/salinity_woa23>`"
+   "Global", "Alkalinity", "``glodap``", "`GLODAPv2.2016b <https://www.glodap.info/>`_", "No", ":doc:`Full details <recipe_examples/alkalinity_glodap>`"
    "Global", "Chlorophyll", "``occci``", "`Ocean Colour CCI <https://esa-oceancolour-cci.org/>`_", "No", ":doc:`Full details <recipe_examples/chlorophyll_occci>`"
    "Global", "KD490", "``occci``", "`Ocean Colour CCI <https://esa-oceancolour-cci.org/>`_", "No", ":doc:`Full details <recipe_examples/kd490_occci>`"
+   "Global", "Nitrate", "``woa23``", "`World Ocean Atlas 2023 <https://www.ncei.noaa.gov/products/world-ocean-atlas>`_", "Yes", ":doc:`Full details <recipe_examples/nitrate_woa23>`"
+   "Global", "Oxygen", "``woa23``", "`World Ocean Atlas 2023 <https://www.ncei.noaa.gov/products/world-ocean-atlas>`_", "Yes", ":doc:`Full details <recipe_examples/oxygen_woa23>`"
    "Global", "pH", "``glodap``", "`GLODAPv2.2016b <https://www.glodap.info/>`_", "No", ":doc:`Full details <recipe_examples/ph_glodap>`"
-   "Global", "Alkalinity", "``glodap``", "`GLODAPv2.2016b <https://www.glodap.info/>`_", "No", ":doc:`Full details <recipe_examples/alkalinity_glodap>`"
+   "Global", "Phosphate", "``woa23``", "`World Ocean Atlas 2023 <https://www.ncei.noaa.gov/products/world-ocean-atlas>`_", "Yes", ":doc:`Full details <recipe_examples/phosphate_woa23>`"
+   "Global", "Salinity", "``woa23``", "`World Ocean Atlas 2023 <https://www.ncei.noaa.gov/products/world-ocean-atlas>`_", "Yes", ":doc:`Full details <recipe_examples/salinity_woa23>`"
+   "Global", "Silicate", "``woa23``", "`World Ocean Atlas 2023 <https://www.ncei.noaa.gov/products/world-ocean-atlas>`_", "Yes", ":doc:`Full details <recipe_examples/silicate_woa23>`"
+   "Global", "Temperature", "``cobe2``", "`COBE-SST 2 <https://psl.noaa.gov/data/gridded/data.cobe2.html>`_", "No", ":doc:`Full details <recipe_examples/temperature_cobe2>`"
+   "Global", "Temperature", "``woa23``", "`World Ocean Atlas 2023 <https://www.ncei.noaa.gov/products/world-ocean-atlas>`_", "Yes", ":doc:`Full details <recipe_examples/temperature_woa23>`"
 
 Each Example link opens a separate page containing the corresponding call.
 
