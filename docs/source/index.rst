@@ -10,10 +10,21 @@ seasonality, spatial patterns, and vertical profiles.
 Start here
 ----------
 
-1. :doc:`installing` - install OceanVal and its scientific dependencies.
-2. :doc:`quickstart` - run your first matchup and validation report.
-3. :doc:`obs_data` - configure observations and built-in recipes.
-4. :doc:`api` - find functions and parameters.
+.. list-table::
+    :widths: 28 72
+    :class: oceanval-start-here
+    :header-rows: 1
+
+    * - Goal
+       - Page
+    * - Install OceanVal
+       - :doc:`installing`
+    * - Run a first validation
+       - :doc:`quickstart`
+    * - Configure observations
+       - :doc:`obs_data`
+    * - Find functions and parameters
+       - :doc:`api`
 
 The usual workflow is to register observations, match model output with
 :func:`oceanval.matchup`, and build an HTML report with
@@ -24,12 +35,13 @@ Documentation
 
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
    :caption: Getting Started
 
    installing.rst
    quickstart.rst
    how_to_use.rst
+   examples.rst
    q_a.rst
 
 

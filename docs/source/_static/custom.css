@@ -1,0 +1,113 @@
+:root {
+  --oceanval-ink: #123044;
+  --oceanval-muted: #526b79;
+  --oceanval-teal: #087f8c;
+  --oceanval-teal-dark: #075c68;
+  --oceanval-sky: #e8f4f4;
+  --oceanval-coral: #d76b45;
+  --oceanval-line: #d7e3e6;
+}
+
+body {
+  color: var(--oceanval-ink);
+}
+
+.bd-header {
+  border-bottom: 1px solid var(--oceanval-line);
+}
+
+.bd-header .navbar-brand img {
+  max-height: 3rem;
+  width: auto;
+}
+
+.bd-main .bd-content .bd-article-container {
+  max-width: 58rem;
+}
+
+.bd-article h1,
+.bd-article h2,
+.bd-article h3 {
+  color: var(--oceanval-ink);
+  letter-spacing: -0.01em;
+}
+
+.bd-article h1 {
+  border-bottom: 0.2rem solid var(--oceanval-teal);
+  padding-bottom: 0.65rem;
+}
+
+.bd-article a {
+  color: var(--oceanval-teal-dark);
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.16em;
+}
+
+.bd-article a:hover,
+.bd-article a:focus {
+  color: var(--oceanval-coral);
+}
+
+.bd-article .highlight {
+  border: 1px solid var(--oceanval-line);
+  border-left: 0.3rem solid var(--oceanval-teal);
+  border-radius: 0.25rem;
+  box-shadow: 0 0.25rem 1rem rgba(18, 48, 68, 0.06);
+}
+
+.bd-article .admonition {
+  border-radius: 0.25rem;
+  border-left-width: 0.3rem;
+}
+
+.bd-article table.docutils {
+  border-color: var(--oceanval-line);
+  box-shadow: 0 0.2rem 0.8rem rgba(18, 48, 68, 0.04);
+}
+
+.bd-article table.docutils th {
+  background: var(--oceanval-sky);
+  color: var(--oceanval-ink);
+}
+
+.bd-article table.oceanval-start-here {
+  border: 1px solid var(--oceanval-line);
+  border-left: 0.35rem solid var(--oceanval-teal);
+  border-radius: 0.25rem;
+  margin: 1.5rem 0 2rem;
+}
+
+.bd-article table.oceanval-start-here td:first-child {
+  color: var(--oceanval-muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.bd-article table.oceanval-start-here td:last-child a {
+  font-weight: 700;
+}
+
+.oceanval-footer-links {
+  color: var(--oceanval-muted);
+  font-size: 0.9rem;
+  padding-top: 0.75rem;
+}
+
+.oceanval-footer-links a {
+  color: var(--oceanval-teal-dark);
+}
+
+@media (max-width: 768px) {
+  .bd-header .navbar-brand img {
+    max-height: 2.25rem;
+  }
+
+  .bd-article h1 {
+    font-size: 2rem;
+  }
+
+  .bd-article .highlight {
+    margin-left: -0.25rem;
+    margin-right: -0.25rem;
+  }
+}

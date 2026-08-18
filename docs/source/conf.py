@@ -98,13 +98,27 @@ pygments_style = 'sphinx'
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
+html_css_files = ['custom.css']
 html_title = 'OceanVal documentation'
+html_logo = '_static/pml_logo.jpg'
 html_theme_options = {
     'repository_url': 'https://github.com/pmlmodelling/oceanVal',
+    'repository_branch': 'main',
+    'path_to_docs': 'docs',
     'use_repository_button': True,
     'use_issues_button': True,
     'use_download_button': True,
+    'home_page_in_toc': True,
+    'navigation_with_keys': True,
     'show_navbar_depth': 2,
+    'toc_title': 'On this page',
+    'extra_footer': (
+        '<div class="oceanval-footer-links">'
+        '<a href="https://github.com/pmlmodelling/oceanVal">GitHub</a>'
+        ' · '
+        '<a href="https://oceanval.readthedocs.io/">Read the Docs</a>'
+        '</div>'
+    ),
 }
 
 
