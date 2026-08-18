@@ -18,19 +18,26 @@ Global datasets
    :header: "Region", "Variable", "Recipe", "Dataset", "Example"
    :widths: 12, 16, 16, 32, 24
 
-   "Global", "Temperature", "``cobe2``", "COBE-SST 2", ":doc:`Call <recipe_examples/temperature_cobe2>`"
-   "Global", "Nitrate", "``woa23``", "World Ocean Atlas 2023", ":doc:`Call <recipe_examples/nitrate_woa23>`"
-   "Global", "Phosphate", "``woa23``", "World Ocean Atlas 2023", ":doc:`Call <recipe_examples/phosphate_woa23>`"
-   "Global", "Oxygen", "``woa23``", "World Ocean Atlas 2023", ":doc:`Call <recipe_examples/oxygen_woa23>`"
-   "Global", "Silicate", "``woa23``", "World Ocean Atlas 2023", ":doc:`Call <recipe_examples/silicate_woa23>`"
-   "Global", "Temperature", "``woa23``", "World Ocean Atlas 2023", ":doc:`Call <recipe_examples/temperature_woa23>`"
-   "Global", "Salinity", "``woa23``", "World Ocean Atlas 2023", ":doc:`Call <recipe_examples/salinity_woa23>`"
-   "Global", "Chlorophyll", "``occci``", "Ocean Colour CCI", ":doc:`Call <recipe_examples/chlorophyll_occci>`"
-   "Global", "KD490", "``occci``", "Ocean Colour CCI", ":doc:`Call <recipe_examples/kd490_occci>`"
-   "Global", "pH", "``glodap``", "GLODAPv2.2016b", ":doc:`Call <recipe_examples/ph_glodap>`"
-   "Global", "Alkalinity", "``glodap``", "GLODAPv2.2016b", ":doc:`Call <recipe_examples/alkalinity_glodap>`"
+   "Global", "Temperature", "``cobe2``", "`COBE-SST 2 <https://psl.noaa.gov/data/gridded/data.cobe2.html>`_", ":doc:`Call <recipe_examples/temperature_cobe2>`"
+   "Global", "Nitrate", "``woa23``", "`World Ocean Atlas 2023 <https://www.ncei.noaa.gov/products/world-ocean-atlas>`_", ":doc:`Call <recipe_examples/nitrate_woa23>`"
+   "Global", "Phosphate", "``woa23``", "`World Ocean Atlas 2023 <https://www.ncei.noaa.gov/products/world-ocean-atlas>`_", ":doc:`Call <recipe_examples/phosphate_woa23>`"
+   "Global", "Oxygen", "``woa23``", "`World Ocean Atlas 2023 <https://www.ncei.noaa.gov/products/world-ocean-atlas>`_", ":doc:`Call <recipe_examples/oxygen_woa23>`"
+   "Global", "Silicate", "``woa23``", "`World Ocean Atlas 2023 <https://www.ncei.noaa.gov/products/world-ocean-atlas>`_", ":doc:`Call <recipe_examples/silicate_woa23>`"
+   "Global", "Temperature", "``woa23``", "`World Ocean Atlas 2023 <https://www.ncei.noaa.gov/products/world-ocean-atlas>`_", ":doc:`Call <recipe_examples/temperature_woa23>`"
+   "Global", "Salinity", "``woa23``", "`World Ocean Atlas 2023 <https://www.ncei.noaa.gov/products/world-ocean-atlas>`_", ":doc:`Call <recipe_examples/salinity_woa23>`"
+   "Global", "Chlorophyll", "``occci``", "`Ocean Colour CCI <https://esa-oceancolour-cci.org/>`_", ":doc:`Call <recipe_examples/chlorophyll_occci>`"
+   "Global", "KD490", "``occci``", "`Ocean Colour CCI <https://esa-oceancolour-cci.org/>`_", ":doc:`Call <recipe_examples/kd490_occci>`"
+   "Global", "pH", "``glodap``", "`GLODAPv2.2016b <https://www.glodap.info/>`_", ":doc:`Call <recipe_examples/ph_glodap>`"
+   "Global", "Alkalinity", "``glodap``", "`GLODAPv2.2016b <https://www.glodap.info/>`_", ":doc:`Call <recipe_examples/alkalinity_glodap>`"
 
 Each Example link opens a separate page containing the corresponding call.
+
+In each example:
+
+* ``model_variable`` is the variable name in the model NetCDF output.
+* Set ``climatology=True`` for a climatological comparison, or
+   ``climatology=False`` to compare all available years.
+* ``name`` is the short name OceanVal uses in reports.
 
 .. toctree::
    :hidden:
