@@ -1,106 +1,48 @@
 Data Recipes
 ============
 
-OceanVal provides built-in recipes for common gridded observational datasets.
-A recipe supplies the dataset metadata and remote file locations so you can
-register a comparison without specifying every observation detail manually.
+OceanVal provides built-in recipes for many popular observational datasets. 
+Downloading and store data can be annoying and tedious, and recipes take care of it for you.
 
 Recipes are available for gridded data. Use the ``recipe`` argument with
 :func:`oceanval.add_gridded_comparison` and provide the model variable that
 should be compared with the observation.
 
-How do recipes work?
---------------------
-
-A recipe is a compact name for a complete gridded observation definition. It
-does not download data when you call ``add_gridded_comparison``. Instead, the
-recipe is resolved immediately into metadata and remote file locations, and
-those details are stored in OceanVal's comparison definitions. When you later
-run :func:`oceanval.matchup`, OceanVal accesses the recipe's observation files,
-downloads or caches the required data as needed, and matches it with the model
-output.
-
-The process has four stages:
-
-1. **Choose a recipe**: select one variable and one data source, such as
-   ``{"nitrate": "woa23"}``.
-2. **Resolve metadata**: OceanVal identifies the observation source, remote
-   files, observation variable, units information, climatology setting, and
-   report labels.
-3. **Register the comparison**: ``add_gridded_comparison`` combines the
-   recipe metadata with your model variable and stores the definition.
-4. **Match the data**: ``matchup`` retrieves the observations, reads the
-   model NetCDF files, and creates the model-observation matchup files.
-
-Worked example: WOA23 nitrate
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The following call asks OceanVal to compare the model's ``no3`` variable with
-the WOA23 nitrate product:
+We can illustrate how they work with an example.  
+The following call asks OceanVal to compare the model's ``thetao`` variable with the COBE2 temperature dataset. The recipe dictionary
+``{"temperature": "cobe2"}`` tells OceanVal to use the COBE2 recipe for the temperature variable.
 
 .. code-block:: text
 
    oceanval.add_gridded_comparison(
-       name="nitrate",                 # <--- report name
-       model_variable="no3",           # <--- model NetCDF variable
-       recipe={"nitrate": "woa23"},    # <--- observation recipe
+       name="temperature",                 # <--- report name
+       model_variable="thetao",           # <--- model NetCDF variable
+       recipe={"temperature": "cobe2"},    # <--- observation recipe
        climatology=True,                # <--- climatological comparison
    )
 
 The parts of the call mean:
 
-``name="nitrate"``
-   ``name`` is the short internal name used by OceanVal to identify the
-   comparison and label report outputs.
+- ``name`` is the short name OceanVal uses in reports.
+- ``model_variable`` is the variable name in the model NetCDF output.
+- ``recipe`` is a dictionary that must contain one variable and source identifier. For example,
+``{"temperature": "woa23"}`` selects temperature from WOA23.
+- ``climatology`` is a boolean that sets whether to compare climatological means or all available years. Set ``climatology=True`` for a climatological comparison, or
+``climatology=False`` to compare all available years.
 
-``model_variable="no3"``
-   This must match the variable name in the model NetCDF files. The recipe
-   describes the observation; it does not guess or rename the model variable.
+How are recipes processed?
+-------------------------
 
-``recipe={"nitrate": "woa23"}``
-   The key selects the observation variable and the value selects the source.
-   OceanVal uses this pair to find the WOA23 metadata and remote observation
-   files.
+oceanVal will automatically download the observational data when the `oceanval.matchup` function is called.
+In most cases this will occur using thredds servers, which will make things efficient and oceanval will only download what is needed.
+Once the data is downloaded the model and observations will be regridded to a common spatial grid, and model and observational data will be averaged per month and year, where appropriate.
 
-``climatology=True``
-   This tells OceanVal to make a like-for-like climatological comparison. Use
-   ``False`` when the comparison should retain all available years instead.
 
-The resolution step can be pictured as follows:
 
-.. code-block:: text
 
-   {"nitrate": "woa23"}
-          |
-          |  variable + source identifier
-          v
-   find_recipe(...)
-          |
-          +--> observation source: WOA23
-          +--> remote files: monthly nitrate NetCDF files
-          +--> observation variable: n_an
-          +--> climatology: True
-          +--> report labels: nitrate concentration / Nitrate
-          |
-          v
-   add_gridded_comparison(...)
-          |
-          +--> joins recipe metadata to model_variable="no3"
-          +--> stores the comparison definition
-          |
-          v
-   matchup(...)
-          |
-          +--> accesses or downloads the observation files
-          +--> reads the model NetCDF output
-          +--> regrids and matches model with observations
-          +--> writes the matchup data for validation
+What recipes are available?
+-------------------------
 
-For WOA23 temperature and salinity, ``start`` and ``end`` are also required
-because those products are supplied as decadal climatologies. The selected
-years determine which WOA23 period and remote files OceanVal uses.
-
-Available recipes
 
 Global datasets
 ~~~~~~~~~~~~~~~
