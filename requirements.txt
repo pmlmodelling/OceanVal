@@ -12,7 +12,7 @@ nctoolkit>=1.1.1
 geopandas
 holoviews
 plotnine
-jupyter-book==1.0.4
+jupyter-book
 fiona
 multiprocess
 

@@ -35,6 +35,53 @@ notebook_dict = dict()
 add_point_comparison = definitions.add_point_comparison
 add_gridded_comparison = definitions.add_gridded_comparison
 
+
+def _jupyter_book_major_version():
+    try:
+        return int(_version("jupyter-book").split(".", 1)[0])
+    except Exception:
+        return 1
+
+
+def _build_book(book_dir):
+    if _jupyter_book_major_version() >= 2:
+        notebooks = glob.glob(os.path.join(book_dir, "notebooks", "*.ipynb"))
+        if notebooks:
+            subprocess.run(
+                [
+                    "jupyter",
+                    "nbconvert",
+                    "--to",
+                    "notebook",
+                    "--execute",
+                    "--inplace",
+                    "--allow-errors",
+                    "--ExecutePreprocessor.timeout=500",
+                    *notebooks,
+                ],
+                check=True,
+            )
+        subprocess.run(
+            ["jupyter-book", "build", "--html"],
+            cwd=book_dir,
+            check=True,
+        )
+        _restore_legacy_book_paths(book_dir)
+    else:
+        subprocess.run(["jupyter-book", "build", book_dir], check=True)
+
+
+def _restore_legacy_book_paths(book_dir):
+    output_dir = os.path.join(book_dir, "_build", "html", "notebooks")
+    for notebook in glob.glob(os.path.join(book_dir, "notebooks", "*.ipynb")):
+        stem = os.path.splitext(os.path.basename(notebook))[0]
+        slug = re.sub(r"^\d+_", "", stem).replace("_", "-")
+        legacy_page = os.path.join(output_dir, f"{stem}.html")
+        slugged_page = os.path.join(output_dir, slug, "index.html")
+        if os.path.exists(slugged_page) and not os.path.exists(legacy_page):
+            os.symlink(os.path.join(slug, "index.html"), legacy_page)
+
+
 def fix_toc(concise=True, data_dir=None, out_dir=None):
     short_titles = dill.load(
         open(f"{data_dir}/oceanval_matchups/short_titles.pkl", "rb")
@@ -54,19 +101,30 @@ def fix_toc(concise=True, data_dir=None, out_dir=None):
     ss_paths = [os.path.basename(x) for x in paths if "summary" in x]
 
     out = f"{out_dir}/oceanval_report/_toc.yml"
+    myst_out = f"{out_dir}/oceanval_report/myst.yml"
 
     # write line by line to out
     i_chapter = 1
-    with open(out, "w") as f:
+    with open(out, "w") as f, open(myst_out, "w") as myst:
         # "format: jb-book"
         x = f.write("format: jb-book\n")
         x = f.write("root: intro\n")
         x = f.write("parts:\n")
 
+        myst.write("version: 1\n")
+        myst.write("project:\n")
+        myst.write("  title: OceanVal validation report\n")
+        myst.write("  toc:\n")
+        myst.write("    - file: intro.md\n")
+
         x = f.write(f"- caption: Summaries\n")
         x = f.write("  chapters:\n")
 
+        myst.write("    - title: Summaries\n")
+        myst.write("      children:\n")
+
         x = f.write(f"  - file: notebooks/001_methods.ipynb\n")
+        myst.write("        - file: notebooks/001_methods.ipynb\n")
 
         # open notebook and replace book_chapter with i_chapter
 
@@ -87,6 +145,7 @@ def fix_toc(concise=True, data_dir=None, out_dir=None):
         i_chapter += 1
         for ff in ss_paths:
             x = f.write(f"  - file: notebooks/{ff}\n")
+            myst.write(f"        - file: notebooks/{ff}\n")
             # open notebook and replace book_chapter with i_chapter
             with open(f"{out_dir}/oceanval_report/notebooks/{ff}", "r") as file:
                 filedata = file.read()
@@ -108,8 +167,11 @@ def fix_toc(concise=True, data_dir=None, out_dir=None):
 
             x = f.write(f"- caption: {vv_out}\n")
             x = f.write("  chapters:\n")
+            myst.write(f"    - title: {vv_out}\n")
+            myst.write("      children:\n")
             for ff in vv_dict[vv]:
                 x = f.write(f"  - file: notebooks/{ff}\n")
+                myst.write(f"        - file: notebooks/{ff}\n")
 
                 # open notebook and replace book_chapter with i_chapter
                 with open(f"{out_dir}/oceanval_report/notebooks/{ff}", "r") as file:
@@ -123,6 +185,12 @@ def fix_toc(concise=True, data_dir=None, out_dir=None):
                 with open(f"{out_dir}/oceanval_report/notebooks/{ff}", "w") as file:
                     file.write(filedata)
                 i_chapter += 1
+
+        myst.write("site:\n")
+        myst.write("  template: book-theme\n")
+        myst.write("  options:\n")
+        myst.write("    logo: pml_logo.jpg\n")
+        myst.write("    folders: true\n")
 
 
 
@@ -207,21 +275,7 @@ def validate(
     i = 0
 
     if os.path.exists(book_dir):
-        # get user input to decide if it should be removed
-        while True:
-            files = glob.glob(f"{book_dir}/**/**/**", recursive=True)
-            # list all files in book, recursively
-            for ff in files:
-                if ff.startswith(f"{book_dir}/"):
-                    try:
-                        os.remove(ff)
-                    except:
-                        pass
-            files = glob.glob(f"{book_dir}/**/**/**", recursive=True)
-            # only list files
-            files = [x for x in files if os.path.isfile(x)]
-            if len(files) == 0:
-                break
+        shutil.rmtree(book_dir)
 
 
 
@@ -589,7 +643,7 @@ def validate(
         f"{book_dir}/pml_logo.jpg",
     )
 
-    os.system(f"jupyter-book build  {book_dir}/")
+    _build_book(book_dir)
 
     stamps = [
         os.path.basename(x) for x in glob.glob(f"{book_dir}/notebooks/.trackers/*")
@@ -636,7 +690,7 @@ def rebuild(data_dir="."):
     data_dir = os.path.expanduser(data_dir)
     data_dir = os.path.abspath(data_dir)
 
-    os.system(f"jupyter-book build {data_dir}/oceanval_report/")
+    _build_book(f"{data_dir}/oceanval_report")
 
     webbrowser.open(
         "file://"
@@ -739,7 +793,7 @@ def compare(model_dict=None, view=True, ask=True):
         with open(book, "w") as file:
             file.write(filedata)
     os.system("jupytext --sync oceanval_comparison/compare/notebooks/*.ipynb")
-    os.system("jupyter-book build oceanval_comparison/compare/")
+    _build_book("oceanval_comparison/compare")
 
     if view:
         webbrowser.open(

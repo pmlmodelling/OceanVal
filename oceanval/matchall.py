@@ -532,7 +532,7 @@ def matchup(
         Path to a thickness file, i.e. cell vertical thickness or the name of the thickness variable. This only needs to be supplied if the variable is missing from the raw data.
         If the cell_thickness variable is in the raw data, it will be used, and thickness does not need to be supplied.
     n_dirs_down : int
-        Number of levels down to look for netCDF files. Default is 2, ie. the files are of the format */*/*.nc.
+        Number of levels down to look for netCDF files. Default is 2, ie. the files are of the format ``*/*/*.nc``.
     point_time_res : list or dict
         List of strings or a dict. Default is ['year', 'month', 'day']. This is the time resolution of the point data matchup.
         If you want fine-grained control, provide a dictionary where the key is the variable and the value is a list of strings.
