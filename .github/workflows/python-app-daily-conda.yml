@@ -26,7 +26,7 @@ jobs:
         with:
           micromamba-version: '1.4.5-0'
           environment-name: foo
-          create-args: oceanval python=3.11 
+          create-args: oceanval python=3.11 nodejs=22.23.2
           init-shell: >-
             bash
             powershell
