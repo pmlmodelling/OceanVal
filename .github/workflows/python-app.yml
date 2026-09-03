@@ -20,7 +20,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
-      - uses: mamba-org/setup-micromamba@v1
+      - uses: mamba-org/setup-micromamba@v3
       # - uses: mamba-org/provision-with-micromamba@v15
         env:
           ACTIONS_ALLOW_UNSECURE_COMMANDS: true
