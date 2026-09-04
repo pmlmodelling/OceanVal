@@ -451,7 +451,6 @@ class Validator:
         if file_check:
             if gridded_dir != "auto":
                 if thredds is False:
-                    print("What is going on?")
                     if not os.path.exists(gridded_dir):
                         raise ValueError(f"Gridded directory {gridded_dir} does not exist")
         # thredds must be boolean
