@@ -27,7 +27,7 @@ jobs:
         with:
           micromamba-version: '1.4.5-0'
           environment-name: foo
-          create-args: nctoolkit cmocean cartopy pandoc python=3.12 rpy2 r-base r-tidyverse r-ggtext jupyter-book r-mapdata texlive-core
+          create-args: nctoolkit cmocean cartopy pandoc python=3.12 rpy2 r-base r-tidyverse r-ggtext jupyter-book r-mapdata texlive-core nodejs=22.23.2
           init-shell: >-
             bash
             powershell
@@ -38,7 +38,7 @@ jobs:
         run: |
         
           ##sudo apt-get install texlive
-          mamba install pandoc r-ggthemes r-ggridges r-maps r-plotrix r-arrow r-cowplot nodejs=22.23.2 -y
+          mamba install pandoc r-ggthemes r-ggridges r-maps r-plotrix r-arrow r-cowplot -y
           python -m pip install .
           pip install pyarrow
           pip install rioxarray
