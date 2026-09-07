@@ -1,4 +1,4 @@
-Installation
+Installation and a quick example
 ============
 
 **System requirements**: OceanVal runs on Linux with Python 3.10-3.13.
@@ -35,7 +35,7 @@ A two-minute example
 The example below downloads one year of CMIP6 sea surface temperature output
 and validates it against the COBE2 observational dataset. It takes a couple
 of minutes to run and produces `a report like this one
-<https://pmlmodelling.github.io/oceanval_example/intro.html>`_.
+<https://pmlmodelling.github.io/oceanval_example/index.html>`_.
 
 Run it from an empty directory, in a Python script or Jupyter notebook:
 
