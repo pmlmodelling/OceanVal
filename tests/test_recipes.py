@@ -56,15 +56,85 @@ def test_recipe_source_metadata(recipe, expected_source):
     assert result["source"] == expected_source
 
 
+@pytest.mark.parametrize(
+    "name, filename_variable",
+    [
+        ("ammonium", "ammonium"),
+        ("chlorophyll", "chlorophyll_a"),
+        ("nitrate", "nitrate"),
+        ("oxygen", "oxygen"),
+        ("phosphate", "phosphate"),
+        ("salinity", "salinity"),
+        ("silicate", "silicate"),
+        ("temperature", "temperature"),
+    ],
+)
+def test_nsbc_recipe_uses_canonical_thredds_url(name, filename_variable):
+    result = find_recipe({name: "nsbc"})
+
+    assert result["obs_path"] == (
+        "https://icdc.cen.uni-hamburg.de/thredds/dodsC/ftpthredds/nsbc/"
+        "level_3/climatological_monthly_mean/"
+        f"NSBC_Level3_{filename_variable}__UHAM_ICDC__v1.1__0.25x0.25deg__OAN_1960_2014.nc"
+    )
+
+
+@pytest.mark.parametrize(
+    "recipe, expected_url",
+    [
+        (
+            {"temperature": "cobe2"},
+            "https://psl.noaa.gov/thredds/dodsC/Datasets/COBE2/sst.mon.mean.nc",
+        ),
+        (
+            {"ph": "glodap"},
+            "https://www.ncei.noaa.gov/data/oceans/archive/arc0221/0286118/1.1/"
+            "data/0-data/GLODAPv2.2016b_MappedClimatologies/GLODAPv2.2016b.pHtsinsitutp.nc",
+        ),
+        (
+            {"alkalinity": "glodap"},
+            "https://www.ncei.noaa.gov/data/oceans/archive/arc0221/0286118/1.1/"
+            "data/0-data/GLODAPv2.2016b_MappedClimatologies/GLODAPv2.2016b.TAlk.nc",
+        ),
+    ],
+)
+def test_single_file_recipe_urls_match_v020(recipe, expected_url):
+    assert find_recipe(recipe)["obs_path"] == expected_url
+
+
 def test_woa23_temperature_and_salinity_select_requested_period():
     """WOA23 temperature and salinity URLs should encode the decade period."""
     for name, variable in (("temperature", "t_an"), ("salinity", "s_an")):
         result = find_recipe({name: "woa23"}, start=1995, end=2004)
 
         assert result["obs_variable"] == variable
-        assert len(result["obs_path"]) == 1
+        assert len(result["obs_path"]) == 12
         assert "95A4" in result["obs_path"][0]
         assert result["climatology"] is True
+
+
+def test_woa23_temperature_and_salinity_return_monthly_files():
+    result = find_recipe({"temperature": "woa23"}, start=2005, end=2014)
+
+    assert len(result["obs_path"]) == 12
+    assert result["obs_path"][0].endswith("woa23_A5B4_t01_01.nc")
+    assert result["obs_path"][-1].endswith("woa23_A5B4_t12_01.nc")
+
+
+@pytest.mark.parametrize(
+    "name, variable, first_file, last_file",
+    [
+        ("chlorophyll", "chlor_a", "OCx-199801-fv6.0.nc", "OCx-202412-fv6.0.nc"),
+        ("kd490", "kd_490", "KD490_Lee-199801-fv6.0.nc", "KD490_Lee-202412-fv6.0.nc"),
+    ],
+)
+def test_occci_recipes_use_v020_monthly_collections(name, variable, first_file, last_file):
+    result = find_recipe({name: "occci"})
+
+    assert result["obs_variable"] == variable
+    assert len(result["obs_path"]) == 324
+    assert result["obs_path"][0].endswith(first_file)
+    assert result["obs_path"][-1].endswith(last_file)
 
 
 def test_woa23_temperature_and_salinity_require_years():
