@@ -15,5 +15,6 @@ plotnine
 jupyter-book
 fiona
 multiprocess
+weasyprint
 
 

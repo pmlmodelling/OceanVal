@@ -147,7 +147,7 @@ def _offline_report_title(notebook_path):
     return re.sub(r"^\d+_", "", stem).replace("_", " ").title()
 
 
-def _offline_report_navigation(output_dir, notebooks, logo_path, notebook_prefix, index_path):
+def _offline_report_navigation(output_dir, notebooks, logo_path, notebook_prefix, index_path, pdf_href):
     sections = []
     for title, section_notebooks in _offline_report_sections(output_dir, notebooks):
         items = []
@@ -169,7 +169,9 @@ def _offline_report_navigation(output_dir, notebooks, logo_path, notebook_prefix
         "<div class=\"oceanval-brand-text\">OceanVal by</div>"
         f"<div class=\"oceanval-logo-box\"><img class=\"oceanval-logo\" src=\"{logo_path}\" "
         "alt=\"Plymouth Marine Laboratory\"></div>"
-        "</div></a></aside>"
+        "</div></a>"
+        f'<a href="{pdf_href}" class="oceanval-viewpdf-btn">View as a PDF</a>'
+        "</aside>"
     )
 
 
@@ -184,32 +186,99 @@ def _offline_report_style():
         ".oceanval-brand-text{color:#fff;font-family:Arial,sans-serif;font-size:14px;font-weight:700;margin:0 0 10px}"
         ".oceanval-logo-box{background:#0f7c7c;border:1px solid rgba(255,255,255,0.9);border-radius:5px;padding:8px}"
         ".oceanval-logo{display:block;width:100%;max-width:100%;background:#0f7c7c}"
+        ".oceanval-viewpdf-btn{display:block;flex:0 0 auto;margin-top:12px;background:#fff;"
+        "border-radius:6px;padding:10px 12px;font-family:Arial,sans-serif;font-size:13px;font-weight:700;"
+        "text-align:center;text-decoration:none;box-sizing:border-box}"
+        ".oceanval-viewpdf-btn:hover{background:rgba(255,255,255,0.85)}"
         ".oceanval-sidebar h2{font-family:Arial,sans-serif;font-size:14px;font-weight:700;letter-spacing:0;"
         "margin:25px 0 10px;text-transform:uppercase;color:#fff}.oceanval-sidebar ul{list-style:none;"
         "margin:0;padding:0}.oceanval-sidebar li{margin:0}.oceanval-sidebar a{color:#fff;text-decoration:none}"
         ".oceanval-sidebar li a{display:block;border-left:3px solid transparent;padding:8px 9px;"
         "font-family:Arial,sans-serif;font-size:14px;line-height:1.35}.oceanval-sidebar li a:hover"
-        "{background:rgba(255,255,255,0.16);border-left-color:#fff}.jp-Notebook{margin-left:340px!important;margin-right:300px!important}"
+        "{background:rgba(255,255,255,0.16);border-left-color:#fff}"
+        ".oceanval-sidebar a.oceanval-viewpdf-btn{color:#0f7c7c}"
+        ".jp-Notebook{margin-left:340px!important;margin-right:300px!important}"
         ".oceanval-index{max-width:calc(100% - 600px);margin-left:300px;margin-right:300px;padding:70px 72px;box-sizing:border-box}.oceanval-index h1{font-size:42px;"
         "font-weight:600;line-height:1.1;margin:0 0 28px;color:#24364d}.oceanval-index p{font-size:18px;"
         "line-height:1.65;margin:14px 0}.oceanval-index a{color:#086eb6}.oceanval-actions{display:flex;"
         "gap:12px;margin-top:32px}.oceanval-actions a{border:1px solid #0879c1;padding:11px 16px;"
         "font-family:Arial,sans-serif;font-size:14px;font-weight:600;text-decoration:none}.oceanval-actions a:hover"
         "{background:#0879c1;color:#fff}"
+        ".oceanval-download-btn{position:fixed;top:24px;right:24px;z-index:20;width:220px;box-sizing:border-box;"
+        "background:#0f7c7c;color:#fff;border:1px solid #0a5f5f;border-radius:6px;padding:10px 14px;"
+        "font-family:Arial,sans-serif;font-size:13px;font-weight:700;cursor:pointer;text-align:center;"
+        "text-decoration:none;display:block}"
+        ".oceanval-download-btn:hover{background:#0a5f5f}"
         "@media(max-width:720px){.oceanval-sidebar{position:static;width:auto;padding:20px;overflow:visible}.oceanval-nav-sections{overflow:visible;padding-bottom:0}.oceanval-logo"
         "{margin-bottom:0}.oceanval-brand-link{padding-top:16px}.jp-Notebook{margin-left:auto!important;margin-right:0!important}.oceanval-index"
         "{max-width:none;margin-left:0;margin-right:0;padding:38px 24px}.oceanval-index h1{font-size:32px}.oceanval-actions{flex-direction:column;"
-        "align-items:flex-start}}</style>"
+        "align-items:flex-start}.oceanval-download-btn{position:static;width:auto;margin:16px 0 0 20px}}</style>"
     )
+
+
+def _offline_report_pdf_style():
+    return (
+        "<style>@page{size:A4;margin:18mm 16mm}"
+        "body{font-family:Georgia,'Times New Roman',serif;color:#203047;"
+        "margin:0;line-height:1.55;font-size:11pt}"
+        "h1{font-size:20pt;margin:0 0 12pt}h2{font-size:15pt;margin:18pt 0 8pt}"
+        "h3{font-size:12.5pt;margin:14pt 0 6pt}"
+        "img{max-width:100%}"
+        "table{border-collapse:collapse;width:100%;margin:10pt 0;"
+        "page-break-inside:avoid;break-inside:avoid}"
+        "tr,td,th{page-break-inside:avoid;break-inside:avoid}"
+        "td,th{border:1px solid #ccc;padding:5px 8px;font-size:9.5pt}"
+        "pre{white-space:pre-wrap;word-break:break-word;font-size:9.5pt}"
+        ".headerlink,.anchor-link{display:none}</style>"
+    )
+
+
+def _combined_report_pdf_source(output_dir, notebooks, notebook_bodies, pdf_style):
+    # concatenates each page's PDF body in the same order as the sidebar navigation
+    parts = []
+    first = True
+    for _, section_notebooks in _offline_report_sections(output_dir, notebooks):
+        for notebook in section_notebooks:
+            body = notebook_bodies.get(notebook)
+            if body is None:
+                continue
+            break_style = "" if first else "page-break-before:always;break-before:page;"
+            parts.append(f'<section style="{break_style}">{body}</section>')
+            first = False
+    return (
+        "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+        f"<title>OceanVal validation report</title>{pdf_style}</head><body>"
+        f"{''.join(parts)}</body></html>"
+    )
+
+
+def _render_offline_report_pdfs(pages):
+    # pages: iterable of (html_string, pdf_path, base_url) tuples
+    try:
+        from weasyprint import HTML
+    except ImportError:
+        warnings.warn(
+            "weasyprint is not installed, so PDF downloads were not generated. "
+            "Install it with 'pip install weasyprint'."
+        )
+        return
+    for html_string, pdf_path, base_url in pages:
+        try:
+            HTML(string=html_string, base_url=base_url).write_pdf(pdf_path)
+        except Exception as error:
+            warnings.warn(
+                f"Could not generate the PDF download for {os.path.basename(pdf_path)} ({error})."
+            )
 
 
 def _write_offline_report_pages(output_dir, notebooks):
     style = _offline_report_style()
+    pdf_style = _offline_report_pdf_style()
     index_navigation = _offline_report_navigation(
-        output_dir, notebooks, "../../pml_logo.jpg", "notebooks/", "index.html"
+        output_dir, notebooks, "../../pml_logo.jpg", "notebooks/", "index.html", "oceanval_report.pdf"
     )
     page_navigation = _offline_report_navigation(
-        output_dir, notebooks, "../../../pml_logo.jpg", "", "../index.html"
+        output_dir, notebooks, "../../../pml_logo.jpg", "", "../index.html", "../oceanval_report.pdf"
     )
     with open(os.path.join(output_dir, "index.html"), "w") as index:
         index.write(
@@ -227,18 +296,56 @@ def _write_offline_report_pages(output_dir, notebooks):
             "</main></body></html>"
         )
 
+    pdf_jobs = []
+    page_updates = []
+    notebook_bodies = {}
     for notebook in notebooks:
         stem = os.path.splitext(os.path.basename(notebook))[0]
         page = os.path.join(output_dir, "notebooks", f"{stem}.html")
         with open(page, "r") as report_page:
-            page_html = report_page.read()
-        page_html = page_html.replace("</head>", f"{style}</head>")
+            raw_html = report_page.read()
+
+        title_match = re.search(r"<title>(.*?)</title>", raw_html, re.S)
+        title = title_match.group(1).strip() if title_match else stem
+        body_match = re.search(r"<body[^>]*>(.*)</body>", raw_html, re.S)
+        body_content = body_match.group(1) if body_match else raw_html
+        # strip heading anchor links (e.g. the clickable "¶") from the PDF export
+        body_content = re.sub(
+            r'<a[^>]*class="[^"]*(?:headerlink|anchor-link)[^"]*"[^>]*>.*?</a>',
+            "",
+            body_content,
+            flags=re.S,
+        )
+        notebook_bodies[notebook] = body_content
+        pdf_source = (
+            f"<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+            f"<title>{html.escape(title)}</title>{pdf_style}</head><body>{body_content}</body></html>"
+        )
+        pdf_path = os.path.join(output_dir, "notebooks", f"{stem}.pdf")
+        pdf_jobs.append((pdf_source, pdf_path, os.path.dirname(page)))
+
+        download_link = (
+            f'<a class="oceanval-download-btn" href="{stem}.pdf" download>Download PDF</a>'
+        )
         page_html = re.sub(
             r"(<body[^>]*>)",
-            lambda match: f"{match.group(1)}{page_navigation}",
-            page_html,
+            lambda match: f"{match.group(1)}{page_navigation}{download_link}",
+            raw_html,
             count=1,
         )
+        page_html = page_html.replace("</head>", f"{style}</head>", 1)
+        page_updates.append((page, page_html))
+
+    if notebook_bodies:
+        combined_source = _combined_report_pdf_source(
+            output_dir, notebooks, notebook_bodies, pdf_style
+        )
+        combined_path = os.path.join(output_dir, "oceanval_report.pdf")
+        pdf_jobs.append((combined_source, combined_path, output_dir))
+
+    _render_offline_report_pdfs(pdf_jobs)
+
+    for page, page_html in page_updates:
         with open(page, "w") as report_page:
             report_page.write(page_html)
 
