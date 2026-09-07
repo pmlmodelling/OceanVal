@@ -32,7 +32,7 @@ def test_recipe_returns_required_metadata(name, source):
     assert result["obs_path"]
     assert result["source"]
     assert isinstance(result["climatology"], bool)
-    assert result["thredds"] is True
+    assert result["thredds"] is ("glodap" not in source.lower())
 
 
 @pytest.mark.parametrize(
