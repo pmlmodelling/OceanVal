@@ -163,9 +163,13 @@ def _offline_report_navigation(output_dir, notebooks, logo_path, notebook_prefix
 
     return (
         "<aside class=\"oceanval-sidebar\">"
-        f"<a href=\"{index_path}\"><img class=\"oceanval-logo\" src=\"{logo_path}\" "
-        "alt=\"Plymouth Marine Laboratory\"></a>"
-        f"{''.join(sections)}</aside>"
+        f"<div class=\"oceanval-nav-sections\">{''.join(sections)}</div>"
+        f"<a href=\"{index_path}\" class=\"oceanval-brand-link\">"
+        "<div class=\"oceanval-brand-block\">"
+        "<div class=\"oceanval-brand-text\">OceanVal by</div>"
+        f"<div class=\"oceanval-logo-box\"><img class=\"oceanval-logo\" src=\"{logo_path}\" "
+        "alt=\"Plymouth Marine Laboratory\"></div>"
+        "</div></a></aside>"
     )
 
 
@@ -173,23 +177,28 @@ def _offline_report_style():
     return (
         "<style>body{margin:0;color:#203047;background:#fff;font-family:Georgia,'Times New Roman',serif}"
         ".oceanval-sidebar{position:fixed;top:0;bottom:0;left:0;width:300px;"
-        "overflow-y:auto;background:#0f7c7c;border-right:1px solid #0a5f5f;padding:28px 24px;"
-        "z-index:10;color:#fff}.oceanval-logo{display:block;width:370px;max-width:100%;margin-bottom:34px}"
+        "overflow:hidden;background:#0f7c7c;border-right:1px solid #0a5f5f;padding:28px 24px;"
+        "z-index:10;color:#fff;display:flex;flex-direction:column;box-sizing:border-box}"
+        ".oceanval-nav-sections{flex:1 1 auto;overflow-y:auto;min-height:0;padding-bottom:16px}.oceanval-brand-link{display:block;flex:0 0 auto;padding-top:12px;text-decoration:none}"
+        ".oceanval-brand-block{background:#0f7c7c;border:2px solid #fff;border-radius:8px;padding:12px;box-sizing:border-box}"
+        ".oceanval-brand-text{color:#fff;font-family:Arial,sans-serif;font-size:14px;font-weight:700;margin:0 0 10px}"
+        ".oceanval-logo-box{background:#0f7c7c;border:1px solid rgba(255,255,255,0.9);border-radius:5px;padding:8px}"
+        ".oceanval-logo{display:block;width:100%;max-width:100%;background:#0f7c7c}"
         ".oceanval-sidebar h2{font-family:Arial,sans-serif;font-size:14px;font-weight:700;letter-spacing:0;"
         "margin:25px 0 10px;text-transform:uppercase;color:#fff}.oceanval-sidebar ul{list-style:none;"
         "margin:0;padding:0}.oceanval-sidebar li{margin:0}.oceanval-sidebar a{color:#fff;text-decoration:none}"
         ".oceanval-sidebar li a{display:block;border-left:3px solid transparent;padding:8px 9px;"
         "font-family:Arial,sans-serif;font-size:14px;line-height:1.35}.oceanval-sidebar li a:hover"
-        "{background:rgba(255,255,255,0.16);border-left-color:#fff}.jp-Notebook{margin-left:340px!important}"
-        ".oceanval-index{max-width:920px;margin-left:300px;padding:70px 72px}.oceanval-index h1{font-size:42px;"
+        "{background:rgba(255,255,255,0.16);border-left-color:#fff}.jp-Notebook{margin-left:340px!important;margin-right:300px!important}"
+        ".oceanval-index{max-width:calc(100% - 600px);margin-left:300px;margin-right:300px;padding:70px 72px;box-sizing:border-box}.oceanval-index h1{font-size:42px;"
         "font-weight:600;line-height:1.1;margin:0 0 28px;color:#24364d}.oceanval-index p{font-size:18px;"
         "line-height:1.65;margin:14px 0}.oceanval-index a{color:#086eb6}.oceanval-actions{display:flex;"
         "gap:12px;margin-top:32px}.oceanval-actions a{border:1px solid #0879c1;padding:11px 16px;"
         "font-family:Arial,sans-serif;font-size:14px;font-weight:600;text-decoration:none}.oceanval-actions a:hover"
         "{background:#0879c1;color:#fff}"
-        "@media(max-width:720px){.oceanval-sidebar{position:static;width:auto;padding:20px}.oceanval-logo"
-        "{margin-bottom:16px}.jp-Notebook{margin-left:auto!important}.oceanval-index"
-        "{margin-left:0;padding:38px 24px}.oceanval-index h1{font-size:32px}.oceanval-actions{flex-direction:column;"
+        "@media(max-width:720px){.oceanval-sidebar{position:static;width:auto;padding:20px;overflow:visible}.oceanval-nav-sections{overflow:visible;padding-bottom:0}.oceanval-logo"
+        "{margin-bottom:0}.oceanval-brand-link{padding-top:16px}.jp-Notebook{margin-left:auto!important;margin-right:0!important}.oceanval-index"
+        "{max-width:none;margin-left:0;margin-right:0;padding:38px 24px}.oceanval-index h1{font-size:32px}.oceanval-actions{flex-direction:column;"
         "align-items:flex-start}}</style>"
     )
 
