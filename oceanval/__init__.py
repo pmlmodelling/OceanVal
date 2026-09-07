@@ -170,7 +170,7 @@ def _offline_report_navigation(output_dir, notebooks, logo_path, notebook_prefix
         f"<div class=\"oceanval-logo-box\"><img class=\"oceanval-logo\" src=\"{logo_path}\" "
         "alt=\"Plymouth Marine Laboratory\"></div>"
         "</div></a>"
-        f'<a href="{pdf_href}" class="oceanval-viewpdf-btn">View as a PDF</a>'
+        f'<a href="{pdf_href}" class="oceanval-viewpdf-btn">View all as pdf</a>'
         "</aside>"
     )
 
@@ -325,7 +325,7 @@ def _write_offline_report_pages(output_dir, notebooks):
         pdf_jobs.append((pdf_source, pdf_path, os.path.dirname(page)))
 
         download_link = (
-            f'<a class="oceanval-download-btn" href="{stem}.pdf" download>Download PDF</a>'
+            f'<a class="oceanval-download-btn" href="{stem}.pdf" download>View page as pdf</a>'
         )
         page_html = re.sub(
             r"(<body[^>]*>)",
