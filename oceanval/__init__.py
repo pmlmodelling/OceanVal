@@ -15,6 +15,8 @@ import webbrowser
 from oceanval.chunkers import add_chunks
 import os
 import re
+import html
+import nbformat
 from oceanval.fvcom import fvcom_preprocess
 import importlib
 
@@ -46,6 +48,10 @@ def _jupyter_book_major_version():
 def _build_book(book_dir):
     if _jupyter_book_major_version() >= 2:
         notebooks = glob.glob(os.path.join(book_dir, "notebooks", "*.ipynb"))
+        notebooks.sort(
+            key=lambda notebook: ("summary" in os.path.basename(notebook), notebook)
+        )
+        output_dir = os.path.join(book_dir, "_build", "html")
         if notebooks:
             subprocess.run(
                 [
@@ -61,25 +67,171 @@ def _build_book(book_dir):
                 ],
                 check=True,
             )
-        subprocess.run(
-            ["jupyter-book", "build", "--html"],
-            cwd=book_dir,
-            check=True,
-        )
-        _restore_legacy_book_paths(book_dir)
+            _remove_diagnostic_outputs(notebooks)
+            os.makedirs(os.path.join(output_dir, "notebooks"), exist_ok=True)
+            subprocess.run(
+                [
+                    "jupyter",
+                    "nbconvert",
+                    "--to",
+                    "html",
+                    "--no-input",
+                    "--output-dir",
+                    os.path.join(output_dir, "notebooks"),
+                    *notebooks,
+                ],
+                check=True,
+            )
+        _write_offline_report_pages(output_dir, notebooks)
     else:
         subprocess.run(["jupyter-book", "build", book_dir], check=True)
 
 
-def _restore_legacy_book_paths(book_dir):
-    output_dir = os.path.join(book_dir, "_build", "html", "notebooks")
-    for notebook in glob.glob(os.path.join(book_dir, "notebooks", "*.ipynb")):
+def _remove_diagnostic_outputs(notebooks):
+    for notebook_path in notebooks:
+        notebook = nbformat.read(notebook_path, as_version=4)
+        kept_cells = []
+        for cell in notebook.cells:
+            if cell.cell_type == "code":
+                cleaned_outputs = []
+                for output in cell.outputs:
+                    if output.output_type == "stream":
+                        continue
+                    elif output.output_type in {"display_data", "update_display_data"}:
+                        data = getattr(output, "data", {}) or {}
+                        if data and set(data) != {"text/plain"}:
+                            cleaned_outputs.append(output)
+                    elif output.output_type == "error" and output.ename == "RInterpreterError":
+                        cleaned_outputs.append(output)
+                    elif output.output_type == "execute_result" and set(output.data) != {"text/plain"}:
+                        cleaned_outputs.append(output)
+                cell.outputs = cleaned_outputs
+            kept_cells.append(cell)
+        notebook.cells = kept_cells
+        nbformat.write(notebook, notebook_path)
+
+
+def _offline_report_sections(output_dir, notebooks):
+    notebooks_by_stem = {
+        os.path.splitext(os.path.basename(notebook))[0]: notebook
+        for notebook in notebooks
+    }
+    toc_path = os.path.normpath(os.path.join(output_dir, "..", "..", "_toc.yml"))
+    sections = []
+    section = None
+    if os.path.exists(toc_path):
+        with open(toc_path, "r") as toc:
+            for line in toc:
+                if line.startswith("- caption: "):
+                    section = [line.removeprefix("- caption: ").strip(), []]
+                    sections.append(section)
+                elif section is not None and "file: notebooks/" in line:
+                    stem = os.path.splitext(line.split("file: notebooks/", 1)[1].strip())[0]
+                    if stem in notebooks_by_stem:
+                        section[1].append(notebooks_by_stem.pop(stem))
+
+    if notebooks_by_stem:
+        sections.append(("Validation Results", sorted(notebooks_by_stem.values())))
+    return sections
+
+
+def _offline_report_title(notebook_path):
+    notebook = nbformat.read(notebook_path, as_version=4)
+    for cell in notebook.cells:
+        if cell.cell_type != "markdown":
+            continue
+        for line in cell.source.splitlines():
+            if line.startswith("# "):
+                return line.removeprefix("# ").strip()
+    stem = os.path.splitext(os.path.basename(notebook_path))[0]
+    return re.sub(r"^\d+_", "", stem).replace("_", " ").title()
+
+
+def _offline_report_navigation(output_dir, notebooks, logo_path, notebook_prefix, index_path):
+    sections = []
+    for title, section_notebooks in _offline_report_sections(output_dir, notebooks):
+        items = []
+        for notebook in section_notebooks:
+            stem = os.path.splitext(os.path.basename(notebook))[0]
+            label = _offline_report_title(notebook)
+            items.append(
+                f'<li><a href="{notebook_prefix}{html.escape(stem)}.html">'
+                f"{html.escape(label)}</a></li>"
+            )
+        if items:
+            sections.append(f"<section><h2>{html.escape(title)}</h2><ul>{''.join(items)}</ul></section>")
+
+    return (
+        "<aside class=\"oceanval-sidebar\">"
+        f"<a href=\"{index_path}\"><img class=\"oceanval-logo\" src=\"{logo_path}\" "
+        "alt=\"Plymouth Marine Laboratory\"></a>"
+        f"{''.join(sections)}</aside>"
+    )
+
+
+def _offline_report_style():
+    return (
+        "<style>body{margin:0;color:#203047;background:#fff;font-family:Georgia,'Times New Roman',serif}"
+        ".oceanval-sidebar{position:fixed;top:0;bottom:0;left:0;width:300px;"
+        "overflow-y:auto;background:#0f7c7c;border-right:1px solid #0a5f5f;padding:28px 24px;"
+        "z-index:10;color:#fff}.oceanval-logo{display:block;width:370px;max-width:100%;margin-bottom:34px}"
+        ".oceanval-sidebar h2{font-family:Arial,sans-serif;font-size:14px;font-weight:700;letter-spacing:0;"
+        "margin:25px 0 10px;text-transform:uppercase;color:#fff}.oceanval-sidebar ul{list-style:none;"
+        "margin:0;padding:0}.oceanval-sidebar li{margin:0}.oceanval-sidebar a{color:#fff;text-decoration:none}"
+        ".oceanval-sidebar li a{display:block;border-left:3px solid transparent;padding:8px 9px;"
+        "font-family:Arial,sans-serif;font-size:14px;line-height:1.35}.oceanval-sidebar li a:hover"
+        "{background:rgba(255,255,255,0.16);border-left-color:#fff}.jp-Notebook{margin-left:340px!important}"
+        ".oceanval-index{max-width:920px;margin-left:300px;padding:70px 72px}.oceanval-index h1{font-size:42px;"
+        "font-weight:600;line-height:1.1;margin:0 0 28px;color:#24364d}.oceanval-index p{font-size:18px;"
+        "line-height:1.65;margin:14px 0}.oceanval-index a{color:#086eb6}.oceanval-actions{display:flex;"
+        "gap:12px;margin-top:32px}.oceanval-actions a{border:1px solid #0879c1;padding:11px 16px;"
+        "font-family:Arial,sans-serif;font-size:14px;font-weight:600;text-decoration:none}.oceanval-actions a:hover"
+        "{background:#0879c1;color:#fff}"
+        "@media(max-width:720px){.oceanval-sidebar{position:static;width:auto;padding:20px}.oceanval-logo"
+        "{margin-bottom:16px}.jp-Notebook{margin-left:auto!important}.oceanval-index"
+        "{margin-left:0;padding:38px 24px}.oceanval-index h1{font-size:32px}.oceanval-actions{flex-direction:column;"
+        "align-items:flex-start}}</style>"
+    )
+
+
+def _write_offline_report_pages(output_dir, notebooks):
+    style = _offline_report_style()
+    index_navigation = _offline_report_navigation(
+        output_dir, notebooks, "../../pml_logo.jpg", "notebooks/", "index.html"
+    )
+    page_navigation = _offline_report_navigation(
+        output_dir, notebooks, "../../../pml_logo.jpg", "", "../index.html"
+    )
+    with open(os.path.join(output_dir, "index.html"), "w") as index:
+        index.write(
+            "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+            "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
+            f"<title>OceanVal validation report</title>{style}</head><body>{index_navigation}"
+            "<main class=\"oceanval-index\"><h1>An ocean model validation using oceanval</h1>"
+            "<p>Simulations were validated using the Python package <strong>oceanval</strong>.</p>"
+            "<p>The report navigation contains validation metrics, domain summaries, and results for each variable.</p>"
+            "<p><strong>oceanval</strong> is developed by Robert Wilson at "
+            "<a href=\"https://www.pml.ac.uk/\">Plymouth Marine Laboratory</a>, who can be contacted at "
+            "<a href=\"mailto:rwi@pml.ac.uk\">rwi@pml.ac.uk</a>.</p>"
+            "<div class=\"oceanval-actions\"><a href=\"https://github.com/pmlmodelling/oceanval\">Installation</a>"
+            "<a href=\"https://oceanval.readthedocs.io/\">Documentation</a></div>"
+            "</main></body></html>"
+        )
+
+    for notebook in notebooks:
         stem = os.path.splitext(os.path.basename(notebook))[0]
-        slug = re.sub(r"^\d+_", "", stem).replace("_", "-")
-        legacy_page = os.path.join(output_dir, f"{stem}.html")
-        slugged_page = os.path.join(output_dir, slug, "index.html")
-        if os.path.exists(slugged_page) and not os.path.exists(legacy_page):
-            os.symlink(os.path.join(slug, "index.html"), legacy_page)
+        page = os.path.join(output_dir, "notebooks", f"{stem}.html")
+        with open(page, "r") as report_page:
+            page_html = report_page.read()
+        page_html = page_html.replace("</head>", f"{style}</head>")
+        page_html = re.sub(
+            r"(<body[^>]*>)",
+            lambda match: f"{match.group(1)}{page_navigation}",
+            page_html,
+            count=1,
+        )
+        with open(page, "w") as report_page:
+            report_page.write(page_html)
 
 
 def fix_toc(concise=True, data_dir=None, out_dir=None):

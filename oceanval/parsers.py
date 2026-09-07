@@ -111,7 +111,7 @@ def find_recipe(x, start=None, end=None):
             output["source"] = "GLODAPv2.2016b"
             output["source_info"] = "Lauvset, S. K., Key, R. M., Olsen, A., van Heuven, S., Velo, A., Lin, X., Schirnick, C., Kozyr, A., Tanhua, T., Hoppema, M., Jutterström, S., Steinfeldt, R., Jeansson, E., Ishii, M., Perez, F. F., Suzuki, T., and Watelet, S.: A new global interior ocean mapped climatology: the 1° × 1° GLODAP version 2, Earth Syst. Sci. Data, 8, 325–340, https://doi.org/10.5194/essd-8-325-2016, 2016."
             output["name"] = name.lower()
-            output["thredds"] = True
+            output["thredds"] = False
             output["climatology"] = True
             output["obs_variable"] = "pHtsinsitutp"
             return output
@@ -120,14 +120,15 @@ def find_recipe(x, start=None, end=None):
             output["source"] = "GLODAPv2.2016b"
             output["source_info"] = "Lauvset, S. K., Key, R. M., Olsen, A., van Heuven, S., Velo, A., Lin, X., Schirnick, C., Kozyr, A., Tanhua, T., Hoppema, M., Jutterström, S., Steinfeldt, R., Jeansson, E., Ishii, M., Perez, F. F., Suzuki, T., and Watelet, S.: A new global interior ocean mapped climatology: the 1° × 1° GLODAP version 2, Earth Syst. Sci. Data, 8, 325–340, https://doi.org/10.5194/essd-8-325-2016, 2016."
             output["name"] = name.lower()
-            output["thredds"] = True
+            output["thredds"] = False
             output["climatology"] = True
             output["obs_variable"] = "TAlk"
             return output
 
     if value == "cobe2":
         if name.lower() == "temperature":
-            output["obs_path"] = ["https://psl.noaa.gov/thredds/dodsC/Datasets/COBE2/sst.mon.mean.nc"]
+            output["obs_path"] = "https://psl.noaa.gov/thredds/dodsC/Datasets/COBE2/sst.mon.mean.nc"
+
             output["source"] = "COBE2"
             output["source_info"] = "COBE-SST 2 and Sea Ice data provided by the NOAA PSL, Boulder, Colorado, USA, from their website at https://psl.noaa.gov/data/gridded/data.cobe2.html."
             output["name"] = name.lower()
@@ -194,7 +195,10 @@ def find_recipe(x, start=None, end=None):
                 output["obs_variable"] = "t_an"
             else:
                 output["obs_variable"] = "s_an"
-            urls = [f"https://www.ncei.noaa.gov/thredds-ocean/dodsC/woa23/DATA/{name.lower()}/netcdf/{period}/1.00/woa23_{period}_{name[0].lower()}00_01.nc" for _ in range(1)]
+            urls = [
+                f"https://www.ncei.noaa.gov/thredds-ocean/dodsC/woa23/DATA/{name.lower()}/netcdf/{period}/1.00/woa23_{period}_{name[0].lower()}{month:02d}_01.nc"
+                for month in range(1, 13)
+            ]
             output["obs_path"] = urls
             return output
 
@@ -220,18 +224,40 @@ def find_recipe(x, start=None, end=None):
             output["obs_variable"] = "phosphate_mean"
         elif name.lower() == "silicate":
             output["obs_variable"] = "silicate_mean"
-        output["obs_path"] = ["https://example.invalid/nsbc"]
+        nsbc_variable = "chlorophyll_a" if name.lower() == "chlorophyll" else name.lower()
+        output["obs_path"] = (
+            "https://icdc.cen.uni-hamburg.de/thredds/dodsC/ftpthredds/nsbc/"
+            "level_3/climatological_monthly_mean/"
+            f"NSBC_Level3_{nsbc_variable}__UHAM_ICDC__v1.1__0.25x0.25deg__OAN_1960_2014.nc"
+        )
         return output
 
     if value == "occci":
         output["source"] = "OCCCI"
-        output["source_info"] = "Ocean Colour Climate Change Initiative (OC-CCI) monthly chlorophyll datasets."
+        output["source_info"] = "Ocean Colour Climate Change Initiative (OC-CCI) monthly datasets."
         output["climatology"] = False
         output["thredds"] = True
         output["name"] = name.lower()
-        output["obs_variable"] = "chlor_a"
-        output["obs_path"] = ["https://www.oceancolour.org/thredds/dodsC/occci/v5.0/1998-2024/occci_1998.nc"]
-        return output
+        if name.lower() == "chlorophyll":
+            output["obs_variable"] = "chlor_a"
+            output["obs_path"] = [
+                "https://www.oceancolour.org/thredds/dodsC/cci/v6.0-release/"
+                f"geographic/monthly/chlor_a/{year}/ESACCI-OC-L3S-CHLOR_A-MERGED-"
+                f"1M_MONTHLY_4km_GEO_PML_OCx-{year}{month:02d}-fv6.0.nc"
+                for year in range(1998, 2025)
+                for month in range(1, 13)
+            ]
+            return output
+        if name.lower() == "kd490":
+            output["obs_variable"] = "kd_490"
+            output["obs_path"] = [
+                "https://www.oceancolour.org/thredds/dodsC/cci/v6.0-release/"
+                f"geographic/monthly/kd/{year}/ESACCI-OC-L3S-K_490-MERGED-"
+                f"1M_MONTHLY_4km_GEO_PML_KD490_Lee-{year}{month:02d}-fv6.0.nc"
+                for year in range(1998, 2025)
+                for month in range(1, 13)
+            ]
+            return output
 
     raise ValueError(f"Recipe value {value} is not valid for recipe name {name}")
 
@@ -352,7 +378,6 @@ class Validator:
 
         if recipe is not None:
             recipe_info = find_recipe(recipe, start=start, end=end)
-            print(recipe_info)
             if obs_path is None:
                 obs_path = recipe_info["obs_path"]
             if source is None:
@@ -361,7 +386,6 @@ class Validator:
                 file_check = False
             if source_info is None:
                 source_info = recipe_info["source_info"]
-            print(obs_path)
             thredds = recipe_info["thredds"]
             if climatology is None:
                 climatology = recipe_info["climatology"]

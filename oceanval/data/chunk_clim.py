@@ -154,11 +154,5 @@ except:
 ds_both.pub_plot(variable  = "observation", limits = [z_min, z_max], title = "Observation", fig = fig, gs = gs[0,1], trans = transformation)
 
 # %% tags=["remove-input"]
-fig
-
-
-
-
-# %% tags=["remove-input"]
 md(f"**Figure {i_figure}**: Annual average {layer} {vv_name} from the model {clim_range} and observations. Data is limited to the 2nd and 98th percentile of the combined model and observational data. Arrows indicate that values can exceed the colorbar limits.") 
 i_figure += 1

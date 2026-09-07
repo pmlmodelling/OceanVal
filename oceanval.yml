@@ -8,6 +8,7 @@ dependencies:
   - notebook
   - ipykernel
   - nctoolkit>=1.1.1
+  - matplotlib<=3.10.9
   - python
   - rpy2
   - r-base
