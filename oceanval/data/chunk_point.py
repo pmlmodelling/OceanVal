@@ -1,6 +1,4 @@
 
-# %% [markdown] tags=["remove-cell"]
-# ## Read in the data
 
 
 # %% tags=["remove-input", "remove-cell"]
