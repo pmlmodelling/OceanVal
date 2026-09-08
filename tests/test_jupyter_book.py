@@ -20,7 +20,7 @@ def test_build_book_uses_offline_html_for_jupyter_book_2():
             "report/notebooks/summary.ipynb",
             "report/notebooks/example.ipynb",
         ],
-    ), patch("oceanval.os.makedirs"), patch(
+    ), patch("oceanval.os.makedirs"), patch("oceanval.shutil.copyfile"), patch(
         "oceanval._remove_diagnostic_outputs"
     ) as remove_diagnostics, patch(
         "oceanval._write_offline_report_pages"
@@ -230,8 +230,8 @@ def test_offline_report_pages_group_navigation_and_hide_code(tmp_path):
     assert 'href="003_foo_temperature.html"' in report_page
     assert 'href="index.html"' in index
     assert 'href="../index.html"' in report_page
-    assert 'src="../../pml_logo.jpg"' in index
-    assert 'src="../../../pml_logo.jpg"' in report_page
+    assert 'src="pml_logo.jpg"' in index
+    assert 'src="../pml_logo.jpg"' in report_page
     assert index.index('class="oceanval-nav-sections"') < index.index('class="oceanval-brand-link"')
     assert 'class="oceanval-brand-block"' in index
     assert 'class="oceanval-logo-box"' in index
