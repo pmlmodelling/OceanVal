@@ -38,7 +38,8 @@ def add_chunks( dir=None):
         for line in Lines:
             if is_chunk(line):
                 # get the file names
-                chunk_file = line.replace("\n", "") + ".py"
+                # .pytemplate avoids these R/magic-laden snippets being byte-compiled as Python
+                chunk_file = line.replace("\n", "") + ".pytemplate"
 
 
                 data_path = importlib.resources.files("oceanval").joinpath(f"data/{chunk_file}")
