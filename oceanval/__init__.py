@@ -11,6 +11,8 @@ from oceanval.matchall import matchup
 import dill
 
 from oceanval.session import session_info
+from oceanval.utils import restrict_r_to_conda
+restrict_r_to_conda()
 import webbrowser
 from oceanval.chunkers import add_chunks
 import os
@@ -82,6 +84,11 @@ def _build_book(book_dir):
                 ],
                 check=True,
             )
+        os.makedirs(output_dir, exist_ok=True)
+        # keep the logo alongside index.html so the two share a directory
+        shutil.copyfile(
+            os.path.join(book_dir, "pml_logo.jpg"), os.path.join(output_dir, "pml_logo.jpg")
+        )
         _write_offline_report_pages(output_dir, notebooks)
     else:
         subprocess.run(["jupyter-book", "build", book_dir], check=True)
@@ -275,10 +282,10 @@ def _write_offline_report_pages(output_dir, notebooks):
     style = _offline_report_style()
     pdf_style = _offline_report_pdf_style()
     index_navigation = _offline_report_navigation(
-        output_dir, notebooks, "../../pml_logo.jpg", "notebooks/", "index.html", "oceanval_report.pdf"
+        output_dir, notebooks, "pml_logo.jpg", "notebooks/", "index.html", "oceanval_report.pdf"
     )
     page_navigation = _offline_report_navigation(
-        output_dir, notebooks, "../../../pml_logo.jpg", "", "../index.html", "../oceanval_report.pdf"
+        output_dir, notebooks, "../pml_logo.jpg", "", "../index.html", "../oceanval_report.pdf"
     )
     with open(os.path.join(output_dir, "index.html"), "w") as index:
         index.write(

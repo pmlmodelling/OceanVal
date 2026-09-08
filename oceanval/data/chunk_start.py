@@ -44,6 +44,9 @@ from oceanval.tidiers import fix_unit, df_display, md, md_basic
 
 warnings.filterwarnings('ignore')
 
+from oceanval.utils import restrict_r_to_conda
+restrict_r_to_conda()
+
 %load_ext rpy2.ipython
 
 test_status = the_test_status
