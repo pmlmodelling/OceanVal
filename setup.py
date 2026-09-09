@@ -50,7 +50,7 @@ setup(name='oceanval',
       author_email='rwi@pml.ac.uk',
       include_package_data=True,
       package_data={
-      'oceanval': ['data/*'] },
+      'oceanval': ['data/*', 'data/_static/*'] },
 
       packages = ["oceanval"],
       setup_requires=[
