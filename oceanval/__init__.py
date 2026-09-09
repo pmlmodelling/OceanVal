@@ -1092,43 +1092,64 @@ def compare(model_dict=None, view=True, ask=True):
 
     if not os.path.exists("oceanval_comparison/compare"):
         os.makedirs("oceanval_comparison/compare")
+    if not os.path.exists("oceanval_comparison/compare/notebooks"):
+        os.makedirs("oceanval_comparison/compare/notebooks")
 
     shutil.copyfile(
         os.path.join(os.path.dirname(__file__), "data", "pml_logo.jpg"),
-        "oceanval_comparison/pml_logo.jpg",
+        "oceanval_comparison/compare/pml_logo.jpg",
     )
 
-    src_dir = os.path.join(os.path.dirname(__file__), "..", "oceanval_comparison", "compare")
-    if os.path.exists(src_dir):
-        if not os.path.exists("oceanval_comparison/compare/notebooks"):
-            os.makedirs("oceanval_comparison/compare/notebooks")
-        for root, _, files in os.walk(src_dir):
-            rel_root = os.path.relpath(root, src_dir)
-            dest_root = os.path.join("oceanval_comparison", "compare", rel_root)
-            if rel_root == ".":
-                dest_root = os.path.join("oceanval_comparison", "compare")
-            os.makedirs(dest_root, exist_ok=True)
-            for ff in files:
-                src_file = os.path.join(root, ff)
-                dest_file = os.path.join(dest_root, ff)
-                if not os.path.exists(dest_file):
-                    shutil.copyfile(src_file, dest_file)
-
-    model_dict_str = str(model_dict)
-    for notebook_name in [
+    comparison_notebooks = [
         "comparison_seasonal.ipynb",
         "comparison_spatial.ipynb",
         "comparison_regional.ipynb",
         "comparison_bias.ipynb",
         "comparison_point_surface.ipynb",
-    ]:
+    ]
+    for notebook_name in comparison_notebooks:
+        data_path = importlib.resources.files(__name__).joinpath(f"data/{notebook_name}")
+        dest_path = os.path.join("oceanval_comparison", "compare", "notebooks", notebook_name)
+        shutil.copyfile(data_path, dest_path)
+
+    # book scaffold: needed for the classic jupyter-book<2 build, harmless for >=2
+    with open("oceanval_comparison/compare/_config.yml", "w") as file:
+        file.write(
+            "title:\n"
+            "author:   \"Robert Wilson | Plymouth Marine Laboratory\"\n"
+            "logo: \"pml_logo.jpg\"\n"
+            "copyright:  Plymouth Marine Laboratory\n"
+            "execute:\n"
+            "  execute_notebooks: force\n"
+            "  timeout: 500\n"
+            "  allow_errors: true\n"
+            "sphinx:\n"
+            "  config:\n"
+            "    html_static_path: ['_static']\n"
+            "    html_css_files: ['custom.css']\n"
+        )
+    with open("oceanval_comparison/compare/_toc.yml", "w") as file:
+        file.write("format: jb-book\nroot: intro\nchapters:\n- glob: notebooks/*\n")
+    with open("oceanval_comparison/compare/intro.md", "w") as file:
+        file.write(
+            "# Comparison of ocean model simulations\n\n"
+            "This report compares the validation results of multiple simulations using **oceanval**.\n"
+        )
+
+    static_src = importlib.resources.files(__name__).joinpath("data/_static")
+    static_out = "oceanval_comparison/compare/_static"
+    if not os.path.exists(static_out):
+        os.makedirs(static_out)
+    shutil.copyfile(f"{static_src}/custom.css", f"{static_out}/custom.css")
+
+    model_dict_str = str(model_dict)
+    for notebook_name in comparison_notebooks:
         path = os.path.join("oceanval_comparison", "compare", "notebooks", notebook_name)
-        if os.path.exists(path):
-            with open(path, "r") as file:
-                filedata = file.read()
-            filedata = filedata.replace("model_dict_str", model_dict_str)
-            with open(path, "w") as file:
-                file.write(filedata)
+        with open(path, "r") as file:
+            filedata = file.read()
+        filedata = filedata.replace("model_dict_str", model_dict_str)
+        with open(path, "w") as file:
+            file.write(filedata)
 
     os.system("jupytext --set-formats ipynb,py:percent oceanval_comparison/compare/notebooks/*.ipynb")
     add_chunks(None)
@@ -1136,6 +1157,10 @@ def compare(model_dict=None, view=True, ask=True):
         with open(book, "r") as file:
             filedata = file.read()
         filedata = filedata.replace("the_test_status", "False")
+        filedata = filedata.replace("the_lon_lim", "None")
+        filedata = filedata.replace("the_lat_lim", "None")
+        filedata = filedata.replace("concise_value", "False")
+        filedata = filedata.replace("fast_plot_value", "False")
         with open(book, "w") as file:
             file.write(filedata)
     os.system("jupytext --sync oceanval_comparison/compare/notebooks/*.ipynb")
