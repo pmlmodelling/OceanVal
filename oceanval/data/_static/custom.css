@@ -15,12 +15,8 @@ table {
   margin-right: auto !important;
 }
 
-/* pandas/dataframe output tables are wrapped in this container by the notebook renderer */
+/* keep text content left-aligned; only the table itself is centred */
 div.cell_output {
-  text-align: center;
-}
-
-div.cell_output table {
   text-align: left;
 }
 
