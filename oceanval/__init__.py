@@ -19,6 +19,8 @@ import os
 import re
 import html
 import nbformat
+import base64
+import io
 from oceanval.fvcom import fvcom_preprocess
 import importlib
 
@@ -185,8 +187,8 @@ def _offline_report_navigation(output_dir, notebooks, logo_path, notebook_prefix
 def _offline_report_style():
     return (
         "<style>body{margin:0;color:#203047;background:#fff;font-family:Georgia,'Times New Roman',serif}"
-        ".oceanval-sidebar{position:fixed;top:0;bottom:0;left:0;width:300px;"
-        "overflow:hidden;background:#0f7c7c;border-right:1px solid #0a5f5f;padding:28px 24px;"
+        ".oceanval-sidebar{position:fixed!important;top:0;bottom:auto;left:0;width:300px;height:100vh;"
+        "max-height:100vh;overflow:hidden;background:#0f7c7c;border-right:1px solid #0a5f5f;padding:28px 24px;"
         "z-index:10;color:#fff;display:flex;flex-direction:column;box-sizing:border-box}"
         ".oceanval-nav-sections{flex:1 1 auto;overflow-y:auto;min-height:0;padding-bottom:16px}.oceanval-brand-link{display:block;flex:0 0 auto;padding-top:12px;text-decoration:none}"
         ".oceanval-brand-block{background:#0f7c7c;border:2px solid #fff;border-radius:8px;padding:12px;box-sizing:border-box}"
@@ -204,7 +206,11 @@ def _offline_report_style():
         "font-family:Arial,sans-serif;font-size:14px;line-height:1.35}.oceanval-sidebar li a:hover"
         "{background:rgba(255,255,255,0.16);border-left-color:#fff}"
         ".oceanval-sidebar a.oceanval-viewpdf-btn{color:#0f7c7c}"
-        ".jp-Notebook{margin-left:340px!important;margin-right:300px!important}"
+        ".jp-Notebook{margin-left:340px!important;margin-right:300px!important;font-size:1.15rem}"
+        ".jp-Notebook p,.jp-Notebook li,.jp-Notebook dd{margin-top:0;margin-bottom:0.9em}"
+        ".jp-Notebook table{margin-left:auto;margin-right:auto}"
+        ".jp-Notebook img,.jp-Notebook figure{display:block;margin-left:auto;margin-right:auto}"
+        ".jp-Notebook figcaption{text-align:center}"
         ".oceanval-index{max-width:calc(100% - 600px);margin-left:300px;margin-right:300px;padding:70px 72px;box-sizing:border-box}.oceanval-index h1{font-size:42px;"
         "font-weight:600;line-height:1.1;margin:0 0 28px;color:#24364d}.oceanval-index p{font-size:18px;"
         "line-height:1.65;margin:14px 0}.oceanval-index a{color:#086eb6}.oceanval-actions{display:flex;"
@@ -216,10 +222,21 @@ def _offline_report_style():
         "font-family:Arial,sans-serif;font-size:13px;font-weight:700;cursor:pointer;text-align:center;"
         "text-decoration:none;display:block}"
         ".oceanval-download-btn:hover{background:#0a5f5f}"
-        "@media(max-width:720px){.oceanval-sidebar{position:static;width:auto;padding:20px;overflow:visible}.oceanval-nav-sections{overflow:visible;padding-bottom:0}.oceanval-logo"
+        "@media(max-width:720px){.oceanval-sidebar{position:static!important;width:auto;height:auto;max-height:none;padding:20px;overflow:visible}.oceanval-nav-sections{overflow:visible;padding-bottom:0}.oceanval-logo"
         "{margin-bottom:0}.oceanval-brand-link{padding-top:16px}.jp-Notebook{margin-left:auto!important;margin-right:0!important}.oceanval-index"
         "{max-width:none;margin-left:0;margin-right:0;padding:38px 24px}.oceanval-index h1{font-size:32px}.oceanval-actions{flex-direction:column;"
         "align-items:flex-start}.oceanval-download-btn{position:static;width:auto;margin:16px 0 0 20px}}</style>"
+    )
+
+
+def _offline_report_sidebar_script():
+    return (
+        "<script>(function(){function restore(){var nav=document.querySelector("
+        "'.oceanval-nav-sections');if(!nav){return;}var key='oceanval-sidebar-scroll';"
+        "var saved=sessionStorage.getItem(key);if(saved!==null){nav.scrollTop=Number(saved);}"
+        "nav.addEventListener('scroll',function(){sessionStorage.setItem(key,nav.scrollTop);});}"
+        "if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',restore);}"
+        "else{restore();}})();</script>"
     )
 
 
@@ -227,17 +244,61 @@ def _offline_report_pdf_style():
     return (
         "<style>@page{size:A4;margin:18mm 16mm}"
         "body{font-family:Georgia,'Times New Roman',serif;color:#203047;"
-        "margin:0;line-height:1.55;font-size:11pt}"
+        "margin:0;line-height:1.55;font-size:12.5pt}"
         "h1{font-size:20pt;margin:0 0 12pt}h2{font-size:15pt;margin:18pt 0 8pt}"
         "h3{font-size:12.5pt;margin:14pt 0 6pt}"
-        "img{max-width:100%}"
-        "table{border-collapse:collapse;width:100%;margin:10pt 0;"
+        "p{margin:0 0 8pt}"
+        "img{max-width:100%;display:block;margin:8pt auto}"
+        "table{border-collapse:collapse;width:100%;margin:10pt auto;"
         "page-break-inside:avoid;break-inside:avoid}"
         "tr,td,th{page-break-inside:avoid;break-inside:avoid}"
         "td,th{border:1px solid #ccc;padding:5px 8px;font-size:9.5pt}"
         "pre{white-space:pre-wrap;word-break:break-word;font-size:9.5pt}"
+        ".oceanval-math-inline{height:1.2em;vertical-align:middle}"
+        ".oceanval-math-display{display:block;max-width:100%;margin:10pt auto}"
         ".headerlink,.anchor-link{display:none}</style>"
     )
+
+
+def _render_latex_for_pdf(body_content):
+    patterns = [
+        (r'<span class="math inline">\\\((.*?)\\\)</span>', False),
+        (r'<div class="math">\\\[(.*?)\\\]</div>', True),
+        (r'\\\[(.*?)\\\]', True),
+        (r'\\\((.*?)\\\)', False),
+        (r'\$\$(.*?)\$\$', True),
+        (r'(?<!\$)\$(?!\$)(.+?)(?<!\$)\$(?!\$)', False),
+    ]
+    if not any(re.search(pattern, body_content, flags=re.S) for pattern, _ in patterns):
+        return body_content
+
+    from matplotlib.mathtext import math_to_image
+
+    def replace_math(match, display):
+        expression = match.group(1).strip()
+        buffer = io.BytesIO()
+        try:
+            math_to_image(
+                f"${expression}$",
+                buffer,
+                dpi=200,
+                format="svg",
+                color="#203047",
+            )
+        except Exception:
+            return match.group(0)
+        encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
+        class_name = "oceanval-math-display" if display else "oceanval-math-inline"
+        return f'<img class="{class_name}" src="data:image/svg+xml;base64,{encoded}" alt="{html.escape(expression)}">'
+
+    for pattern, display in patterns:
+        body_content = re.sub(
+            pattern,
+            lambda match, display=display: replace_math(match, display),
+            body_content,
+            flags=re.S,
+        )
+    return body_content
 
 
 def _combined_report_pdf_source(output_dir, notebooks, notebook_bodies, pdf_style):
@@ -291,7 +352,7 @@ def _write_offline_report_pages(output_dir, notebooks):
         index.write(
             "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
             "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
-            f"<title>OceanVal validation report</title>{style}</head><body>{index_navigation}"
+            f"<title>OceanVal validation report</title>{style}{_offline_report_sidebar_script()}</head><body>{index_navigation}"
             "<main class=\"oceanval-index\"><h1>An ocean model validation using oceanval</h1>"
             "<p>Simulations were validated using the Python package <strong>oceanval</strong>.</p>"
             "<p>The report navigation contains validation metrics, domain summaries, and results for each variable.</p>"
@@ -323,6 +384,7 @@ def _write_offline_report_pages(output_dir, notebooks):
             body_content,
             flags=re.S,
         )
+        body_content = _render_latex_for_pdf(body_content)
         notebook_bodies[notebook] = body_content
         pdf_source = (
             f"<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
@@ -340,7 +402,9 @@ def _write_offline_report_pages(output_dir, notebooks):
             raw_html,
             count=1,
         )
-        page_html = page_html.replace("</head>", f"{style}</head>", 1)
+        page_html = page_html.replace(
+            "</head>", f"{style}{_offline_report_sidebar_script()}</head>", 1
+        )
         page_updates.append((page, page_html))
 
     if notebook_bodies:
@@ -608,6 +672,13 @@ def validate(
             file.write(filedata)
 
         # copyfile(data_path, out)
+
+        # copy the custom stylesheet used to theme the built report
+        static_src = importlib.resources.files(__name__).joinpath("data/_static")
+        static_out = f"{book_dir}/_static"
+        if not os.path.exists(static_out):
+            os.makedirs(static_out)
+        copyfile(f"{static_src}/custom.css", f"{static_out}/custom.css")
 
         path_df = []
 

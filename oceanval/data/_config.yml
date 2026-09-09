@@ -13,3 +13,5 @@ sphinx:
   config:
     latex_elements:
       'extraclassoptions': 'openany,oneside'
+    html_static_path: ['_static']
+    html_css_files: ['custom.css']
