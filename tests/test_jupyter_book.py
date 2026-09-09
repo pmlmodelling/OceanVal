@@ -235,10 +235,23 @@ def test_offline_report_pages_group_navigation_and_hide_code(tmp_path):
     assert index.index('class="oceanval-nav-sections"') < index.index('class="oceanval-brand-link"')
     assert 'class="oceanval-brand-block"' in index
     assert 'class="oceanval-logo-box"' in index
-    assert ".jp-Notebook{margin-left:340px!important;margin-right:300px!important}" in index
+    assert ".jp-Notebook{margin-left:340px!important;margin-right:300px!important;font-size:1.15rem}" in index
     assert ".oceanval-nav-sections{flex:1 1 auto;overflow-y:auto;min-height:0" in index
     assert ".oceanval-brand-link{display:block;flex:0 0 auto" in index
+    assert ".oceanval-sidebar{position:fixed!important" in index
+    assert "sessionStorage" in index
     assert ".oceanval-index{max-width:calc(100% - 600px);margin-left:300px;margin-right:300px" in index
     assert '<div class="oceanval-actions">' in index
     assert "Robert Wilson" in index
     assert 'href="mailto:rwi@pml.ac.uk"' in index
+
+
+def test_pdf_latex_is_embedded_as_svg():
+    body = '<p>Inline \\(x^2\\) and $m$</p><div class="math">\\[E=mc^2\\]</div>'
+
+    rendered = oceanval._render_latex_for_pdf(body)
+
+    assert rendered.count("data:image/svg+xml;base64,") == 3
+    assert "\\(" not in rendered
+    assert "\\[" not in rendered
+    assert "$m$" not in rendered
