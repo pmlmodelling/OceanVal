@@ -49,7 +49,7 @@ def _jupyter_book_major_version():
         return 1
 
 
-def _build_book(book_dir):
+def _build_book(book_dir, validation_links=None):
     if _jupyter_book_major_version() >= 2:
         notebooks = glob.glob(os.path.join(book_dir, "notebooks", "*.ipynb"))
         notebooks.sort(
@@ -91,7 +91,7 @@ def _build_book(book_dir):
         shutil.copyfile(
             os.path.join(book_dir, "pml_logo.jpg"), os.path.join(output_dir, "pml_logo.jpg")
         )
-        _write_offline_report_pages(output_dir, notebooks)
+        _write_offline_report_pages(output_dir, notebooks, validation_links=validation_links)
     else:
         subprocess.run(["jupyter-book", "build", book_dir], check=True)
 
@@ -156,7 +156,9 @@ def _offline_report_title(notebook_path):
     return re.sub(r"^\d+_", "", stem).replace("_", " ").title()
 
 
-def _offline_report_navigation(output_dir, notebooks, logo_path, notebook_prefix, index_path, pdf_href):
+def _offline_report_navigation(
+    output_dir, notebooks, logo_path, notebook_prefix, index_path, pdf_href, validation_links=None
+):
     sections = []
     for title, section_notebooks in _offline_report_sections(output_dir, notebooks):
         items = []
@@ -170,9 +172,22 @@ def _offline_report_navigation(output_dir, notebooks, logo_path, notebook_prefix
         if items:
             sections.append(f"<section><h2>{html.escape(title)}</h2><ul>{''.join(items)}</ul></section>")
 
+    validation_block = ""
+    if validation_links:
+        links = "".join(
+            f'<a class="oceanval-validation-link" href="{html.escape(href)}">{html.escape(label)}</a>'
+            for label, href in validation_links
+        )
+        validation_block = (
+            '<div class="oceanval-validation-links">'
+            '<h2 class="oceanval-validation-heading">Reports</h2>'
+            f"{links}</div>"
+        )
+
     return (
         "<aside class=\"oceanval-sidebar\">"
         f"<div class=\"oceanval-nav-sections\">{''.join(sections)}</div>"
+        f"{validation_block}"
         f"<a href=\"{index_path}\" class=\"oceanval-brand-link\">"
         "<div class=\"oceanval-brand-block\">"
         "<div class=\"oceanval-brand-text\">OceanVal by</div>"
@@ -199,6 +214,13 @@ def _offline_report_style():
         "border-radius:6px;padding:10px 12px;font-family:Arial,sans-serif;font-size:13px;font-weight:700;"
         "text-align:center;text-decoration:none;box-sizing:border-box}"
         ".oceanval-viewpdf-btn:hover{background:rgba(255,255,255,0.85)}"
+        ".oceanval-validation-links{flex:0 0 auto;border-top:1px solid rgba(255,255,255,0.4);"
+        "margin-top:12px;padding-top:12px;display:flex;flex-direction:column;gap:8px}"
+        ".oceanval-validation-heading{margin:0 0 4px!important}"
+        ".oceanval-validation-link{display:block;background:#fff;color:#0f7c7c;border-radius:6px;"
+        "padding:10px 12px;font-family:Arial,sans-serif;font-size:13px;font-weight:700;"
+        "text-align:center;text-decoration:none;box-sizing:border-box}"
+        ".oceanval-validation-link:hover{background:rgba(255,255,255,0.85)}"
         ".oceanval-sidebar h2{font-family:Arial,sans-serif;font-size:14px;font-weight:700;letter-spacing:0;"
         "margin:25px 0 10px;text-transform:uppercase;color:#fff}.oceanval-sidebar ul{list-style:none;"
         "margin:0;padding:0}.oceanval-sidebar li{margin:0}.oceanval-sidebar a{color:#fff;text-decoration:none}"
@@ -206,6 +228,7 @@ def _offline_report_style():
         "font-family:Arial,sans-serif;font-size:14px;line-height:1.35}.oceanval-sidebar li a:hover"
         "{background:rgba(255,255,255,0.16);border-left-color:#fff}"
         ".oceanval-sidebar a.oceanval-viewpdf-btn{color:#0f7c7c}"
+        ".oceanval-sidebar a.oceanval-validation-link{color:#0f7c7c}"
         ".jp-Notebook{margin-left:340px!important;margin-right:300px!important;font-size:1.15rem}"
         ".jp-Notebook p,.jp-Notebook li,.jp-Notebook dd{margin-top:0;margin-bottom:0.9em}"
         ".jp-Notebook table{margin-left:auto!important;margin-right:auto!important}"
@@ -339,14 +362,24 @@ def _render_offline_report_pdfs(pages):
             )
 
 
-def _write_offline_report_pages(output_dir, notebooks):
+def _write_offline_report_pages(output_dir, notebooks, validation_links=None):
+    validation_links = validation_links or []
+    index_validation_links = [
+        (label, os.path.relpath(target, output_dir)) for label, target in validation_links
+    ]
+    page_validation_links = [
+        (label, os.path.relpath(target, os.path.join(output_dir, "notebooks")))
+        for label, target in validation_links
+    ]
     style = _offline_report_style()
     pdf_style = _offline_report_pdf_style()
     index_navigation = _offline_report_navigation(
-        output_dir, notebooks, "pml_logo.jpg", "notebooks/", "index.html", "oceanval_report.pdf"
+        output_dir, notebooks, "pml_logo.jpg", "notebooks/", "index.html", "oceanval_report.pdf",
+        validation_links=index_validation_links,
     )
     page_navigation = _offline_report_navigation(
-        output_dir, notebooks, "../pml_logo.jpg", "", "../index.html", "../oceanval_report.pdf"
+        output_dir, notebooks, "../pml_logo.jpg", "", "../index.html", "../oceanval_report.pdf",
+        validation_links=page_validation_links,
     )
     with open(os.path.join(output_dir, "index.html"), "w") as index:
         index.write(
@@ -1163,7 +1196,11 @@ def compare(model_dict=None, view=True, ask=True):
         with open(book, "w") as file:
             file.write(filedata)
     os.system("jupytext --sync oceanval_comparison/compare/notebooks/*.ipynb")
-    _build_book("oceanval_comparison/compare")
+    validation_links = [
+        (key, os.path.join(model_dict[key], "oceanval_report", "_build", "html", "index.html"))
+        for key in model_dict
+    ]
+    _build_book("oceanval_comparison/compare", validation_links=validation_links)
 
     if view:
         webbrowser.open(
