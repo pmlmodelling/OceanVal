@@ -1105,7 +1105,6 @@ def compare(model_dict=None, view=True, ask=True):
         "comparison_spatial.ipynb",
         "comparison_regional.ipynb",
         "comparison_bias.ipynb",
-        "comparison_point_surface.ipynb",
     ]
     for notebook_name in comparison_notebooks:
         data_path = importlib.resources.files(__name__).joinpath(f"data/{notebook_name}")
