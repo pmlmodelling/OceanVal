@@ -61,6 +61,7 @@ def test_build_book_uses_offline_html_for_jupyter_book_2():
     write_pages.assert_called_once_with(
         "report/_build/html",
         ["report/notebooks/example.ipynb", "report/notebooks/summary.ipynb"],
+        validation_links=None,
     )
     remove_diagnostics.assert_called_once_with(
         ["report/notebooks/example.ipynb", "report/notebooks/summary.ipynb"]
