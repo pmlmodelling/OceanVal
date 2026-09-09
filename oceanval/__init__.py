@@ -180,7 +180,7 @@ def _offline_report_navigation(
         )
         validation_block = (
             '<div class="oceanval-validation-links">'
-            '<h2 class="oceanval-validation-heading">Reports</h2>'
+            '<h2 class="oceanval-validation-heading">REPORTS COMPARED</h2>'
             f"{links}</div>"
         )
 
