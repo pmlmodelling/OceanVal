@@ -1293,6 +1293,21 @@ def matchup(
                                 return df
 
                             df = pd.concat([read_csv_simyears(x, layer) for x in paths])
+                            # ensure year is int
+                            df = df.assign(year=lambda x: x.year.astype(int))
+                            # month and day
+                            try:
+                                df = df.assign(
+                                    month=lambda x: x.month.astype(int) if "month" in x.columns else None,
+                                )
+                            except:
+                                pass
+                            try:
+                                df = df.assign(
+                                    day=lambda x: x.day.astype(int) if "day" in x.columns else None,
+                                )
+                            except:
+                                pass
                             if "year" in df.columns:
                                 # find point_start
                                 point_start = definitions[variable].point_start
@@ -1301,11 +1316,8 @@ def matchup(
                                     "year >= @point_start and year <= @point_end"
                                 ).reset_index(drop=True)
 
-                            # remove source if it's in df
                             if "source" in df.columns:
-                                df = df.query("source == @source").reset_index(
-                                    drop=True
-                                )
+                                df = df.drop(columns=["source"])
                             # if it exists, coerce year to int
                             if "year" in df.columns:
                                 df = df.assign(year=lambda x: x.year.astype(int))
