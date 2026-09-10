@@ -179,7 +179,7 @@ if available:
 
 # %% tags=["remove-input"]
 # %%capture --no-display
-# %%R -i df_locs -i variable -i available -i unit -i concise -w 500
+# %%R -i df_locs -i variable -i available -i unit -i concise -w 600 -h 500
 if(available & concise == FALSE){
 library(dplyr, warn.conflicts = FALSE, quietly = TRUE)
 library(ggplot2, warn.conflicts = FALSE, quietly = TRUE)
@@ -245,7 +245,7 @@ if available and not concise:
 
 # %% tags=["remove-input"]
 # %%capture --no-display
-# %%R -i df -i variable -i unit -i layer_long -i vv_name -i available -w 800 
+# %%R -i df -i variable -i unit -i layer_long -i vv_name -i available -w 1000 -h 700
 options(warn=-1)
 options(warn=-1)
 library(tidyverse, warn.conflicts = FALSE, quietly = TRUE)
@@ -641,7 +641,7 @@ if available:
 
 # %% tags=["remove-input"]
 # %%capture --no-display
-# %%R -i vv_name -i unit -i concise -w 500  -i available
+# %%R -i vv_name -i unit -i concise -w 600 -h 500 -i available
 
 if(concise & available){
 library(dplyr, warn.conflicts = FALSE, quietly = TRUE)

@@ -153,7 +153,7 @@ if time_name is not None:
 
 # %% tags=["remove-input"]
 # %%capture --no-display
-# %%R -i model_unit  -w 800 -h 600 -i variable  -i concise -r 100
+# %%R -i model_unit  -w 1000 -h 900 -i variable  -i concise -r 100
 
 
 if(concise == FALSE){
@@ -408,7 +408,7 @@ cowplot::plot_grid(gg1, gg2, gg3, ncol = 1)
 
 # %% tags=["remove-input"]
 # %%capture --no-display
-# %%R -i model_unit -w 800 -h 600 -i variable  -i concise -r 100
+# %%R -i model_unit -w 1000 -h 900 -i variable  -i concise -r 100
 
 if (concise == FALSE){
 
