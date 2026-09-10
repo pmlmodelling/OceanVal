@@ -289,6 +289,10 @@ bin_value <- function(x, bin_res) {
 }
 
 
+n_panels <- length(unique(df_map$variable))
+panel_ncol <- if (n_panels == 3) 3 else ceiling(sqrt(n_panels))
+panel_nrow <- ceiling(n_panels / panel_ncol)
+
 gg <- df_map %>%
     ggplot()+
     geom_point(aes(lon, lat, colour = value))+
@@ -297,7 +301,7 @@ gg <- df_map %>%
     labs(color = variable)+
     # log10
     theme(legend.position = "bottom", legend.title = element_markdown())  +
-    facet_wrap(~variable)+
+    facet_wrap(~variable, ncol = panel_ncol, nrow = panel_nrow)+
       scale_colour_viridis_c(
         # use unit for the label
         name = name,
@@ -491,9 +495,10 @@ gg <- df %>%
 
 
 if (plot_month){
-    #  option: figure out how many months are in the data
-    # and wrap appropriately. this requires the w to be fixed in %%R. Not sure how to do this
-    gg <- gg + facet_wrap(~month)
+    n_panels <- length(unique(df$month))
+    panel_ncol <- if (n_panels == 3) 3 else ceiling(sqrt(n_panels))
+    panel_nrow <- ceiling(n_panels / panel_ncol)
+    gg <- gg + facet_wrap(~month, ncol = panel_ncol, nrow = panel_nrow)
 }
 
 bin_value <- function(x, bin_res) {
@@ -623,8 +628,11 @@ gg <- df %>%
     # move legen
 
 if ("month" %in% colnames(df)){
+    n_panels <- length(unique(df$month))
+    panel_ncol <- if (n_panels == 3) 3 else ceiling(sqrt(n_panels))
+    panel_nrow <- ceiling(n_panels / panel_ncol)
     gg <- gg + 
-    facet_wrap(~month)
+    facet_wrap(~month, ncol = panel_ncol, nrow = panel_nrow)
 }
 gg
 }

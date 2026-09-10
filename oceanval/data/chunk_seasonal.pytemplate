@@ -328,6 +328,9 @@ df_obs$month <- factor(df_obs$month, levels = c("Jan", "Feb", "Mar", "Apr", "May
 
 df_diff$month <- factor(df_diff$month, levels = c("Jan", "Feb", "Mar", "Apr", "May", "Jun"))
 
+n_panels <- length(unique(df_model$month))
+panel_ncol <- if (n_panels == 3) 3 else ceiling(sqrt(n_panels))
+panel_nrow <- ceiling(n_panels / panel_ncol)
 
 # Create sensible lon/lat labels based on the min/min lon and lat
 # This needs to work on any data, including global data
@@ -578,6 +581,10 @@ df_model$month <- factor(df_model$month, levels = c("Jul", "Aug", "Sep", "Oct", 
 df_obs$month <- factor(df_obs$month, levels = c("Jul", "Aug", "Sep", "Oct", "Nov", "Dec"))
 
 df_diff$month <- factor(df_diff$month, levels = c("Jul", "Aug", "Sep", "Oct", "Nov", "Dec"))
+
+n_panels <- length(unique(df_model$month))
+panel_ncol <- if (n_panels == 3) 3 else ceiling(sqrt(n_panels))
+panel_nrow <- ceiling(n_panels / panel_ncol)
 
 # Create sensible lon/lat labels based on the min/min lon and lat
 # This needs to work on any data, including global data
