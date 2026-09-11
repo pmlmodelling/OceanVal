@@ -218,33 +218,20 @@ def test_offline_report_pages_group_navigation_and_hide_code(tmp_path):
         ],
     )
 
-    index = (output_dir / "index.html").read_text()
+    # there is no index.html: reports land straight on a notebook page
+    assert not (output_dir / "index.html").exists()
+
     report_page = pages[-1].read_text()
-    for document in (index, report_page):
-        assert "OceanVal by" in document
-        assert "Plymouth Marine Laboratory" in document
-        assert "Validation metrics summary" in document
-        assert "Full domain summary statistics of model performance" in document
-        assert "Temperature" in document
-        assert "Sea surface temperature validation using gridded observations from FOO" in document
-    assert 'href="notebooks/003_foo_temperature.html"' in index
+    assert "Validation metrics summary" in report_page
+    assert "Full domain summary statistics of model performance" in report_page
+    assert "Temperature" in report_page
+    assert "Sea surface temperature validation using gridded observations from FOO" in report_page
     assert 'href="003_foo_temperature.html"' in report_page
-    assert 'href="index.html"' in index
-    assert 'href="../index.html"' in report_page
-    assert 'src="pml_logo.jpg"' in index
-    assert 'src="../pml_logo.jpg"' in report_page
-    assert index.index('class="oceanval-nav-sections"') < index.index('class="oceanval-brand-link"')
-    assert 'class="oceanval-brand-block"' in index
-    assert 'class="oceanval-logo-box"' in index
-    assert ".jp-Notebook{margin-left:340px!important;margin-right:300px!important;font-size:1.15rem}" in index
-    assert ".oceanval-nav-sections{flex:1 1 auto;overflow-y:auto;min-height:0" in index
-    assert ".oceanval-brand-link{display:block;flex:0 0 auto" in index
-    assert ".oceanval-sidebar{position:fixed!important" in index
-    assert "sessionStorage" in index
-    assert ".oceanval-index{max-width:calc(100% - 600px);margin-left:300px;margin-right:300px" in index
-    assert '<div class="oceanval-actions">' in index
-    assert "Robert Wilson" in index
-    assert 'href="mailto:rwi@pml.ac.uk"' in index
+    assert ".jp-Notebook{margin-left:340px!important;margin-right:300px!important;font-size:1.15rem}" in report_page
+    assert ".oceanval-nav-sections{flex:1 1 auto;overflow-y:auto;min-height:0" in report_page
+    assert ".oceanval-sidebar{position:fixed!important" in report_page
+    assert "sessionStorage" in report_page
+    assert report_page.index('class="oceanval-nav-sections"') < report_page.index('class="oceanval-viewpdf-btn"')
 
 
 def test_pdf_latex_is_embedded_as_svg():
