@@ -10,7 +10,7 @@
 
 Ocean model validation made easy in Python.
 
-To learn more about the package, visit the [OceanVal website](https://oceanval.readthedocs.io/en/latest/). The
+To learn more about the package, visit the [OceanVal website](https://pmlmodelling.github.io/OceanVal/). The
 
 OceanVal is designed for the automated creation of validation reports. You provide the model and validation data. OceanVal does the rest. A short example of what the report looks like can be found [here](https://pmlmodelling.github.io/oceanval_example/index.html). 
 
