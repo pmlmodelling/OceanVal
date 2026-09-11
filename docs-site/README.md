@@ -19,6 +19,12 @@ assets/
   css/style.css      Design system (design tokens, components)
   js/main.js         Nav, copy-to-clipboard, FAQ accordion, recipe filters, scrollspy
   img/               Logo (from oceanval/data/oceanval_wordmark.svg), PML logo, favicon
+archive/             Per-release snapshots of this directory's nine pages +
+                      assets/, written by .github/workflows/docs-archive.yml.
+                      See "Archived versions" below - don't hand-edit it.
+example-report/       Sample validate() output, linked from a few pages.
+                      Deliberately excluded from archive/ snapshots (it's
+                      large and not version-specific).
 ```
 
 ## Previewing locally
@@ -63,6 +69,27 @@ re-fetches `https://pypi.org/pypi/oceanval/json` on page load and updates it
 client-side, so a newer release still shows correctly even between deploys.
 Don't hardcode a version number here — both of those need the literal
 `v&hellip;` placeholder to find and replace/update.
+
+## Archived versions
+
+`.github/workflows/docs-archive.yml` runs whenever a GitHub Release is
+created. It reads the version from `setup.py` (the source of truth - not the
+release's tag name, not PyPI, since PyPI's publish can race this workflow),
+copies this directory's nine pages plus `assets/` into `archive/vX.Y.Z/`,
+rewrites their `example-report/` links to point back at the one shared copy
+two levels up, freezes their header version badge so it never live-updates
+(the client-side PyPI fetch in `main.js` only targets pages that still have
+the `oceanval-docs-version` id, which archived pages don't), and regenerates
+`archive/index.html` and `archive/versions.json` (newest first) from every
+version archived so far. It then commits and pushes that to `main` and
+explicitly dispatches `pages.yml` (a `GITHUB_TOKEN` push doesn't trigger
+other workflows on its own, so this can't just rely on the normal push
+trigger).
+
+Existing snapshots are never touched by a later release - only a brand new
+`archive/vX.Y.Z/` directory gets created each time. If that directory already
+exists (e.g. the workflow re-ran for some reason), it's left alone rather
+than overwritten.
 
 ## Updating content
 
