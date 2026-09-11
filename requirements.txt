@@ -11,7 +11,6 @@ jupytext
 nctoolkit>=1.1.1
 geopandas
 holoviews
-plotnine
 jupyter-book
 fiona
 multiprocess

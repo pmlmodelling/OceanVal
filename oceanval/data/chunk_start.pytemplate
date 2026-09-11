@@ -18,7 +18,6 @@ import xarray as xr
 from IPython.display import Markdown as md_markdown
 from tqdm import tqdm
 import hvplot.pandas
-from plotnine import *
 from IPython.core.interactiveshell import InteractiveShell
 from oceanval.tidiers import tidy_info
 InteractiveShell.ast_node_interactivity = "all"

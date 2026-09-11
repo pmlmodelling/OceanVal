@@ -87,9 +87,9 @@ def _build_book(book_dir, validation_links=None):
                 check=True,
             )
         os.makedirs(output_dir, exist_ok=True)
-        # keep the logo alongside index.html so the two share a directory
+        # keep the wordmark alongside index.html so they share a directory
         shutil.copyfile(
-            os.path.join(book_dir, "pml_logo.jpg"), os.path.join(output_dir, "pml_logo.jpg")
+            os.path.join(book_dir, "oceanval_wordmark.svg"), os.path.join(output_dir, "oceanval_wordmark.svg")
         )
         _write_offline_report_pages(output_dir, notebooks, validation_links=validation_links)
     else:
@@ -157,7 +157,8 @@ def _offline_report_title(notebook_path):
 
 
 def _offline_report_navigation(
-    output_dir, notebooks, logo_path, notebook_prefix, index_path, pdf_href, validation_links=None
+    output_dir, notebooks, notebook_prefix, pdf_href, validation_links=None,
+    wordmark_path=None,
 ):
     sections = []
     for title, section_notebooks in _offline_report_sections(output_dir, notebooks):
@@ -184,18 +185,23 @@ def _offline_report_navigation(
             f"{links}</div>"
         )
 
+    wordmark_block = ""
+    if wordmark_path:
+        wordmark_block = (
+            '<a href="https://oceanval.readthedocs.io/" class="oceanval-wordmark-link" '
+            'target="_blank" rel="noopener">'
+            '<span class="oceanval-wordmark-label">Produced by</span>'
+            f'<img class="oceanval-wordmark" src="{wordmark_path}" alt="oceanval">'
+            '</a>'
+        )
+
     return (
         "<aside class=\"oceanval-sidebar\">"
         f"<div class=\"oceanval-nav-sections\">{''.join(sections)}</div>"
         f"{validation_block}"
-        f"<a href=\"{index_path}\" class=\"oceanval-brand-link\">"
-        "<div class=\"oceanval-brand-block\">"
-        "<div class=\"oceanval-brand-text\">OceanVal by</div>"
-        f"<div class=\"oceanval-logo-box\"><img class=\"oceanval-logo\" src=\"{logo_path}\" "
-        "alt=\"Plymouth Marine Laboratory\"></div>"
-        "</div></a>"
         f'<a href="{pdf_href}" class="oceanval-viewpdf-btn">View all as pdf</a>'
         "</aside>"
+        f"{wordmark_block}"
     )
 
 
@@ -205,11 +211,7 @@ def _offline_report_style():
         ".oceanval-sidebar{position:fixed!important;top:0;bottom:auto;left:0;width:300px;height:100vh;"
         "max-height:100vh;overflow:hidden;background:#0f7c7c;border-right:1px solid #0a5f5f;padding:28px 24px;"
         "z-index:10;color:#fff;display:flex;flex-direction:column;box-sizing:border-box}"
-        ".oceanval-nav-sections{flex:1 1 auto;overflow-y:auto;min-height:0;padding-bottom:16px}.oceanval-brand-link{display:block;flex:0 0 auto;padding-top:12px;text-decoration:none}"
-        ".oceanval-brand-block{background:#0f7c7c;border:2px solid #fff;border-radius:8px;padding:12px;box-sizing:border-box}"
-        ".oceanval-brand-text{color:#fff;font-family:Arial,sans-serif;font-size:14px;font-weight:700;margin:0 0 10px}"
-        ".oceanval-logo-box{background:#0f7c7c;border:1px solid rgba(255,255,255,0.9);border-radius:5px;padding:8px}"
-        ".oceanval-logo{display:block;width:100%;max-width:100%;background:#0f7c7c}"
+        ".oceanval-nav-sections{flex:1 1 auto;overflow-y:auto;min-height:0;padding-bottom:16px}"
         ".oceanval-viewpdf-btn{display:block;flex:0 0 auto;margin-top:12px;background:#fff;"
         "border-radius:6px;padding:10px 12px;font-family:Arial,sans-serif;font-size:13px;font-weight:700;"
         "text-align:center;text-decoration:none;box-sizing:border-box}"
@@ -245,10 +247,15 @@ def _offline_report_style():
         "font-family:Arial,sans-serif;font-size:13px;font-weight:700;cursor:pointer;text-align:center;"
         "text-decoration:none;display:block}"
         ".oceanval-download-btn:hover{background:#0a5f5f}"
-        "@media(max-width:720px){.oceanval-sidebar{position:static!important;width:auto;height:auto;max-height:none;padding:20px;overflow:visible}.oceanval-nav-sections{overflow:visible;padding-bottom:0}.oceanval-logo"
-        "{margin-bottom:0}.oceanval-brand-link{padding-top:16px}.jp-Notebook{margin-left:auto!important;margin-right:0!important}.oceanval-index"
+        ".oceanval-wordmark-link{position:fixed;right:24px;bottom:20px;z-index:15;font-family:Arial,sans-serif;font-size:11px;color:#0e3a45;text-decoration:none}"
+        ".oceanval-wordmark-label{display:block;margin-bottom:4px}"
+        ".oceanval-wordmark{width:150px;display:block}"
+        ".oceanval-wordmark-link:hover{color:#0f7c7c}"
+        ".oceanval-wordmark-link:hover .oceanval-wordmark{opacity:0.85}"
+        "@media(max-width:720px){.oceanval-sidebar{position:static!important;width:auto;height:auto;max-height:none;padding:20px;overflow:visible}.oceanval-nav-sections{overflow:visible;padding-bottom:0}"
+        ".jp-Notebook{margin-left:auto!important;margin-right:0!important}.oceanval-index"
         "{max-width:none;margin-left:0;margin-right:0;padding:38px 24px}.oceanval-index h1{font-size:32px}.oceanval-actions{flex-direction:column;"
-        "align-items:flex-start}.oceanval-download-btn{position:static;width:auto;margin:16px 0 0 20px}}</style>"
+        "align-items:flex-start}.oceanval-download-btn{position:static;width:auto;margin:16px 0 0 20px}.oceanval-wordmark-link{position:static;margin:16px 0 0 20px}.oceanval-wordmark{width:110px}}</style>"
     )
 
 
@@ -374,12 +381,12 @@ def _write_offline_report_pages(output_dir, notebooks, validation_links=None):
     style = _offline_report_style()
     pdf_style = _offline_report_pdf_style()
     index_navigation = _offline_report_navigation(
-        output_dir, notebooks, "pml_logo.jpg", "notebooks/", "index.html", "oceanval_report.pdf",
-        validation_links=index_validation_links,
+        output_dir, notebooks, "notebooks/", "oceanval_report.pdf",
+        validation_links=index_validation_links, wordmark_path="oceanval_wordmark.svg",
     )
     page_navigation = _offline_report_navigation(
-        output_dir, notebooks, "../pml_logo.jpg", "", "../index.html", "../oceanval_report.pdf",
-        validation_links=page_validation_links,
+        output_dir, notebooks, "", "../oceanval_report.pdf",
+        validation_links=page_validation_links, wordmark_path="../oceanval_wordmark.svg",
     )
     with open(os.path.join(output_dir, "index.html"), "w") as index:
         index.write(
@@ -1015,11 +1022,15 @@ def validate(
         if os.path.exists(ff_clean):
             os.remove(ff_clean)
 
-    # move pml_logo to book directory
+    # move pml_logo and the oceanval wordmark to book directory
 
     shutil.copyfile(
         importlib.resources.files(__name__).joinpath("data/pml_logo.jpg"),
         f"{book_dir}/pml_logo.jpg",
+    )
+    shutil.copyfile(
+        importlib.resources.files(__name__).joinpath("data/oceanval_wordmark.svg"),
+        f"{book_dir}/oceanval_wordmark.svg",
     )
 
     _build_book(book_dir)
@@ -1131,6 +1142,10 @@ def compare(model_dict=None, view=True, ask=True):
     shutil.copyfile(
         os.path.join(os.path.dirname(__file__), "data", "pml_logo.jpg"),
         "oceanval_comparison/compare/pml_logo.jpg",
+    )
+    shutil.copyfile(
+        os.path.join(os.path.dirname(__file__), "data", "oceanval_wordmark.svg"),
+        "oceanval_comparison/compare/oceanval_wordmark.svg",
     )
 
     comparison_notebooks = [
