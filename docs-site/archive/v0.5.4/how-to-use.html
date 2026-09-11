@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, follow">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How to use OceanVal — OceanVal</title>
+<meta name="description" content="The full OceanVal workflow: register observational datasets, matchup model output, and generate validation statistics and reports.">
+<link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container nav">
+    <a class="brand" href="index.html">
+      <img src="assets/img/oceanval_wordmark.svg" alt="OceanVal">
+      <span class="brand-version">v0.5.4 (archived)</span>
+    </a>
+    <nav class="nav-links" id="nav-links">
+      <a href="installing.html" data-page="installing.html">Install</a>
+      <a href="quickstart.html" data-page="quickstart.html">Quickstart</a>
+      <a href="how-to-use.html" data-page="how-to-use.html">Guide</a>
+      <a href="recipes.html" data-page="recipes.html">Recipes</a>
+      <a href="obs-data.html" data-page="obs-data.html">Data formats</a>
+      <a href="qa.html" data-page="qa.html">Q&amp;A</a>
+      <a href="api.html" data-page="api.html">API</a>
+      <a href="about.html" data-page="about.html">About</a>
+    </nav>
+    <div class="nav-actions">
+      <a class="icon-btn" href="https://github.com/pmlmodelling/oceanVal" target="_blank" rel="noopener" aria-label="OceanVal on GitHub">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M12 .5C5.73.5.5 5.74.5 12.09c0 5.08 3.29 9.38 7.86 10.9.57.1.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.53-1.34-1.29-1.7-1.29-1.7-1.05-.72.08-.71.08-.71 1.17.08 1.78 1.2 1.78 1.2 1.03 1.77 2.71 1.26 3.37.96.1-.75.4-1.26.73-1.55-2.56-.29-5.26-1.28-5.26-5.71 0-1.26.45-2.29 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.79 0c2.2-1.49 3.17-1.18 3.17-1.18.64 1.59.24 2.76.12 3.05.74.8 1.18 1.83 1.18 3.09 0 4.44-2.7 5.42-5.28 5.7.42.36.78 1.08.78 2.17 0 1.57-.01 2.83-.01 3.22 0 .3.21.66.8.55A10.6 10.6 0 0 0 23.5 12.1C23.5 5.74 18.27.5 12 .5Z"/></svg>
+      </a>
+      <button class="nav-toggle" id="nav-toggle" aria-label="Toggle menu" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<div class="page-hero">
+  <div class="container">
+    <div class="breadcrumb"><a href="index.html">Home</a> / Guide</div>
+    <h1>How to use OceanVal</h1>
+  </div>
+</div>
+
+<div class="container docs-layout">
+  <aside class="docs-toc">
+    <div class="docs-toc-title">On this page</div>
+    <ul>
+      <li><a href="#register">Step 1: Register observations</a></li>
+      <li class="docs-toc-sub"><a href="#gridded">Gridded data</a></li>
+      <li class="docs-toc-sub"><a href="#recipes">Built-in recipes</a></li>
+      <li class="docs-toc-sub"><a href="#point">Point (in-situ) data</a></li>
+      <li><a href="#match">Step 2: Matchup output</a></li>
+      <li><a href="#report">Step 3: Build the report</a></li>
+      <li><a href="#compare">Comparing simulations</a></li>
+    </ul>
+  </aside>
+
+  <div class="docs-content">
+    <p>Validating a simulation involves three steps: register the observational datasets, matchup the simulation output against them, and generate statistics and an HTML report. Always create a new directory before running OceanVal for a new simulation, and run all commands from within it. Once you have reports for multiple simulations, you can also compare them side by side.</p>
+
+    <h2 id="register">Step 1: Register observational datasets</h2>
+    <p>Register the observational datasets you want to validate against by specifying the location of the data files and any necessary metadata, using <a href="api.html#add_point_comparison"><code>oceanval.add_point_comparison</code></a> and <a href="api.html#add_gridded_comparison"><code>oceanval.add_gridded_comparison</code></a>.</p>
+
+    <h3 id="gridded">Setting up gridded observational data</h3>
+    <p>Register a gridded (NetCDF) dataset by pointing OceanVal at a directory of observation files and saying whether the data is a climatology:</p>
+    <div class="code-block">
+      <div class="code-card__bar"><div class="code-card__dots"><span></span><span></span><span></span></div><span class="code-card__label">python</span></div>
+      <pre>oceanval.<a href="api.html#add_gridded_comparison"><span class="tok-fn">add_gridded_comparison</span></a>(
+    name=<span class="tok-str">"oxygen"</span>,
+    source=<span class="tok-str">"CMEMS"</span>,
+    source_info=<span class="tok-str">"Gridded observations from the Copernicus Marine Environment Monitoring Service"</span>,
+    short_name=<span class="tok-str">"oxygen concentration"</span>,
+    model_variable=<span class="tok-str">"oxygen"</span>,
+    obs_variable=<span class="tok-str">"O2_concentration"</span>,
+    obs_path=<span class="tok-str">"/path/to/obs_data/"</span>,
+    climatology=<span class="tok-kw">False</span>,
+)</pre>
+    </div>
+    <p>Required parameters:</p>
+    <ul class="param-list">
+      <li><code class="param-name">name</code><span class="param-tag">required</span><p>A name for the dataset, e.g. "temperature".</p></li>
+      <li><code class="param-name">source</code><span class="param-tag">required</span><p>The source of the observational data, e.g. "CMEMS".</p></li>
+      <li><code class="param-name">model_variable</code><span class="param-tag">required</span><p>The name of the model variable to compare against the observations.</p></li>
+      <li><code class="param-name">obs_path</code><span class="param-tag">required</span><p>Path to the directory containing the observational data files.</p></li>
+      <li><code class="param-name">obs_variable</code><p>Name of the variable in the observational files. If omitted, OceanVal assumes a single variable is present.</p></li>
+      <li><code class="param-name">climatology</code><span class="param-tag">required</span><p>Whether the observational data is a climatology.</p></li>
+    </ul>
+    <details class="param-optional">
+      <summary>Optional parameters</summary>
+      <ul class="param-list">
+        <li><code class="param-name">source_info</code><p>Additional information about the source, e.g. publication details.</p></li>
+        <li><code class="param-name">short_name</code><p>A short name for the observational variable, e.g. "temp".</p></li>
+        <li><code class="param-name">short_title</code><p>A short title for plots, e.g. "Nitrate Concentration".</p></li>
+        <li><code class="param-name">long_name</code><p>A long name for the variable, e.g. "sea surface temperature".</p></li>
+        <li><code class="param-name">vertical</code><p>Whether to carry out vertical validation. Defaults to <code>False</code> (surface only).</p></li>
+        <li><code class="param-name">start</code> / <code class="param-name">end</code><p>First / last year of observations to use. Defaults to all available years.</p></li>
+        <li><code class="param-name">obs_multiplier</code><p>Multiplier applied to observational data, e.g. for unit conversion. Defaults to 1.0.</p></li>
+        <li><code class="param-name">obs_adder</code><p>Value added to observational data, e.g. 273.15 to convert Kelvin to Celsius. Defaults to 0.0.</p></li>
+        <li><code class="param-name">recipe</code><p>A built-in <a href="recipes.html">recipe</a> dict, e.g. <code>{"temperature": "woa23"}</code>, providing standard metadata and file locations automatically.</p></li>
+        <li><code class="param-name">thredds</code><p>Whether <code>obs_path</code> is a remote OPeNDAP/THREDDS URL rather than a local file or directory. Defaults to <code>False</code>.</p></li>
+        <li><code class="param-name">file_check</code><p>Whether to check that <code>obs_path</code> exists and its variables are valid. Defaults to <code>True</code>.</p></li>
+      </ul>
+    </details>
+    <div class="callout warn">
+      <div class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Be consistent</div>
+      <p>If you register the same variable separately for point and gridded data, give both the same <code>short_name</code>, <code>long_name</code> and <code>short_title</code> — plots and statistics need consistent labelling. Inconsistent labels raise an error.</p>
+    </div>
+    <div class="callout">
+      <div class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>How does OceanVal handle gridded data?</div>
+      <p>Gridded data is converted to one of: a time series of multi-year monthly averages, a climatological monthly average, or a climatological annual average per grid cell.</p>
+      <ul style="margin-top:.6em;">
+        <li>Multi-year observational data → OceanVal computes a multi-year observational average for a like-for-like comparison.</li>
+        <li>Single-year monthly data → OceanVal generates a comparable climatological monthly average from the simulation, based on the year range you specify.</li>
+        <li>Single-year, single-timestep data → treated as a climatological annual average, matched against a model climatological annual average.</li>
+      </ul>
+      <p><strong>The simulation output is always regridded to the observational grid.</strong></p>
+    </div>
+
+    <h3 id="recipes">Using built-in recipes for gridded data</h3>
+    <p>Built-in recipe definitions make it easy to register standard observational datasets — especially useful for a standard climatology such as WOA23 or GLODAP, without manually specifying all the metadata.</p>
+    <div class="code-block">
+      <div class="code-card__bar"><div class="code-card__dots"><span></span><span></span><span></span></div><span class="code-card__label">python</span></div>
+      <pre>oceanval.<a href="api.html#add_gridded_comparison"><span class="tok-fn">add_gridded_comparison</span></a>(
+    name=<span class="tok-str">"temperature"</span>,
+    source=<span class="tok-str">"WOA23"</span>,
+    model_variable=<span class="tok-str">"temp"</span>,
+    recipe={<span class="tok-str">"temperature"</span>: <span class="tok-str">"woa23"</span>},
+    start=<span class="tok-num">2005</span>, end=<span class="tok-num">2014</span>,
+    climatology=<span class="tok-kw">True</span>,
+)</pre>
+    </div>
+    <p>This uses the built-in metadata and file locations for the WOA23 temperature climatology. <code>recipe</code> also works for salinity, oxygen, nitrate, phosphate, silicate, chlorophyll and pH — see <a href="recipes.html">all recipes</a>. The underlying helper can also be used directly:</p>
+    <div class="code-block">
+      <div class="code-card__bar"><div class="code-card__dots"><span></span><span></span><span></span></div><span class="code-card__label">python</span></div>
+      <pre>recipe = oceanval.parsers.<span class="tok-fn">find_recipe</span>({<span class="tok-str">"temperature"</span>: <span class="tok-str">"woa23"</span>}, start=<span class="tok-num">2005</span>, end=<span class="tok-num">2014</span>)
+<span class="tok-fn">print</span>(recipe[<span class="tok-str">"source"</span>], recipe[<span class="tok-str">"obs_variable"</span>])</pre>
+    </div>
+    <p>Browse the <a href="recipes.html"><strong>full recipe catalogue</strong></a> to see every supported observational dataset, with the exact call to use for each.</p>
+
+    <h3 id="point">Setting up point (in-situ) observational data</h3>
+    <p>Register an in-situ dataset by pointing OceanVal at a CSV (or directory of CSVs) and naming the model variable to compare it against:</p>
+    <div class="code-block">
+      <div class="code-card__bar"><div class="code-card__dots"><span></span><span></span><span></span></div><span class="code-card__label">python</span></div>
+      <pre>oceanval.<a href="api.html#add_point_comparison"><span class="tok-fn">add_point_comparison</span></a>(
+    name=<span class="tok-str">"nitrate"</span>,
+    source=<span class="tok-str">"ICES"</span>,
+    source_info=<span class="tok-str">"In-situ observations from the International Council for the Exploration of the Sea"</span>,
+    short_name=<span class="tok-str">"nitrate concentration"</span>,
+    model_variable=<span class="tok-str">"temp"</span>,
+    obs_path=<span class="tok-str">"/path/to/obs_data/"</span>,
+)</pre>
+    </div>
+    <p>Required parameters:</p>
+    <ul class="param-list">
+      <li><code class="param-name">name</code><span class="param-tag">required</span><p>A name for the dataset, e.g. "temperature" — used internally to keep track of things. Letters and numbers only.</p></li>
+      <li><code class="param-name">source</code><span class="param-tag">required</span><p>The source of the observational data, e.g. "NOAA".</p></li>
+      <li><code class="param-name">model_variable</code><span class="param-tag">required</span><p>The name of the model variable to compare against the observations.</p></li>
+      <li><code class="param-name">obs_path</code><span class="param-tag">required</span><p>Path to a file or directory containing the observational data. If a directory, ensure it only contains files relevant to this variable — OceanVal recursively uses all NetCDF files inside it.</p></li>
+    </ul>
+    <details class="param-optional">
+      <summary>Optional parameters</summary>
+      <ul class="param-list">
+        <li><code class="param-name">source_info</code><p>Additional information about the source, e.g. publication details.</p></li>
+        <li><code class="param-name">short_name</code><p>A short name for the observational variable, e.g. "temp".</p></li>
+        <li><code class="param-name">short_title</code><p>A short title for plots, e.g. "Nitrate Concentration".</p></li>
+        <li><code class="param-name">long_name</code><p>A long name for the variable, e.g. "sea surface temperature".</p></li>
+        <li><code class="param-name">vertical</code><p>Whether to carry out vertical validation. Defaults to <code>False</code> (surface only).</p></li>
+        <li><code class="param-name">start</code> / <code class="param-name">end</code><p>First / last year of observations to use. Defaults to all available years.</p></li>
+        <li><code class="param-name">obs_multiplier</code><p>Multiplier applied to observational data, e.g. for unit conversion. Defaults to 1.0.</p></li>
+        <li><code class="param-name">obs_adder</code><p>Value added to observational data, e.g. 273.15 to convert Kelvin to Celsius. Defaults to 0.0.</p></li>
+        <li><code class="param-name">binning</code><p>Spatially bin data to a <code>[lon_bin_size, lat_bin_size]</code> resolution in degrees. Off by default.</p></li>
+      </ul>
+    </details>
+    <div class="callout">
+      <div class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>How does OceanVal handle variable names?</div>
+      <p><code>name</code> can be anything — it's only used internally to keep track of things and name files. Reports and plots use <code>short_name</code>, <code>long_name</code> and <code>short_title</code> for labelling, so set these for a better-looking report. You can only validate a variable using a single gridded and a single point dataset at a time.</p>
+    </div>
+
+    <h2 id="match">Step 2: Matchup model output with observations</h2>
+    <p>Once your datasets are registered, pair the model output against them with <a href="api.html#matchup"><code>oceanval.matchup</code></a>:</p>
+    <div class="code-block">
+      <div class="code-card__bar"><div class="code-card__dots"><span></span><span></span><span></span></div><span class="code-card__label">python</span></div>
+      <pre>oceanval.<a href="api.html#matchup"><span class="tok-fn">matchup</span></a>(
+    sim_dir=<span class="tok-str">"/path/to/simulation/output/"</span>,
+    start=<span class="tok-num">2000</span>, end=<span class="tok-num">2010</span>,
+    cores=<span class="tok-num">4</span>,
+    lon_lim=[<span class="tok-num">-80</span>, <span class="tok-num">0</span>], lat_lim=[<span class="tok-num">20</span>, <span class="tok-num">60</span>],
+    thickness=<span class="tok-str">"cell_thickness"</span>,
+)</pre>
+    </div>
+    <p>Required parameters:</p>
+    <ul class="param-list">
+      <li><code class="param-name">sim_dir</code><span class="param-tag">required</span><p>Path to the directory containing the model simulation output files.</p></li>
+      <li><code class="param-name">start</code> / <code class="param-name">end</code><span class="param-tag">required</span><p>First / last year of the simulation to use for validation.</p></li>
+      <li><code class="param-name">cores</code><p>Number of CPU cores to use for parallel processing.</p></li>
+      <li><code class="param-name">lon_lim</code> / <code class="param-name">lat_lim</code><p>Longitude / latitude limits for the validation region, e.g. <code>[-180, 180]</code>.</p></li>
+      <li><code class="param-name">thickness</code><span class="param-tag">vertical only</span><p><code>"z_level"</code> or a variable name containing cell thickness — required for vertical validation.</p></li>
+    </ul>
+    <details class="param-optional">
+      <summary>Optional parameters</summary>
+      <ul class="param-list">
+        <li><code class="param-name">n_dirs_down</code><p>Directory levels to search down for output files. Defaults to 2, assuming a <code>YYYY/MM/</code> structure.</p></li>
+        <li><code class="param-name">overwrite</code> / <code class="param-name">ask</code><p>Whether to overwrite existing matchup files, and whether to confirm first. <code>ask</code> defaults to <code>True</code>.</p></li>
+        <li><code class="param-name">cache</code><p>Whether to cache intermediate results. Defaults to <code>False</code>.</p></li>
+        <li><code class="param-name">exclude</code><p>Strings that should not appear in any simulation file paths.</p></li>
+        <li><code class="param-name">require</code><p>Strings that must appear in a simulation file path for it to be included — useful when multiple simulations share a directory.</p></li>
+        <li><code class="param-name">out_dir</code><p>Directory to save matchup files in. Defaults to the execution directory.</p></li>
+        <li><code class="param-name">point_time_res</code><p>Time resolution for point matchups. Defaults to <code>["year", "month", "day"]</code>; set to <code>["month", "day"]</code> to compare climatological output with observations.</p></li>
+        <li><code class="param-name">n_check</code><p>Number of files checked when identifying the file naming convention.</p></li>
+        <li><code class="param-name">as_missing</code><p>A float or <code>[min, max]</code> range of values to treat as missing in the model output.</p></li>
+        <li><code class="param-name">strict_names</code><p>Whether to strictly enforce variable naming conventions. Defaults to <code>True</code>.</p></li>
+      </ul>
+    </details>
+    <div class="callout">
+      <div class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Requirements for simulation folder structure</div>
+      <p>Simulation output must be in a single directory, or in subdirectories following a <code>YYYY/MM/</code>-style structure — subdirectories must contain only integers. If your structure differs, create symbolic links in a single directory. If multiple simulations share a directory, use <code>require</code> to filter file paths to the one you want.</p>
+    </div>
+    <p><strong>Note:</strong> for monthly-resolution simulations, set <code>point_time_res=["year", "month"]</code> when matching up in-situ observations — otherwise day-of-year will almost never match and few matchups will be found.</p>
+    <p><strong>Summing simulation output:</strong> to compare observations against the sum of multiple model variables, set something like <code>"var1+var2+var3"</code> as <code>model_variable</code>.</p>
+    <div class="callout">
+      <div class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>How does OceanVal handle in-situ data?</div>
+      <p>Behaviour depends on what's provided: <code>year</code>, <code>month</code>, <code>day</code>, <code>depth</code>.</p>
+      <ul style="margin-top:.6em;">
+        <li>No depth → assumed to be a surface dataset. With depth and <code>vertical=True</code>, OceanVal interpolates to all available depths; otherwise only the top 5 m is used.</li>
+        <li>Year, month and day → matched against model output for the exact date.</li>
+        <li>Year and month only → matched against the monthly average from the simulation.</li>
+        <li>Year only → matched against the annual average from the simulation.</li>
+        <li>No time information → matched against the simulation's multi-year average.</li>
+      </ul>
+      <p>To ignore year information (e.g. comparing a 1-year simulation against multiple years of observations), set <code>point_time_res=["month", "day"]</code> in <a href="api.html#matchup"><code>oceanval.matchup</code></a>.</p>
+    </div>
+    <div class="callout">
+      <div class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Where does OceanVal save matchup files?</div>
+      <p>By default, in the directory where <a href="api.html#matchup"><code>oceanval.matchup</code></a> is run: <code>oceanval_matchups/gridded</code> (<code>.nc</code> files) and <code>oceanval_matchups/point</code> (<code>.csv</code> files). Model output is named "model" and observations "observation" in each file.</p>
+    </div>
+
+    <h2 id="report">Step 3: Build the validation report</h2>
+    <p>Once matched, compute statistics and generate plots with <a href="api.html#validate"><code>oceanval.validate</code></a>, run from the same directory as the matchup step:</p>
+    <div class="code-block">
+      <div class="code-card__bar"><div class="code-card__dots"><span></span><span></span><span></span></div><span class="code-card__label">python</span></div>
+      <pre>oceanval.<a href="api.html#validate"><span class="tok-fn">validate</span></a>()</pre>
+    </div>
+    <details class="param-optional">
+      <summary>Optional parameters</summary>
+      <ul class="param-list">
+        <li><code class="param-name">lon_lim</code> / <code class="param-name">lat_lim</code><p>Longitude / latitude limits for the validation region.</p></li>
+        <li><code class="param-name">region</code><p>Region being validated — currently <code>"global"</code> or <code>"nwes"</code> (Northwest European Shelf).</p></li>
+        <li><code class="param-name">concise</code><p>Whether to generate a concise HTML summary page. Defaults to <code>True</code>.</p></li>
+        <li><code class="param-name">fixed_scale</code><p>Whether to use a fixed colour scale for the seasonal plots, capping min/max to the 2nd/98th percentile. Defaults to <code>False</code>.</p></li>
+        <li><code class="param-name">data_dir</code> / <code class="param-name">out_dir</code><p>Where matchup data is read from / the report is written to. Default to the current directory.</p></li>
+      </ul>
+    </details>
+    <p>This generates and opens an HTML page you can view in a web browser.</p>
+
+    <hr class="divider">
+    <span class="kicker">Beyond the basics</span>
+
+    <h2 id="compare">Comparing validation outputs from multiple simulations</h2>
+    <p>Once you have validation reports for different simulations, compare them with <a href="api.html#compare"><code>oceanval.compare</code></a>, which summarises the differences between them:</p>
+    <div class="code-block">
+      <div class="code-card__bar"><div class="code-card__dots"><span></span><span></span><span></span></div><span class="code-card__label">python</span></div>
+      <pre>oceanval.<a href="api.html#compare"><span class="tok-fn">compare</span></a>(
+    model_dict={
+        <span class="tok-str">"model_a"</span>: <span class="tok-str">"/path/to/model_a"</span>,
+        <span class="tok-str">"model_b"</span>: <span class="tok-str">"/path/to/model_b"</span>,
+    },
+    view=<span class="tok-kw">True</span>,
+    ask=<span class="tok-kw">True</span>,
+)</pre>
+    </div>
+    <p><code>model_dict</code> maps a short name for each model to its validation output directory. The HTML comparison report is written to <code>oceanval_comparison/compare/_build/html/notebooks/comparison_seasonal.html</code>.</p>
+    <div class="callout">
+      <div class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Can I access and use OceanVal's validation code?</div>
+      <p>Yes. OceanVal uses Jupyter notebooks to run validation calculations and generate plots. They live in the <code>oceanval_report/notebooks</code> directory of the report output — copy and edit them for a more customised validation. They're designed for internal use, so not especially user-friendly, but should be clear enough.</p>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="container footer-pml">
+    <a href="https://pml.ac.uk/" target="_blank" rel="noopener"><img src="assets/img/pml_logo.jpg" alt="Plymouth Marine Laboratory"></a>
+    <span>Developed by the Environmental Intelligence group at Plymouth Marine Laboratory</span>
+  </div>
+  <div class="container footer-top">
+    <div class="footer-brand">
+      <img src="assets/img/oceanval_wordmark.svg" alt="OceanVal">
+      <p>Automated ocean model validation in Python. Match, compute, and report — in a few lines of code.</p>
+      <div class="footer-social">
+        <a href="https://github.com/pmlmodelling/oceanVal" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M12 .5C5.73.5.5 5.74.5 12.09c0 5.08 3.29 9.38 7.86 10.9.57.1.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.53-1.34-1.29-1.7-1.29-1.7-1.05-.72.08-.71.08-.71 1.17.08 1.78 1.2 1.78 1.2 1.03 1.77 2.71 1.26 3.37.96.1-.75.4-1.26.73-1.55-2.56-.29-5.26-1.28-5.26-5.71 0-1.26.45-2.29 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.79 0c2.2-1.49 3.17-1.18 3.17-1.18.64 1.59.24 2.76.12 3.05.74.8 1.18 1.83 1.18 3.09 0 4.44-2.7 5.42-5.28 5.7.42.36.78 1.08.78 2.17 0 1.57-.01 2.83-.01 3.22 0 .3.21.66.8.55A10.6 10.6 0 0 0 23.5 12.1C23.5 5.74 18.27.5 12 .5Z"/></svg>
+        </a>
+        <a href="mailto:rwi@pml.ac.uk" aria-label="Email">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+        </a>
+      </div>
+    </div>
+    <div class="footer-col">
+      <h4>Documentation</h4>
+      <ul>
+        <li><a href="installing.html">Installing</a></li>
+        <li><a href="quickstart.html">Quickstart</a></li>
+        <li><a href="how-to-use.html">How to use OceanVal</a></li>
+        <li><a href="api.html">API reference</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Data</h4>
+      <ul>
+        <li><a href="recipes.html">Observation recipes</a></li>
+        <li><a href="obs-data.html">Compatible data formats</a></li>
+        <li><a href="qa.html">Q&amp;A</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Project</h4>
+      <ul>
+        <li><a href="about.html">About &amp; contact</a></li>
+        <li><a href="https://github.com/pmlmodelling/oceanVal" target="_blank" rel="noopener">GitHub repository</a></li>
+        <li><a href="https://github.com/pmlmodelling/oceanVal/issues" target="_blank" rel="noopener">Report an issue</a></li>
+        <li><a href="https://anaconda.org/conda-forge/oceanval" target="_blank" rel="noopener">conda-forge package</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="container footer-bottom">
+    <span>© 2026 Plymouth Marine Laboratory. Released under the GNU GPLv3 license.</span>
+    <span>Built for ocean modellers, by ocean modellers.</span>
+  </div>
+</footer>
+
+<button class="back-to-top" aria-label="Back to top">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+</button>
+
+<script src="assets/js/main.js"></script>
+</body>
+</html>

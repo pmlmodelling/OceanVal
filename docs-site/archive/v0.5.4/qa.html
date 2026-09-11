@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, follow">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Q&amp;A — OceanVal</title>
+<meta name="description" content="Answers to common OceanVal questions: performance, units, time subsetting, vertical validation, custom analysis and more.">
+<link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container nav">
+    <a class="brand" href="index.html">
+      <img src="assets/img/oceanval_wordmark.svg" alt="OceanVal">
+      <span class="brand-version">v0.5.4 (archived)</span>
+    </a>
+    <nav class="nav-links" id="nav-links">
+      <a href="installing.html" data-page="installing.html">Install</a>
+      <a href="quickstart.html" data-page="quickstart.html">Quickstart</a>
+      <a href="how-to-use.html" data-page="how-to-use.html">Guide</a>
+      <a href="recipes.html" data-page="recipes.html">Recipes</a>
+      <a href="obs-data.html" data-page="obs-data.html">Data formats</a>
+      <a href="qa.html" data-page="qa.html">Q&amp;A</a>
+      <a href="api.html" data-page="api.html">API</a>
+      <a href="about.html" data-page="about.html">About</a>
+    </nav>
+    <div class="nav-actions">
+      <a class="icon-btn" href="https://github.com/pmlmodelling/oceanVal" target="_blank" rel="noopener" aria-label="OceanVal on GitHub">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M12 .5C5.73.5.5 5.74.5 12.09c0 5.08 3.29 9.38 7.86 10.9.57.1.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.53-1.34-1.29-1.7-1.29-1.7-1.05-.72.08-.71.08-.71 1.17.08 1.78 1.2 1.78 1.2 1.03 1.77 2.71 1.26 3.37.96.1-.75.4-1.26.73-1.55-2.56-.29-5.26-1.28-5.26-5.71 0-1.26.45-2.29 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.79 0c2.2-1.49 3.17-1.18 3.17-1.18.64 1.59.24 2.76.12 3.05.74.8 1.18 1.83 1.18 3.09 0 4.44-2.7 5.42-5.28 5.7.42.36.78 1.08.78 2.17 0 1.57-.01 2.83-.01 3.22 0 .3.21.66.8.55A10.6 10.6 0 0 0 23.5 12.1C23.5 5.74 18.27.5 12 .5Z"/></svg>
+      </a>
+      <button class="nav-toggle" id="nav-toggle" aria-label="Toggle menu" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<div class="page-hero">
+  <div class="container">
+    <div class="breadcrumb"><a href="index.html">Home</a> / Q&amp;A</div>
+    <h1>OceanVal Q&amp;A</h1>
+    <p class="lead">Answers to the questions that come up most often when running validations. Can't find what you need? <a href="https://github.com/pmlmodelling/oceanVal/issues" target="_blank" rel="noopener">Open an issue on GitHub</a>.</p>
+  </div>
+</div>
+
+<div class="container docs-layout">
+  <aside class="docs-toc">
+    <div class="docs-toc-title">Categories</div>
+    <ul>
+      <li><a href="#running">Running &amp; performance</a></li>
+      <li><a href="#data-units">Data &amp; units</a></li>
+      <li><a href="#custom">Files &amp; customization</a></li>
+    </ul>
+  </aside>
+
+  <div class="docs-content">
+    <h2 id="running">Running &amp; performance</h2>
+
+    <div class="faq-item">
+      <button class="faq-question">How do I validate multiple simulations?<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
+      <div class="faq-answer"><div>
+        <p>Use the <code>out_dir</code> option in <a href="api.html#matchup"><code>oceanval.matchup</code></a>, and the <code>data_dir</code> / <code>out_dir</code> options in <a href="api.html#validate"><code>oceanval.validate</code></a>, so output is stored in separate folders. When one simulation is done, reset before starting the next:</p>
+        <div class="code-block"><div class="code-card__bar"><div class="code-card__dots"><span></span><span></span><span></span></div><span class="code-card__label">python</span></div><pre>oceanval.<a href="api.html#reset"><span class="tok-fn">reset</span></a>()</pre></div>
+        <p>This clears any observational matchups previously added with <a href="api.html#add_point_comparison"><code>add_point_comparison</code></a> / <a href="api.html#add_gridded_comparison"><code>add_gridded_comparison</code></a>, giving you a clean slate.</p>
+      </div></div>
+    </div>
+
+    <div class="faq-item">
+      <button class="faq-question">How do I speed up validations?<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
+      <div class="faq-answer"><div>
+        <p>By default OceanVal uses 6 CPU cores for matchups. Change this with the <code>cores</code> argument:</p>
+        <div class="code-block"><div class="code-card__bar"><div class="code-card__dots"><span></span><span></span><span></span></div><span class="code-card__label">python</span></div><pre>oceanval.<a href="api.html#matchup"><span class="tok-fn">matchup</span></a>(..., cores=<span class="tok-num">12</span>, ...)</pre></div>
+      </div></div>
+    </div>
+
+    <div class="faq-item">
+      <button class="faq-question">How do I view the data matchups?<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
+      <div class="faq-answer"><div>
+        <p>Matchups are stored in the <code>oceanval_matchups</code> directory inside your output directory — gridded data in <code>gridded/</code> as <code>.nc</code> files, point data in <code>point/</code> as <code>.csv</code> files.</p>
+      </div></div>
+    </div>
+
+    <h2 id="data-units">Data &amp; units</h2>
+
+    <div class="faq-item">
+      <button class="faq-question">Can I validate using gridded observational data from OPeNDAP?<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
+      <div class="faq-answer"><div>
+        <p>Yes. Use <a href="api.html#add_gridded_comparison"><code>add_gridded_comparison</code></a> as usual, with a path ending in ".nc" and <code>thredds=True</code>:</p>
+        <div class="code-block"><div class="code-card__bar"><div class="code-card__dots"><span></span><span></span><span></span></div><span class="code-card__label">python</span></div><pre>oceanval.<a href="api.html#add_gridded_comparison"><span class="tok-fn">add_gridded_comparison</span></a>(
+    name=<span class="tok-str">"temperature"</span>,
+    obs_path=<span class="tok-str">"https://psl.noaa.gov/thredds/dodsC/Datasets/COBE2/sst.mon.mean.nc"</span>,
+    obs_variable=<span class="tok-str">"sst"</span>,
+    model_variable=<span class="tok-str">"temperature"</span>,
+    thredds=<span class="tok-kw">True</span>,
+)</pre></div>
+      </div></div>
+    </div>
+
+    <div class="faq-item">
+      <button class="faq-question">Something in my simulation should really be a missing value. What can I do?<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
+      <div class="faq-answer"><div>
+        <p>Use <code>as_missing</code> in <a href="api.html#matchup"><code>oceanval.matchup</code></a>. For example, to treat 0 as missing:</p>
+        <div class="code-block"><div class="code-card__bar"><div class="code-card__dots"><span></span><span></span><span></span></div><span class="code-card__label">python</span></div><pre>oceanval.<a href="api.html#matchup"><span class="tok-fn">matchup</span></a>(..., as_missing=<span class="tok-num">0</span>, ...)</pre></div>
+      </div></div>
+    </div>
+
+    <div class="faq-item">
+      <button class="faq-question">How do I spatially subset data before validation?<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
+      <div class="faq-answer"><div>
+        <p>Use <code>lon_lim</code> and <code>lat_lim</code> in <a href="api.html#matchup"><code>oceanval.matchup</code></a> or <a href="api.html#validate"><code>oceanval.validate</code></a>. For example, to validate only the North Atlantic:</p>
+        <div class="code-block"><div class="code-card__bar"><div class="code-card__dots"><span></span><span></span><span></span></div><span class="code-card__label">python</span></div><pre>oceanval.<a href="api.html#matchup"><span class="tok-fn">matchup</span></a>(..., lon_lim=[<span class="tok-num">-80</span>, <span class="tok-num">0</span>], lat_lim=[<span class="tok-num">0</span>, <span class="tok-num">60</span>], ...)</pre></div>
+      </div></div>
+    </div>
+
+    <div class="faq-item">
+      <button class="faq-question">How do I use only a specific year range?<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
+      <div class="faq-answer"><div>
+        <p>Use <code>start</code> and <code>end</code> in <a href="api.html#matchup"><code>oceanval.matchup</code></a>:</p>
+        <div class="code-block"><div class="code-card__bar"><div class="code-card__dots"><span></span><span></span><span></span></div><span class="code-card__label">python</span></div><pre>oceanval.<a href="api.html#matchup"><span class="tok-fn">matchup</span></a>(..., start=<span class="tok-num">2000</span>, end=<span class="tok-num">2010</span>, ...)</pre></div>
+        <p>For finer control, set <code>start</code>/<code>end</code> in <a href="api.html#add_point_comparison"><code>add_point_comparison</code></a> or <a href="api.html#add_gridded_comparison"><code>add_gridded_comparison</code></a> instead — e.g. to use 2010–2015 there.</p>
+      </div></div>
+    </div>
+
+    <div class="faq-item">
+      <button class="faq-question">How do I carry out vertical validation?<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
+      <div class="faq-answer"><div>
+        <p>Set <code>vertical=True</code> when registering the comparison, then specify <code>thickness</code> in <a href="api.html#matchup"><code>oceanval.matchup</code></a>. Use <code>"z_level"</code> for fixed-depth data:</p>
+        <div class="code-block"><div class="code-card__bar"><div class="code-card__dots"><span></span><span></span><span></span></div><span class="code-card__label">python</span></div><pre>oceanval.<a href="api.html#add_point_comparison"><span class="tok-fn">add_point_comparison</span></a>(..., vertical=<span class="tok-kw">True</span>, ...)
+
+oceanval.<a href="api.html#matchup"><span class="tok-fn">matchup</span></a>(..., thickness=<span class="tok-str">"z_level"</span>, ...)</pre></div>
+        <p>For a varying-thickness grid, pass a file path or the variable name containing thicknesses — OceanVal will search for and extract it:</p>
+        <div class="code-block"><div class="code-card__bar"><div class="code-card__dots"><span></span><span></span><span></span></div><span class="code-card__label">python</span></div><pre>oceanval.<a href="api.html#matchup"><span class="tok-fn">matchup</span></a>(..., thickness=<span class="tok-str">"/path/to/thickness_file.nc"</span>, ...)</pre></div>
+      </div></div>
+    </div>
+
+    <div class="faq-item">
+      <button class="faq-question">How do I ensure the model and observational data have the same units?<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
+      <div class="faq-answer"><div>
+        <p>OceanVal assumes model and observational data share units. Adjust the observations with <code>obs_multiplier</code> or <code>obs_adder</code>. For example, converting mol/m³ to mmol/m³:</p>
+        <div class="code-block"><div class="code-card__bar"><div class="code-card__dots"><span></span><span></span><span></span></div><span class="code-card__label">python</span></div><pre>oceanval.<a href="api.html#add_point_comparison"><span class="tok-fn">add_point_comparison</span></a>(..., obs_multiplier=<span class="tok-num">1000</span>, ...)</pre></div>
+        <p><strong>Note:</strong> there is special handling for a variable named "temperature" — OceanVal converts the observation to the model's units automatically.</p>
+      </div></div>
+    </div>
+
+    <div class="faq-item">
+      <button class="faq-question">Why do I need to say if gridded data is climatological?<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
+      <div class="faq-answer"><div>
+        <p>Without it, gridded data is ambiguous. A file might carry a timestamp of "year 2000" but actually represent a climatology — without being told, OceanVal can't know whether to match it only to the year 2000, or to a multi-year model average.</p>
+      </div></div>
+    </div>
+
+    <h2 id="custom">Files &amp; customization</h2>
+
+    <div class="faq-item">
+      <button class="faq-question">How do I remove files hanging over from previous runs?<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
+      <div class="faq-answer"><div>
+        <p>Temporary files are normally cleaned up automatically, but can be left behind after a crash. OceanVal will warn you on import if this happens; clear them with:</p>
+        <div class="code-block"><div class="code-card__bar"><div class="code-card__dots"><span></span><span></span><span></span></div><span class="code-card__label">python</span></div><pre><span class="tok-kw">import</span> oceanval
+oceanval.<a href="api.html#deep_clean"><span class="tok-fn">deep_clean</span></a>()</pre></div>
+        <p>Alternatively, find and delete files with "_ecoval_output" in your temporary directory.</p>
+      </div></div>
+    </div>
+
+    <div class="faq-item">
+      <button class="faq-question">Can I change OceanVal's analysis?<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
+      <div class="faq-answer"><div>
+        <p>Yes — to tweak a plot colour scale or wording, open the Jupyter notebooks in <code>oceanval_report/notebooks</code>, edit them, then rebuild the report:</p>
+        <div class="code-block"><div class="code-card__bar"><div class="code-card__dots"><span></span><span></span><span></span></div><span class="code-card__label">python</span></div><pre>oceanval.<a href="api.html#rebuild"><span class="tok-fn">rebuild</span></a>(data_dir=<span class="tok-str">"/foo/bar"</span>)</pre></div>
+        <p>This overwrites the original report with the results of the modified analysis.</p>
+      </div></div>
+    </div>
+
+    <div class="faq-item">
+      <button class="faq-question">How do I make sure OceanVal uses the correct simulation files?<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
+      <div class="faq-answer"><div>
+        <p>OceanVal identifies the file path pattern for a variable automatically and reports the pattern plus an example file. By default it's strict about naming, so files must match the example's character length exactly:</p>
+        <div class="code-block"><div class="code-card__bar"><div class="code-card__dots"><span></span><span></span><span></span></div><span class="code-card__label">text</span></div><pre>eORCA1_1m_**_**_grid_T_**-**.nc
+eORCA1_1m_20100101_grid_T_20101231.nc</pre></div>
+        <p>If your files aren't strictly consistent, use <code>exclude</code> to ignore files containing certain strings, or set <code>strict_names=False</code> to stop filtering by basename length:</p>
+        <div class="code-block"><div class="code-card__bar"><div class="code-card__dots"><span></span><span></span><span></span></div><span class="code-card__label">python</span></div><pre>oceanval.<a href="api.html#matchup"><span class="tok-fn">matchup</span></a>(..., exclude=[<span class="tok-str">"badpattern1"</span>, <span class="tok-str">"badpattern2"</span>], ...)
+oceanval.<a href="api.html#matchup"><span class="tok-fn">matchup</span></a>(..., strict_names=<span class="tok-kw">False</span>, ...)</pre></div>
+      </div></div>
+    </div>
+
+
+    <div class="faq-item">
+      <button class="faq-question">Can I use OceanVal to compare simulations against each other?<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
+      <div class="faq-answer"><div>
+        <p>OceanVal isn't explicitly designed for this, but you can treat one simulation as "observations" in a gridded comparison — this only works for gridded, not point, comparisons. It's a good way to see how simulations compare climatologically and across time.</p>
+      </div></div>
+    </div>
+
+    <div class="faq-item">
+      <button class="faq-question">I would like a new feature in OceanVal. How can I request this?<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
+      <div class="faq-answer"><div>
+        <p>Please open an issue on the <a href="https://github.com/pmlmodelling/oceanVal/issues" target="_blank" rel="noopener">OceanVal GitHub page</a>.</p>
+      </div></div>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="container footer-pml">
+    <a href="https://pml.ac.uk/" target="_blank" rel="noopener"><img src="assets/img/pml_logo.jpg" alt="Plymouth Marine Laboratory"></a>
+    <span>Developed by the Environmental Intelligence group at Plymouth Marine Laboratory</span>
+  </div>
+  <div class="container footer-top">
+    <div class="footer-brand">
+      <img src="assets/img/oceanval_wordmark.svg" alt="OceanVal">
+      <p>Automated ocean model validation in Python. Match, compute, and report — in a few lines of code.</p>
+      <div class="footer-social">
+        <a href="https://github.com/pmlmodelling/oceanVal" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M12 .5C5.73.5.5 5.74.5 12.09c0 5.08 3.29 9.38 7.86 10.9.57.1.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.53-1.34-1.29-1.7-1.29-1.7-1.05-.72.08-.71.08-.71 1.17.08 1.78 1.2 1.78 1.2 1.03 1.77 2.71 1.26 3.37.96.1-.75.4-1.26.73-1.55-2.56-.29-5.26-1.28-5.26-5.71 0-1.26.45-2.29 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.79 0c2.2-1.49 3.17-1.18 3.17-1.18.64 1.59.24 2.76.12 3.05.74.8 1.18 1.83 1.18 3.09 0 4.44-2.7 5.42-5.28 5.7.42.36.78 1.08.78 2.17 0 1.57-.01 2.83-.01 3.22 0 .3.21.66.8.55A10.6 10.6 0 0 0 23.5 12.1C23.5 5.74 18.27.5 12 .5Z"/></svg>
+        </a>
+        <a href="mailto:rwi@pml.ac.uk" aria-label="Email">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+        </a>
+      </div>
+    </div>
+    <div class="footer-col">
+      <h4>Documentation</h4>
+      <ul>
+        <li><a href="installing.html">Installing</a></li>
+        <li><a href="quickstart.html">Quickstart</a></li>
+        <li><a href="how-to-use.html">How to use OceanVal</a></li>
+        <li><a href="api.html">API reference</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Data</h4>
+      <ul>
+        <li><a href="recipes.html">Observation recipes</a></li>
+        <li><a href="obs-data.html">Compatible data formats</a></li>
+        <li><a href="qa.html">Q&amp;A</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Project</h4>
+      <ul>
+        <li><a href="about.html">About &amp; contact</a></li>
+        <li><a href="https://github.com/pmlmodelling/oceanVal" target="_blank" rel="noopener">GitHub repository</a></li>
+        <li><a href="https://github.com/pmlmodelling/oceanVal/issues" target="_blank" rel="noopener">Report an issue</a></li>
+        <li><a href="https://anaconda.org/conda-forge/oceanval" target="_blank" rel="noopener">conda-forge package</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="container footer-bottom">
+    <span>© 2026 Plymouth Marine Laboratory. Released under the GNU GPLv3 license.</span>
+    <span>Built for ocean modellers, by ocean modellers.</span>
+  </div>
+</footer>
+
+<button class="back-to-top" aria-label="Back to top">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+</button>
+
+<script src="assets/js/main.js"></script>
+</body>
+</html>
