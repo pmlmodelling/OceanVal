@@ -147,14 +147,18 @@ jobs:
 
       - name: Trigger the Pages deploy
         # A GITHUB_TOKEN push doesn't itself trigger pages.yml's push
-        # trigger, so ask it to run directly instead.
+        # trigger, so ask it to run directly instead. Pass the version we
+        # already resolved from setup.py so pages.yml's badge-baking step
+        # doesn't have to query PyPI itself - that query can otherwise race
+        # python-publish.yml's upload and bake in the previous version.
         if: steps.snapshot.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
           curl -sf -X POST \
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github+json" \
             "https://api.github.com/repos/${{ github.repository }}/actions/workflows/pages.yml/dispatches" \
-            -d '{"ref":"main"}'
+            -d "{\"ref\":\"main\",\"inputs\":{\"version\":\"${VERSION}\"}}"
