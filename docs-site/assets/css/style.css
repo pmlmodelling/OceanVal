@@ -203,6 +203,18 @@ li { margin-bottom: 0.45em; }
   flex-shrink: 0;
 }
 .brand img { height: 28px; width: auto; }
+.brand-version {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--teal-700);
+  background: var(--teal-50);
+  border: 1px solid var(--teal-200);
+  border-radius: 999px;
+  padding: 4px 8px;
+  white-space: nowrap;
+}
 
 .nav-links {
   display: flex;

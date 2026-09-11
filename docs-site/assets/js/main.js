@@ -131,6 +131,26 @@
     window.addEventListener("scroll", updateToc, { passive: true });
   }
 
+  /* ---------- docs version (latest PyPI release) ---------- */
+  var versionEls = document.querySelectorAll("#oceanval-docs-version");
+  if (versionEls.length) {
+    fetch("https://pypi.org/pypi/oceanval/json")
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        var version = data && data.info && data.info.version;
+        if (!version) return;
+        versionEls.forEach(function (el) {
+          el.textContent = "v" + version;
+          el.title = "Docs for OceanVal v" + version + " (latest PyPI release)";
+        });
+      })
+      .catch(function () {
+        /* PyPI unreachable (offline, blocked, rate-limited): leave the
+           static fallback text in the HTML in place rather than showing
+           an error or a stale version number. */
+      });
+  }
+
   /* ---------- back to top ---------- */
   var backToTop = document.querySelector(".back-to-top");
   if (backToTop) {
