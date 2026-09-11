@@ -87,7 +87,7 @@ def _build_book(book_dir, validation_links=None):
                 check=True,
             )
         os.makedirs(output_dir, exist_ok=True)
-        # keep the wordmark alongside index.html so they share a directory
+        # notebook pages reference the wordmark via a relative "../" path
         shutil.copyfile(
             os.path.join(book_dir, "oceanval_wordmark.svg"), os.path.join(output_dir, "oceanval_wordmark.svg")
         )
@@ -140,7 +140,10 @@ def _offline_report_sections(output_dir, notebooks):
                         section[1].append(notebooks_by_stem.pop(stem))
 
     if notebooks_by_stem:
-        sections.append(("Validation Results", sorted(notebooks_by_stem.values())))
+        # no caption: these are ungrouped (e.g. compare()'s report, which has
+        # no named sections at all), so leave the heading off rather than
+        # showing a redundant catch-all title above the only section present
+        sections.append((None, sorted(notebooks_by_stem.values())))
     return sections
 
 
@@ -156,8 +159,18 @@ def _offline_report_title(notebook_path):
     return re.sub(r"^\d+_", "", stem).replace("_", " ").title()
 
 
+def _summary_report_page(build_html_dir):
+    """Path to the full-domain summary page of a built offline report (there is no index.html to land on)."""
+    matches = sorted(glob.glob(os.path.join(build_html_dir, "notebooks", "*_summary.html")))
+    if not matches:
+        raise FileNotFoundError(
+            f"No summary report page found under {build_html_dir}/notebooks"
+        )
+    return matches[-1]
+
+
 def _offline_report_navigation(
-    output_dir, notebooks, notebook_prefix, pdf_href, validation_links=None,
+    output_dir, notebooks, pdf_href, validation_links=None,
     wordmark_path=None,
 ):
     sections = []
@@ -167,11 +180,12 @@ def _offline_report_navigation(
             stem = os.path.splitext(os.path.basename(notebook))[0]
             label = _offline_report_title(notebook)
             items.append(
-                f'<li><a href="{notebook_prefix}{html.escape(stem)}.html">'
+                f'<li><a href="{html.escape(stem)}.html">'
                 f"{html.escape(label)}</a></li>"
             )
         if items:
-            sections.append(f"<section><h2>{html.escape(title)}</h2><ul>{''.join(items)}</ul></section>")
+            heading = f"<h2>{html.escape(title)}</h2>" if title else ""
+            sections.append(f"<section>{heading}<ul>{''.join(items)}</ul></section>")
 
     validation_block = ""
     if validation_links:
@@ -198,8 +212,8 @@ def _offline_report_navigation(
     return (
         "<aside class=\"oceanval-sidebar\">"
         f"<div class=\"oceanval-nav-sections\">{''.join(sections)}</div>"
-        f"{validation_block}"
         f'<a href="{pdf_href}" class="oceanval-viewpdf-btn">View all as pdf</a>'
+        f"{validation_block}"
         "</aside>"
         f"{wordmark_block}"
     )
@@ -236,26 +250,19 @@ def _offline_report_style():
         ".jp-Notebook table{margin-left:auto!important;margin-right:auto!important}"
         ".jp-Notebook img,.jp-Notebook figure{display:block;margin-left:auto;margin-right:auto}"
         ".jp-Notebook figcaption{text-align:center}"
-        ".oceanval-index{max-width:calc(100% - 600px);margin-left:300px;margin-right:300px;padding:70px 72px;box-sizing:border-box}.oceanval-index h1{font-size:42px;"
-        "font-weight:600;line-height:1.1;margin:0 0 28px;color:#24364d}.oceanval-index p{font-size:18px;"
-        "line-height:1.65;margin:14px 0}.oceanval-index a{color:#086eb6}.oceanval-actions{display:flex;"
-        "gap:12px;margin-top:32px}.oceanval-actions a{border:1px solid #0879c1;padding:11px 16px;"
-        "font-family:Arial,sans-serif;font-size:14px;font-weight:600;text-decoration:none}.oceanval-actions a:hover"
-        "{background:#0879c1;color:#fff}"
         ".oceanval-download-btn{position:fixed;top:24px;right:24px;z-index:20;width:220px;box-sizing:border-box;"
         "background:#0f7c7c;color:#fff;border:1px solid #0a5f5f;border-radius:6px;padding:10px 14px;"
         "font-family:Arial,sans-serif;font-size:13px;font-weight:700;cursor:pointer;text-align:center;"
         "text-decoration:none;display:block}"
         ".oceanval-download-btn:hover{background:#0a5f5f}"
-        ".oceanval-wordmark-link{position:fixed;right:24px;bottom:20px;z-index:15;font-family:Arial,sans-serif;font-size:11px;color:#0e3a45;text-decoration:none}"
+        ".oceanval-wordmark-link{position:fixed;right:24px;bottom:20px;z-index:15;font-family:Arial,sans-serif;font-size:13px;color:#0e3a45;text-decoration:none}"
         ".oceanval-wordmark-label{display:block;margin-bottom:4px}"
-        ".oceanval-wordmark{width:150px;display:block}"
+        ".oceanval-wordmark{width:180px;display:block}"
         ".oceanval-wordmark-link:hover{color:#0f7c7c}"
         ".oceanval-wordmark-link:hover .oceanval-wordmark{opacity:0.85}"
         "@media(max-width:720px){.oceanval-sidebar{position:static!important;width:auto;height:auto;max-height:none;padding:20px;overflow:visible}.oceanval-nav-sections{overflow:visible;padding-bottom:0}"
-        ".jp-Notebook{margin-left:auto!important;margin-right:0!important}.oceanval-index"
-        "{max-width:none;margin-left:0;margin-right:0;padding:38px 24px}.oceanval-index h1{font-size:32px}.oceanval-actions{flex-direction:column;"
-        "align-items:flex-start}.oceanval-download-btn{position:static;width:auto;margin:16px 0 0 20px}.oceanval-wordmark-link{position:static;margin:16px 0 0 20px}.oceanval-wordmark{width:110px}}</style>"
+        ".jp-Notebook{margin-left:auto!important;margin-right:0!important}"
+        ".oceanval-download-btn{position:static;width:auto;margin:16px 0 0 20px}.oceanval-wordmark-link{position:static;margin:16px 0 0 20px}.oceanval-wordmark{width:132px}}</style>"
     )
 
 
@@ -371,38 +378,16 @@ def _render_offline_report_pdfs(pages):
 
 def _write_offline_report_pages(output_dir, notebooks, validation_links=None):
     validation_links = validation_links or []
-    index_validation_links = [
-        (label, os.path.relpath(target, output_dir)) for label, target in validation_links
-    ]
     page_validation_links = [
         (label, os.path.relpath(target, os.path.join(output_dir, "notebooks")))
         for label, target in validation_links
     ]
     style = _offline_report_style()
     pdf_style = _offline_report_pdf_style()
-    index_navigation = _offline_report_navigation(
-        output_dir, notebooks, "notebooks/", "oceanval_report.pdf",
-        validation_links=index_validation_links, wordmark_path="oceanval_wordmark.svg",
-    )
     page_navigation = _offline_report_navigation(
-        output_dir, notebooks, "", "../oceanval_report.pdf",
+        output_dir, notebooks, "../oceanval_report.pdf",
         validation_links=page_validation_links, wordmark_path="../oceanval_wordmark.svg",
     )
-    with open(os.path.join(output_dir, "index.html"), "w") as index:
-        index.write(
-            "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
-            "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
-            f"<title>OceanVal validation report</title>{style}{_offline_report_sidebar_script()}</head><body>{index_navigation}"
-            "<main class=\"oceanval-index\"><h1>An ocean model validation using oceanval</h1>"
-            "<p>Simulations were validated using the Python package <strong>oceanval</strong>.</p>"
-            "<p>The report navigation contains validation metrics, domain summaries, and results for each variable.</p>"
-            "<p><strong>oceanval</strong> is developed by Robert Wilson at "
-            "<a href=\"https://www.pml.ac.uk/\">Plymouth Marine Laboratory</a>, who can be contacted at "
-            "<a href=\"mailto:rwi@pml.ac.uk\">rwi@pml.ac.uk</a>.</p>"
-            "<div class=\"oceanval-actions\"><a href=\"https://github.com/pmlmodelling/oceanval\">Installation</a>"
-            "<a href=\"https://oceanval.readthedocs.io/\">Documentation</a></div>"
-            "</main></body></html>"
-        )
 
     pdf_jobs = []
     page_updates = []
@@ -1049,18 +1034,19 @@ def validate(
             if "nctoolkit" in x:
                 os.remove(ff)
 
-    out_ff = f"{book_dir}/_build/html/index.html"
+    out_ff = _summary_report_page(f"{book_dir}/_build/html")
 
     # create a symlink to the html file
-    if os.path.exists(f"{out_dir}/oceanval_report.html"):
+    # (lexists, not exists: the old symlink can be broken if the summary
+    # page's numeric prefix shifted between runs, and exists() follows
+    # symlinks so it would miss a broken one and leave it for os.symlink
+    # to trip over)
+    if os.path.lexists(f"{out_dir}/oceanval_report.html"):
         os.remove(f"{out_dir}/oceanval_report.html")
-    # os.symlink(f"{book_dir}/_build/html/index.html", f"{out_dir}/oceanval_report.html")
     # create a symlink with relative directory
     os.symlink(os.path.relpath(out_ff, out_dir), f"{out_dir}/oceanval_report.html")
     if test is False:
-        webbrowser.open(
-            "file://" + os.path.abspath(f"{book_dir}/_build/html/index.html")
-        )
+        webbrowser.open("file://" + os.path.abspath(out_ff))
 
 
 def rebuild(data_dir="."):
@@ -1082,10 +1068,8 @@ def rebuild(data_dir="."):
 
     _build_book(f"{data_dir}/oceanval_report")
 
-    webbrowser.open(
-        "file://"
-        + os.path.abspath(f"{data_dir}/oceanval_report/_build/html/index.html")
-    )
+    out_ff = _summary_report_page(f"{data_dir}/oceanval_report/_build/html")
+    webbrowser.open("file://" + os.path.abspath(out_ff))
 
 
 def compare(model_dict=None, view=True, ask=True):
@@ -1211,16 +1195,22 @@ def compare(model_dict=None, view=True, ask=True):
         with open(book, "w") as file:
             file.write(filedata)
     os.system("jupytext --sync oceanval_comparison/compare/notebooks/*.ipynb")
-    validation_links = [
-        (key, os.path.join(model_dict[key], "oceanval_report", "_build", "html", "index.html"))
-        for key in model_dict
-    ]
+    validation_links = []
+    for key in model_dict:
+        try:
+            validation_links.append(
+                (key, _summary_report_page(os.path.join(model_dict[key], "oceanval_report", "_build", "html")))
+            )
+        except FileNotFoundError:
+            pass
     _build_book("oceanval_comparison/compare", validation_links=validation_links)
 
     if view:
-        webbrowser.open(
-            "file://" + os.path.abspath("oceanval_comparison/compare/_build/html/index.html")
+        first_notebook_html = os.path.splitext(comparison_notebooks[0])[0] + ".html"
+        landing_page = os.path.join(
+            "oceanval_comparison", "compare", "_build", "html", "notebooks", first_notebook_html
         )
+        webbrowser.open("file://" + os.path.abspath(landing_page))
 
 
 try:
