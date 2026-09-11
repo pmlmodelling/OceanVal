@@ -199,7 +199,7 @@ li { margin-bottom: 0.45em; }
 .brand {
   display: flex;
   align-items: center;
-  gap: 0.6em;
+  gap: 1cm;
   flex-shrink: 0;
 }
 .brand img { height: 28px; width: auto; }

@@ -36,6 +36,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Bake in the latest PyPI version
+        run: |
+          set -euo pipefail
+          version=$(curl -sf https://pypi.org/pypi/oceanval/json | python3 -c "import json,sys; print(json.load(sys.stdin)['info']['version'])")
+          echo "Latest oceanval version on PyPI: $version"
+          grep -rl 'v&hellip;' docs-site/*.html | xargs -r sed -i "s/v\&hellip;/v${version}/g"
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact

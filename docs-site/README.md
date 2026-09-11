@@ -32,8 +32,11 @@ python3 -m http.server 8000
 ## Deploying to GitHub Pages
 
 Deployment is automated by `.github/workflows/pages.yml` (at the repository
-root, not under `docs-site/`), which publishes this directory as-is (no build
-step) whenever a push to `main` touches `docs-site/**`.
+root, not under `docs-site/`), which publishes this directory whenever a push
+to `main` touches `docs-site/**`. The only build step is a one-line `sed`
+substitution that bakes the latest PyPI release number into the header
+version badge (see below) before uploading; everything else is published
+as-is.
 
 To turn it on:
 
@@ -49,6 +52,17 @@ workflow file to match.
 The included `.nojekyll` file stops GitHub Pages from running its default
 Jekyll processing, which isn't needed here and can interfere with files/paths
 starting with an underscore.
+
+## Version badge
+
+Every page shows the latest OceanVal release next to the header logo
+(`<span id="oceanval-docs-version" class="brand-version">`). It's kept
+correct two ways: the deploy workflow bakes in the current PyPI version at
+publish time (replacing the placeholder `v&hellip;`), and `assets/js/main.js`
+re-fetches `https://pypi.org/pypi/oceanval/json` on page load and updates it
+client-side, so a newer release still shows correctly even between deploys.
+Don't hardcode a version number here — both of those need the literal
+`v&hellip;` placeholder to find and replace/update.
 
 ## Updating content
 
