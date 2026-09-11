@@ -199,7 +199,7 @@ li { margin-bottom: 0.45em; }
 .brand {
   display: flex;
   align-items: center;
-  gap: 0.5cm;
+  gap: 0.25cm;
   flex-shrink: 0;
 }
 .brand img { height: 28px; width: auto; }
@@ -208,11 +208,7 @@ li { margin-bottom: 0.45em; }
   font-size: 0.72rem;
   font-weight: 600;
   line-height: 1;
-  color: var(--teal-700);
-  background: var(--teal-50);
-  border: 1px solid var(--teal-200);
-  border-radius: 999px;
-  padding: 4px 8px;
+  color: var(--muted);
   white-space: nowrap;
 }
 
