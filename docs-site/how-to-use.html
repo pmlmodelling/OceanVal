@@ -11,14 +11,18 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/css/style.css">
 </head>
-<body>
+<body data-root-prefix="">
 
 <header class="site-header">
   <div class="container nav">
-    <a class="brand" href="index.html">
-      <img src="assets/img/oceanval_wordmark.svg" alt="OceanVal">
-      <span id="oceanval-docs-version" class="brand-version">v&hellip;</span>
-    </a>
+    <div class="brand">
+      <a href="index.html" aria-label="OceanVal home">
+        <img src="assets/img/oceanval_wordmark.svg" alt="OceanVal">
+      </a>
+      <select id="oceanval-version-select" class="version-select" aria-label="OceanVal docs version" disabled>
+        <option value="">v&hellip;</option>
+      </select>
+    </div>
     <nav class="nav-links" id="nav-links">
       <a href="installing.html" data-page="installing.html">Install</a>
       <a href="quickstart.html" data-page="quickstart.html">Quickstart</a>

@@ -203,13 +203,28 @@ li { margin-bottom: 0.45em; }
   flex-shrink: 0;
 }
 .brand img { height: 28px; width: auto; }
-.brand-version {
+.version-select {
   font-family: var(--font-mono);
   font-size: 0.72rem;
   font-weight: 600;
   line-height: 1;
   color: var(--muted);
   white-space: nowrap;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 3px 4px;
+  margin-left: 2px;
+}
+.version-select:hover, .version-select:focus {
+  color: var(--teal-700);
+  border-color: var(--line);
+  outline: none;
+}
+.version-select:disabled {
+  cursor: default;
+  opacity: 0.6;
 }
 
 .nav-links {

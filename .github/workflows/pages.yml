@@ -12,15 +12,8 @@ on:
       - ".github/workflows/pages.yml"
 
   # Allows you to run this workflow manually from the Actions tab, or lets
-  # docs-archive.yml trigger it with the version it already resolved from
-  # setup.py - skipping the PyPI lookup below, which can otherwise race
-  # python-publish.yml's upload and bake in the previous version.
+  # docs-archive.yml trigger a redeploy after it archives a release.
   workflow_dispatch:
-    inputs:
-      version:
-        description: "Version to bake into the header badge (skips the PyPI lookup). Leave blank to query PyPI for the latest release."
-        required: false
-        type: string
 
 # Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:
@@ -44,17 +37,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Bake in the version badge
-        run: |
-          set -euo pipefail
-          version="${{ github.event.inputs.version }}"
-          if [ -z "$version" ]; then
-            version=$(curl -sf https://pypi.org/pypi/oceanval/json | python3 -c "import json,sys; print(json.load(sys.stdin)['info']['version'])")
-            echo "No version passed in, using the latest release on PyPI: $version"
-          else
-            echo "Using version passed in by the triggering workflow: $version"
-          fi
-          grep -rl 'v&hellip;' docs-site/*.html | xargs -r sed -i "s/v\&hellip;/v${version}/g"
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact

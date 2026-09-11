@@ -34,12 +34,12 @@ updating to match, and update whichever do:
    changed (new sidebar sections, renamed pages, etc.), not for every
    feature change.
 
-Don't hand-edit the "vX.Y.Z" badge next to the logo in each page's header
-(`#oceanval-docs-version`) — it needs no manual update, ever. It's kept
-correct two ways: `.github/workflows/pages.yml` bakes the latest PyPI
-version into the placeholder at deploy time, and `docs-site/assets/js/main.js`
-re-fetches it client-side on page load so it stays accurate between deploys
-too. See `docs-site/README.md`'s "Version badge" section for details.
+Don't hand-edit the version `<select>` next to the logo in each page's
+header (`#oceanval-version-select`) — it needs no manual update, ever.
+`docs-site/assets/js/main.js` populates it entirely client-side on page load
+(current version from PyPI, older ones from `archive/versions.json`) and
+handles navigating to whichever version gets picked. See
+`docs-site/README.md`'s "Version selector" section for details.
 
 Don't hand-create or hand-edit anything under `docs-site/archive/` either —
 `.github/workflows/docs-archive.yml` maintains it automatically on every

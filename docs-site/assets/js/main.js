@@ -131,24 +131,65 @@
     window.addEventListener("scroll", updateToc, { passive: true });
   }
 
-  /* ---------- docs version (latest PyPI release) ---------- */
-  var versionEls = document.querySelectorAll("#oceanval-docs-version");
-  if (versionEls.length) {
-    fetch("https://pypi.org/pypi/oceanval/json")
-      .then(function (res) { return res.json(); })
-      .then(function (data) {
-        var version = data && data.info && data.info.version;
-        if (!version) return;
-        versionEls.forEach(function (el) {
-          el.textContent = "v" + version;
-          el.title = "Docs for OceanVal v" + version + " (latest PyPI release)";
-        });
-      })
-      .catch(function () {
-        /* PyPI unreachable (offline, blocked, rate-limited): leave the
-           static fallback text in the HTML in place rather than showing
-           an error or a stale version number. */
+  /* ---------- docs version selector ---------- */
+  // Works the same on a root page (docs-site/*.html), an archived snapshot
+  // (docs-site/archive/vX.Y.Z/*.html) and the archive listing page
+  // (docs-site/archive/index.html) - each just declares how far "up" the
+  // site root is via data-root-prefix on <body>, and an archived page also
+  // declares its own version via data-archived-version. No path-sniffing.
+  var versionSelect = document.getElementById("oceanval-version-select");
+  if (versionSelect) {
+    var page = location.pathname.split("/").pop() || "index.html";
+    var rootPrefix = document.body.getAttribute("data-root-prefix") || "";
+    var archivePrefix = rootPrefix + "archive/";
+    var currentArchivedVersion = document.body.getAttribute("data-archived-version") || null;
+
+    Promise.all([
+      fetch("https://pypi.org/pypi/oceanval/json")
+        .then(function (res) { return res.json(); })
+        .catch(function () { return null; }),
+      fetch(archivePrefix + "versions.json")
+        .then(function (res) { return res.json(); })
+        .catch(function () { return []; }),
+    ]).then(function (results) {
+      var pypiData = results[0];
+      var archivedVersions = results[1] || [];
+      var liveVersion = (pypiData && pypiData.info && pypiData.info.version)
+        || currentArchivedVersion
+        || archivedVersions[0];
+      if (!liveVersion) return; // nothing usable came back - leave the placeholder
+
+      versionSelect.innerHTML = "";
+
+      var liveOpt = document.createElement("option");
+      liveOpt.value = "current";
+      liveOpt.textContent = "v" + liveVersion + " (current)";
+      versionSelect.appendChild(liveOpt);
+
+      var matchedArchived = false;
+      archivedVersions.forEach(function (v) {
+        if (v === liveVersion) return; // "current" already represents this one
+        var opt = document.createElement("option");
+        opt.value = v;
+        opt.textContent = "v" + v;
+        versionSelect.appendChild(opt);
+        if (v === currentArchivedVersion) {
+          opt.selected = true;
+          matchedArchived = true;
+        }
       });
+      if (!matchedArchived) liveOpt.selected = true;
+
+      versionSelect.disabled = false;
+    });
+
+    versionSelect.addEventListener("change", function () {
+      var target = versionSelect.value;
+      if (!target) return;
+      location.href = target === "current"
+        ? rootPrefix + page
+        : archivePrefix + "v" + target + "/" + page;
+    });
   }
 
   /* ---------- back to top ---------- */

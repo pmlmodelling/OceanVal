@@ -38,11 +38,8 @@ python3 -m http.server 8000
 ## Deploying to GitHub Pages
 
 Deployment is automated by `.github/workflows/pages.yml` (at the repository
-root, not under `docs-site/`), which publishes this directory whenever a push
-to `main` touches `docs-site/**`. The only build step is a one-line `sed`
-substitution that bakes the latest PyPI release number into the header
-version badge (see below) before uploading; everything else is published
-as-is.
+root, not under `docs-site/`), which publishes this directory as-is (no build
+step) whenever a push to `main` touches `docs-site/**`.
 
 To turn it on:
 
@@ -59,16 +56,26 @@ The included `.nojekyll` file stops GitHub Pages from running its default
 Jekyll processing, which isn't needed here and can interfere with files/paths
 starting with an underscore.
 
-## Version badge
+## Version selector
 
-Every page shows the latest OceanVal release next to the header logo
-(`<span id="oceanval-docs-version" class="brand-version">`). It's kept
-correct two ways: the deploy workflow bakes in the current PyPI version at
-publish time (replacing the placeholder `v&hellip;`), and `assets/js/main.js`
-re-fetches `https://pypi.org/pypi/oceanval/json` on page load and updates it
-client-side, so a newer release still shows correctly even between deploys.
-Don't hardcode a version number here — both of those need the literal
-`v&hellip;` placeholder to find and replace/update.
+Every page has a `<select id="oceanval-version-select" class="version-select">`
+next to the header logo, defaulting to the current release with every
+archived version underneath it. It's entirely client-side, driven by
+`assets/js/main.js`: on load it fetches `https://pypi.org/pypi/oceanval/json`
+for the current version and `archive/versions.json` for the archived list,
+populates the `<option>`s, and wires up a `change` listener that navigates to
+the same page in the chosen version.
+
+It works identically on a root page, an archived snapshot
+(`archive/vX.Y.Z/*.html`), and the archive listing page
+(`archive/index.html`) without sniffing the URL: each declares how far "up"
+the site root is via `data-root-prefix` on `<body>`, and an archived page
+additionally declares its own version via `data-archived-version` (both set
+automatically - a root page's is `""`, `docs-archive.yml` sets the other two
+when it creates a snapshot). Don't hand-edit either attribute, and don't
+delete the placeholder `<option value="">v&hellip;</option>` - the selector
+stays disabled showing that text if the fetches fail (offline, blocked), so
+it needs to exist.
 
 ## Archived versions
 
@@ -77,9 +84,8 @@ created. It reads the version from `setup.py` (the source of truth - not the
 release's tag name, not PyPI, since PyPI's publish can race this workflow),
 copies this directory's nine pages plus `assets/` into `archive/vX.Y.Z/`,
 rewrites their `example-report/` links to point back at the one shared copy
-two levels up, freezes their header version badge so it never live-updates
-(the client-side PyPI fetch in `main.js` only targets pages that still have
-the `oceanval-docs-version` id, which archived pages don't), and regenerates
+two levels up, sets `data-root-prefix`/`data-archived-version` on `<body>`
+so the version selector (see above) knows where it is, and regenerates
 `archive/index.html` and `archive/versions.json` (newest first) from every
 version archived so far. It then commits and pushes that to `main` and
 explicitly dispatches `pages.yml` (a `GITHUB_TOKEN` push doesn't trigger

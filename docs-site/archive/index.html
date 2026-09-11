@@ -8,12 +8,17 @@
 <link rel="icon" type="image/svg+xml" href="../assets/img/favicon.svg">
 <link rel="stylesheet" href="../assets/css/style.css">
 </head>
-<body>
+<body data-root-prefix="../">
 <header class="site-header">
   <div class="container nav">
-    <a class="brand" href="../index.html">
-      <img src="../assets/img/oceanval_wordmark.svg" alt="OceanVal">
-    </a>
+    <div class="brand">
+      <a href="../index.html" aria-label="OceanVal home">
+        <img src="../assets/img/oceanval_wordmark.svg" alt="OceanVal">
+      </a>
+      <select id="oceanval-version-select" class="version-select" aria-label="OceanVal docs version" disabled>
+        <option value="">v&hellip;</option>
+      </select>
+    </div>
   </div>
 </header>
 <main class="container" style="padding: 60px 0; max-width: 640px;">
@@ -26,5 +31,6 @@
         <li><a href="v0.5.4/index.html">v0.5.4</a></li>
     </ul>
 </main>
+<script src="../assets/js/main.js"></script>
 </body>
 </html>

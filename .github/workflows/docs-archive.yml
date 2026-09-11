@@ -62,11 +62,11 @@ jobs:
           # at the current, shared copy instead of a link that would 404.
           sed -i 's#href="example-report/#href="../../example-report/#g' "$dest"/*.html
 
-          # Freeze the header version badge: it must keep showing v${version}
-          # forever, not pick up whatever the live PyPI version becomes later
-          # (main.js re-fetches that client-side, keyed on the
-          # oceanval-docs-version id - drop the id so it's left alone here).
-          sed -i "s#<span id=\"oceanval-docs-version\" class=\"brand-version\">v\&hellip;</span>#<span class=\"brand-version\">v${version} (archived)</span>#g" "$dest"/*.html
+          # Tell the header version selector (assets/js/main.js) how far up
+          # the site root is from here, and which archived version this is -
+          # it uses those instead of sniffing the URL, and works identically
+          # whether the page is at the site root or in here.
+          sed -i "s#<body data-root-prefix=\"\">#<body data-root-prefix=\"../../\" data-archived-version=\"${version}\">#" "$dest"/*.html
 
           # Keep archived snapshots out of search results; the live docs are
           # the canonical version to index.
@@ -113,12 +113,17 @@ jobs:
           <link rel="icon" type="image/svg+xml" href="../assets/img/favicon.svg">
           <link rel="stylesheet" href="../assets/css/style.css">
           </head>
-          <body>
+          <body data-root-prefix="../">
           <header class="site-header">
             <div class="container nav">
-              <a class="brand" href="../index.html">
-                <img src="../assets/img/oceanval_wordmark.svg" alt="OceanVal">
-              </a>
+              <div class="brand">
+                <a href="../index.html" aria-label="OceanVal home">
+                  <img src="../assets/img/oceanval_wordmark.svg" alt="OceanVal">
+                </a>
+                <select id="oceanval-version-select" class="version-select" aria-label="OceanVal docs version" disabled>
+                  <option value="">v&hellip;</option>
+                </select>
+              </div>
             </div>
           </header>
           <main class="container" style="padding: 60px 0; max-width: 640px;">
@@ -129,6 +134,7 @@ jobs:
             <a href="../index.html">latest version</a>.</p>
           {body}
           </main>
+          <script src="../assets/js/main.js"></script>
           </body>
           </html>
           """
@@ -147,18 +153,14 @@ jobs:
 
       - name: Trigger the Pages deploy
         # A GITHUB_TOKEN push doesn't itself trigger pages.yml's push
-        # trigger, so ask it to run directly instead. Pass the version we
-        # already resolved from setup.py so pages.yml's badge-baking step
-        # doesn't have to query PyPI itself - that query can otherwise race
-        # python-publish.yml's upload and bake in the previous version.
+        # trigger, so ask it to run directly instead.
         if: steps.snapshot.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
           curl -sf -X POST \
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github+json" \
             "https://api.github.com/repos/${{ github.repository }}/actions/workflows/pages.yml/dispatches" \
-            -d "{\"ref\":\"main\",\"inputs\":{\"version\":\"${VERSION}\"}}"
+            -d '{"ref":"main"}'
