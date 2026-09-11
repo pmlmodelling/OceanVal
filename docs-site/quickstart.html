@@ -2,6 +2,31 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<script>
+(function () {
+  // Default new visitors to Stable (the latest release's docs) rather than
+  // Development (this always-edited root). Skipped entirely if they've
+  // previously picked Development from the version selector. Synchronous
+  // XHR is deliberate: it blocks rendering until we know whether to
+  // redirect, so there's no flash of the wrong version - archive/versions.json
+  // is a tiny same-origin file, so the cost is negligible.
+  try {
+    if (localStorage.getItem("oceanval-prefers-dev") === "1") return;
+  } catch (e) { return; }
+  try {
+    var xhr = new XMLHttpRequest();
+    xhr.open("GET", "archive/versions.json", false);
+    xhr.send(null);
+    if (xhr.status !== 200) return;
+    var versions = JSON.parse(xhr.responseText);
+    var stable = versions && versions[0];
+    if (stable) {
+      var page = location.pathname.split("/").pop() || "index.html";
+      location.replace("archive/v" + stable + "/" + page);
+    }
+  } catch (e) {}
+})();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Quickstart — OceanVal</title>
 <meta name="description" content="The shortest path from a model output directory to an HTML validation report: three function calls.">

@@ -59,12 +59,22 @@ starting with an underscore.
 ## Version selector
 
 Every page has a `<select id="oceanval-version-select" class="version-select">`
-next to the header logo, defaulting to the current release with every
-archived version underneath it. It's entirely client-side, driven by
-`assets/js/main.js`: on load it fetches `https://pypi.org/pypi/oceanval/json`
-for the current version and `archive/versions.json` for the archived list,
-populates the `<option>`s, and wires up a `change` listener that navigates to
-the same page in the chosen version.
+next to the header logo, listing:
+
+- **Development** - `docs-site/`'s root pages, i.e. this directory as it
+  currently is on `main`. Labelled "vX.Y.Z (development)", where X.Y.Z is
+  the latest PyPI release (this can be ahead of that release - it's whatever
+  hasn't been cut into a release yet).
+- **Stable** - `archive/versions.json`'s newest entry, i.e. the docs exactly
+  as they were at the most recent release. Labelled "vX.Y.Z (stable)".
+- Every older archived version below that, plain "vX.Y.Z", no label.
+
+It's entirely client-side, driven by `assets/js/main.js`: on load it fetches
+`https://pypi.org/pypi/oceanval/json` for the current version and
+`archive/versions.json` for the archived list, populates the `<option>`s,
+and wires up a `change` listener that navigates to the same page in the
+chosen version - also recording the choice (see "Defaulting to Stable"
+below) when Development is picked.
 
 It works identically on a root page, an archived snapshot
 (`archive/vX.Y.Z/*.html`), and the archive listing page
@@ -76,6 +86,24 @@ when it creates a snapshot). Don't hand-edit either attribute, and don't
 delete the placeholder `<option value="">v&hellip;</option>` - the selector
 stays disabled showing that text if the fetches fail (offline, blocked), so
 it needs to exist.
+
+## Defaulting to Stable
+
+GitHub Pages has no server-side routing, so "the site defaults to Stable"
+is implemented as a redirect rather than root actually *being* Stable's
+content: every root page's `<head>` has a small inline script, before
+anything else, that does a **synchronous** XHR for `archive/versions.json`
+and - unless `localStorage.oceanval-prefers-dev === "1"` - immediately
+`location.replace()`s to the same page under the newest archived version.
+Synchronous is deliberate: it blocks rendering until the redirect decision
+is made, so there's no flash of Development before bouncing to Stable; the
+request is same-origin and tiny, so the cost is negligible. Picking
+Development from the selector sets that localStorage flag (and picking
+anything else clears it), so once someone's chosen Development they won't
+keep getting redirected back - only new visitors default to Stable.
+
+This script only belongs in the nine root pages' `<head>` - never in
+`archive/**`, which must never redirect anywhere.
 
 ## Archived versions
 

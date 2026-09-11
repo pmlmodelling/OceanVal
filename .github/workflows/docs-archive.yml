@@ -93,7 +93,10 @@ jobs:
           versions_path.write_text(json.dumps(versions, indent=2) + "\n")
 
           items = "\n".join(
-              f'        <li><a href="v{v}/index.html">v{v}</a></li>' for v in versions
+              f'        <li><a href="v{v}/index.html">v{v}'
+              + (" (stable)" if i == 0 else "")
+              + "</a></li>"
+              for i, v in enumerate(versions)
           )
           body = (
               f'    <ul>\n{items}\n    </ul>'

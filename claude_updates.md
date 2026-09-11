@@ -36,10 +36,16 @@ updating to match, and update whichever do:
 
 Don't hand-edit the version `<select>` next to the logo in each page's
 header (`#oceanval-version-select`) — it needs no manual update, ever.
-`docs-site/assets/js/main.js` populates it entirely client-side on page load
-(current version from PyPI, older ones from `archive/versions.json`) and
-handles navigating to whichever version gets picked. See
-`docs-site/README.md`'s "Version selector" section for details.
+`docs-site/assets/js/main.js` populates it entirely client-side on page load:
+**Development** (root `docs-site/`, PyPI's version but may be ahead of it),
+**Stable** (`archive/versions.json`'s newest entry — exactly the last
+release), then every older version plain. New visitors land on Stable by
+default via a synchronous redirect in each root page's `<head>` — picking
+Development remembers that choice (`localStorage.oceanval-prefers-dev`) so
+it stops redirecting them. See `docs-site/README.md`'s "Version selector"
+and "Defaulting to Stable" sections for details, and if you add a root page
+or restructure the header, make sure both the `<select>` and the redirect
+script make it into the new markup.
 
 Don't hand-create or hand-edit anything under `docs-site/archive/` either —
 `.github/workflows/docs-archive.yml` maintains it automatically on every

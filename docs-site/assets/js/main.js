@@ -137,6 +137,13 @@
   // (docs-site/archive/index.html) - each just declares how far "up" the
   // site root is via data-root-prefix on <body>, and an archived page also
   // declares its own version via data-archived-version. No path-sniffing.
+  //
+  // "Development" = the root, always-edited docs (may be ahead of the last
+  // release). "Stable" = archive/versions.json's newest entry, i.e. exactly
+  // what was released most recently - never plain "current" collapsing into
+  // it, they're always shown as distinct options even when momentarily
+  // identical right after a release. Older archived versions get no label.
+  var OCEANVAL_DEV_PREF_KEY = "oceanval-prefers-dev";
   var versionSelect = document.getElementById("oceanval-version-select");
   if (versionSelect) {
     var page = location.pathname.split("/").pop() || "index.html";
@@ -161,24 +168,23 @@
 
       versionSelect.innerHTML = "";
 
-      var liveOpt = document.createElement("option");
-      liveOpt.value = "current";
-      liveOpt.textContent = "v" + liveVersion + " (current)";
-      versionSelect.appendChild(liveOpt);
+      var devOpt = document.createElement("option");
+      devOpt.value = "current";
+      devOpt.textContent = "v" + liveVersion + " (development)";
+      versionSelect.appendChild(devOpt);
 
       var matchedArchived = false;
-      archivedVersions.forEach(function (v) {
-        if (v === liveVersion) return; // "current" already represents this one
+      archivedVersions.forEach(function (v, i) {
         var opt = document.createElement("option");
         opt.value = v;
-        opt.textContent = "v" + v;
+        opt.textContent = "v" + v + (i === 0 ? " (stable)" : "");
         versionSelect.appendChild(opt);
         if (v === currentArchivedVersion) {
           opt.selected = true;
           matchedArchived = true;
         }
       });
-      if (!matchedArchived) liveOpt.selected = true;
+      if (!matchedArchived) devOpt.selected = true;
 
       versionSelect.disabled = false;
     });
@@ -186,6 +192,16 @@
     versionSelect.addEventListener("change", function () {
       var target = versionSelect.value;
       if (!target) return;
+      try {
+        if (target === "current") {
+          localStorage.setItem(OCEANVAL_DEV_PREF_KEY, "1");
+        } else {
+          localStorage.removeItem(OCEANVAL_DEV_PREF_KEY);
+        }
+      } catch (e) {
+        /* private browsing / storage disabled: the redirect below just
+           won't remember this choice next visit */
+      }
       location.href = target === "current"
         ? rootPrefix + page
         : archivePrefix + "v" + target + "/" + page;
