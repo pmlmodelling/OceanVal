@@ -27,8 +27,8 @@
       <a href="obs-data.html" data-page="obs-data.html">Data formats</a>
       <a href="qa.html" data-page="qa.html">Q&amp;A</a>
       <a href="api.html" data-page="api.html">API</a>
-      <a href="version-history.html" data-page="version-history.html">Version history</a>
       <a href="about.html" data-page="about.html">About</a>
+      <a href="version-history.html" data-page="version-history.html">Version history</a>
     </nav>
     <div class="nav-actions">
       <a class="icon-btn" href="https://github.com/pmlmodelling/oceanVal" target="_blank" rel="noopener" aria-label="OceanVal on GitHub">
@@ -68,6 +68,66 @@
         <span>OceanVal is developed by the <a href="https://pml.ac.uk/sciencetopics/environmental-intelligence/" target="_blank" rel="noopener">Environmental Intelligence group</a> at <a href="https://pml.ac.uk/" target="_blank" rel="noopener">Plymouth Marine Laboratory</a>, Devon, UK.</span>
       </div>
     </div>
+  </div>
+</div>
+
+<div class="section section-tight section-alt">
+  <div class="container" style="max-width: 760px;">
+    <h2>Dependencies</h2>
+    <p>OceanVal is built on a small number of open-source tools for working
+    with climate and ocean data. Exact versions are pinned in
+    <a href="https://github.com/pmlmodelling/oceanVal/blob/main/requirements.txt" target="_blank" rel="noopener">requirements.txt</a>
+    and
+    <a href="https://github.com/pmlmodelling/oceanVal/blob/main/oceanval.yml" target="_blank" rel="noopener">oceanval.yml</a>.</p>
+
+    <h3>System</h3>
+    <p>Grid and file operations ultimately run through two command-line
+    NetCDF toolkits: <a href="https://code.mpimet.mpg.de/projects/cdo" target="_blank" rel="noopener">CDO</a>
+    (Climate Data Operators) and
+    <a href="https://nco.sourceforge.net/" target="_blank" rel="noopener">NCO</a>
+    (NetCDF Operators).</p>
+
+    <h3>Python</h3>
+    <p>OceanVal is written in <a href="https://www.python.org/" target="_blank" rel="noopener">Python</a>
+    and built directly on
+    <a href="https://nctoolkit.readthedocs.io/en/stable" target="_blank" rel="noopener">nctoolkit</a>,
+    a Python interface to CDO and NCO developed alongside it. It also uses
+    <a href="https://pandas.pydata.org/" target="_blank" rel="noopener">pandas</a>
+    and <a href="https://xarray.dev/" target="_blank" rel="noopener">xarray</a>
+    for tabular and array data,
+    <a href="https://geopandas.org/" target="_blank" rel="noopener">geopandas</a>
+    for regional boundaries, <a href="https://matplotlib.org/" target="_blank" rel="noopener">matplotlib</a>
+    for some figures, and <a href="https://rpy2.github.io/" target="_blank" rel="noopener">rpy2</a>
+    to call R from within Python.</p>
+
+    <h3>R</h3>
+    <p>Most of the figures in a validation report are actually rendered by
+    <a href="https://www.r-project.org/" target="_blank" rel="noopener">R</a>,
+    called via rpy2. OceanVal uses
+    <a href="https://ggplot2.tidyverse.org/" target="_blank" rel="noopener">ggplot2</a>
+    (part of the <a href="https://www.tidyverse.org/" target="_blank" rel="noopener">tidyverse</a>)
+    for plotting, <a href="https://wilkelab.org/ggtext/" target="_blank" rel="noopener">ggtext</a>
+    to render units and formulae correctly in axis labels,
+    <a href="https://jrnold.github.io/ggthemes/" target="_blank" rel="noopener">ggthemes</a>
+    for colour palettes, and
+    <a href="https://wilkelab.org/cowplot/" target="_blank" rel="noopener">cowplot</a>
+    to combine multi-panel figures.</p>
+  </div>
+</div>
+
+<div class="section section-tight">
+  <div class="container" style="max-width: 760px;">
+    <h2>Funding</h2>
+    <p>Development of OceanVal has been supported by the following projects:</p>
+    <p><strong><a href="https://neccton.eu/" target="_blank" rel="noopener">NECCTON</a></strong>
+    (New Copernicus Capability for Trophic Ocean Networks), a Horizon Europe
+    project developing new marine ecosystem models to help the Copernicus
+    Marine Service inform biodiversity conservation and food resource
+    management.</p>
+    <p><strong><a href="https://www.noc.ac.uk/projects/atlantis" target="_blank" rel="noopener">AtlantiS</a></strong>
+    (Atlantic Climate and Environment Strategic Science), a National
+    Oceanography Centre programme strengthening UK capability to observe,
+    model and predict change in Atlantic marine ecosystems.</p>
   </div>
 </div>
 
