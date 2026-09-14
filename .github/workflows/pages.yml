@@ -11,8 +11,7 @@ on:
       - "docs-site/**"
       - ".github/workflows/pages.yml"
 
-  # Allows you to run this workflow manually from the Actions tab, or lets
-  # docs-archive.yml trigger a redeploy after it archives a release.
+  # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
 # Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages

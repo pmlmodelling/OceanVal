@@ -34,24 +34,14 @@ updating to match, and update whichever do:
    changed (new sidebar sections, renamed pages, etc.), not for every
    feature change.
 
-Don't hand-edit the version `<select>` next to the logo in each page's
-header (`#oceanval-version-select`) — it needs no manual update, ever.
-`docs-site/assets/js/main.js` populates it entirely client-side on page load:
-**Development** (root `docs-site/`, PyPI's version but may be ahead of it),
-**Stable** (`archive/versions.json`'s newest entry — exactly the last
-release), then every older version plain. New visitors land on Stable by
-default via a synchronous redirect in each root page's `<head>` — picking
-Development remembers that choice (`localStorage.oceanval-prefers-dev`) so
-it stops redirecting them. See `docs-site/README.md`'s "Version selector"
-and "Defaulting to Stable" sections for details, and if you add a root page
-or restructure the header, make sure both the `<select>` and the redirect
-script make it into the new markup.
-
-Don't hand-create or hand-edit anything under `docs-site/archive/` either —
-`.github/workflows/docs-archive.yml` maintains it automatically on every
-GitHub Release (snapshotting `docs-site/`'s nine pages, excluding
-`example-report/`, under `archive/vX.Y.Z/`, keyed off the version in
-`setup.py`). See `docs-site/README.md`'s "Archived versions" section.
+Don't hand-edit the "vX.Y.Z" badge next to the logo in each page's header
+(`#oceanval-docs-version`) — it needs no manual update, ever.
+`docs-site/assets/js/main.js` fetches `https://pypi.org/pypi/oceanval/json`
+client-side on page load and fills it in. There is deliberately only one
+version of this site published (no archive, no version switcher) — see
+`docs-site/README.md`'s "Version badge" section. A version-selector /
+per-release-archive system was built and then deliberately reverted here
+(too complex, didn't work reliably) — don't rebuild it without being asked.
 
 Once you're done, show me a summary of what you changed and why before
 committing. Commit only the files that actually needed to change, write a

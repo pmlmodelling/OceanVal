@@ -131,81 +131,24 @@
     window.addEventListener("scroll", updateToc, { passive: true });
   }
 
-  /* ---------- docs version selector ---------- */
-  // Works the same on a root page (docs-site/*.html), an archived snapshot
-  // (docs-site/archive/vX.Y.Z/*.html) and the archive listing page
-  // (docs-site/archive/index.html) - each just declares how far "up" the
-  // site root is via data-root-prefix on <body>, and an archived page also
-  // declares its own version via data-archived-version. No path-sniffing.
-  //
-  // "Development" = the root, always-edited docs (may be ahead of the last
-  // release). "Stable" = archive/versions.json's newest entry, i.e. exactly
-  // what was released most recently - never plain "current" collapsing into
-  // it, they're always shown as distinct options even when momentarily
-  // identical right after a release. Older archived versions get no label.
-  var OCEANVAL_DEV_PREF_KEY = "oceanval-prefers-dev";
-  var versionSelect = document.getElementById("oceanval-version-select");
-  if (versionSelect) {
-    var page = location.pathname.split("/").pop() || "index.html";
-    var rootPrefix = document.body.getAttribute("data-root-prefix") || "";
-    var archivePrefix = rootPrefix + "archive/";
-    var currentArchivedVersion = document.body.getAttribute("data-archived-version") || null;
-
-    Promise.all([
-      fetch("https://pypi.org/pypi/oceanval/json")
-        .then(function (res) { return res.json(); })
-        .catch(function () { return null; }),
-      fetch(archivePrefix + "versions.json")
-        .then(function (res) { return res.json(); })
-        .catch(function () { return []; }),
-    ]).then(function (results) {
-      var pypiData = results[0];
-      var archivedVersions = results[1] || [];
-      var liveVersion = (pypiData && pypiData.info && pypiData.info.version)
-        || currentArchivedVersion
-        || archivedVersions[0];
-      if (!liveVersion) return; // nothing usable came back - leave the placeholder
-
-      versionSelect.innerHTML = "";
-
-      var devOpt = document.createElement("option");
-      devOpt.value = "current";
-      devOpt.textContent = "v" + liveVersion + " (development)";
-      versionSelect.appendChild(devOpt);
-
-      var matchedArchived = false;
-      archivedVersions.forEach(function (v, i) {
-        var opt = document.createElement("option");
-        opt.value = v;
-        opt.textContent = "v" + v + (i === 0 ? " (stable)" : "");
-        versionSelect.appendChild(opt);
-        if (v === currentArchivedVersion) {
-          opt.selected = true;
-          matchedArchived = true;
-        }
+  /* ---------- docs version (latest PyPI release) ---------- */
+  var versionEls = document.querySelectorAll("#oceanval-docs-version");
+  if (versionEls.length) {
+    fetch("https://pypi.org/pypi/oceanval/json")
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        var version = data && data.info && data.info.version;
+        if (!version) return;
+        versionEls.forEach(function (el) {
+          el.textContent = "v" + version;
+          el.title = "OceanVal v" + version + " (latest PyPI release)";
+        });
+      })
+      .catch(function () {
+        /* PyPI unreachable (offline, blocked, rate-limited): leave the
+           static fallback text in the HTML in place rather than showing
+           an error or a stale version number. */
       });
-      if (!matchedArchived) devOpt.selected = true;
-
-      versionSelect.disabled = false;
-    });
-
-    versionSelect.addEventListener("change", function () {
-      var target = versionSelect.value;
-      if (!target) return;
-      try {
-        if (target === "current") {
-          localStorage.setItem(OCEANVAL_DEV_PREF_KEY, "1");
-        } else {
-          localStorage.removeItem(OCEANVAL_DEV_PREF_KEY);
-        }
-      } catch (e) {
-        /* private browsing / storage disabled: the redirect below just
-           won't remember this choice next visit */
-      }
-      location.href = target === "current"
-        ? rootPrefix + page
-        : archivePrefix + "v" + target + "/" + page;
-    });
   }
 
   /* ---------- back to top ---------- */

@@ -2,31 +2,6 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<script>
-(function () {
-  // Default new visitors to Stable (the latest release's docs) rather than
-  // Development (this always-edited root). Skipped entirely if they've
-  // previously picked Development from the version selector. Synchronous
-  // XHR is deliberate: it blocks rendering until we know whether to
-  // redirect, so there's no flash of the wrong version - archive/versions.json
-  // is a tiny same-origin file, so the cost is negligible.
-  try {
-    if (localStorage.getItem("oceanval-prefers-dev") === "1") return;
-  } catch (e) { return; }
-  try {
-    var xhr = new XMLHttpRequest();
-    xhr.open("GET", "archive/versions.json", false);
-    xhr.send(null);
-    if (xhr.status !== 200) return;
-    var versions = JSON.parse(xhr.responseText);
-    var stable = versions && versions[0];
-    if (stable) {
-      var page = location.pathname.split("/").pop() || "index.html";
-      location.replace("archive/v" + stable + "/" + page);
-    }
-  } catch (e) {}
-})();
-</script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Compatible Data — OceanVal</title>
 <meta name="description" content="File formats OceanVal expects for simulation output, gridded observations, and in-situ observations.">
@@ -36,18 +11,14 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/css/style.css">
 </head>
-<body data-root-prefix="">
+<body>
 
 <header class="site-header">
   <div class="container nav">
-    <div class="brand">
-      <a href="index.html" aria-label="OceanVal home">
-        <img src="assets/img/oceanval_wordmark.svg" alt="OceanVal">
-      </a>
-      <select id="oceanval-version-select" class="version-select" aria-label="OceanVal docs version" disabled>
-        <option value="">v&hellip;</option>
-      </select>
-    </div>
+    <a class="brand" href="index.html">
+      <img src="assets/img/oceanval_wordmark.svg" alt="OceanVal">
+      <span id="oceanval-docs-version" class="brand-version">v&hellip;</span>
+    </a>
     <nav class="nav-links" id="nav-links">
       <a href="installing.html" data-page="installing.html">Install</a>
       <a href="quickstart.html" data-page="quickstart.html">Quickstart</a>
