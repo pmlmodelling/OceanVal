@@ -2,9 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="robots" content="noindex, follow">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Compatible Data — OceanVal</title>
-<meta name="description" content="File formats OceanVal expects for simulation output, gridded observations, and in-situ observations.">
+<title>Quickstart — OceanVal</title>
+<meta name="description" content="The shortest path from a model output directory to an HTML validation report: three function calls.">
 <link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,7 +18,7 @@
   <div class="container nav">
     <a class="brand" href="index.html">
       <img src="assets/img/oceanval_wordmark.svg" alt="OceanVal">
-      <span id="oceanval-docs-version" class="brand-version">v&hellip;</span>
+      <span class="brand-version">v0.5.4 (archived)</span>
     </a>
     <nav class="nav-links" id="nav-links">
       <a href="installing.html" data-page="installing.html">Install</a>
@@ -27,7 +28,6 @@
       <a href="obs-data.html" data-page="obs-data.html">Data formats</a>
       <a href="qa.html" data-page="qa.html">Q&amp;A</a>
       <a href="api.html" data-page="api.html">API</a>
-      <a href="version-history.html" data-page="version-history.html">Version history</a>
       <a href="about.html" data-page="about.html">About</a>
     </nav>
     <div class="nav-actions">
@@ -43,8 +43,8 @@
 
 <div class="page-hero">
   <div class="container">
-    <div class="breadcrumb"><a href="index.html">Home</a> / Data formats</div>
-    <h1>Compatible data</h1>
+    <div class="breadcrumb"><a href="index.html">Home</a> / Quickstart</div>
+    <h1>Quickstart</h1>
   </div>
 </div>
 
@@ -52,63 +52,85 @@
   <aside class="docs-toc">
     <div class="docs-toc-title">On this page</div>
     <ul>
-      <li><a href="#sim">Simulation output</a></li>
-      <li><a href="#gridded">Gridded observational data</a></li>
-      <li><a href="#insitu">In-situ observational data</a></li>
+      <li><a href="#register">Step 1: Register</a></li>
+      <li><a href="#match">Step 2: Matchup</a></li>
+      <li><a href="#report">Step 3: Build the validation report</a></li>
+      <li><a href="#next">Next steps</a></li>
+      <li><a href="#trouble">Troubleshooting</a></li>
     </ul>
   </aside>
 
   <div class="docs-content">
-    <h2 id="sim">Simulation output</h2>
-    <p>OceanVal validates ocean model output in NetCDF format. Files should be CF-compliant as far as possible — most ocean model output already is, so there should be no compatibility issues.</p>
-    <div class="two-col">
-      <div class="info-card">
-        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>Unstructured grids</h3>
-        <p>Not compatible out-of-the-box. If unstructured output can be regridded to a regular grid and saved as CF-compliant NetCDF, OceanVal can use it. FVCOM output is supported via <a href="api.html#fvcom_preprocess"><code>oceanval.fvcom_preprocess</code></a>.</p>
-      </div>
-      <div class="info-card">
-        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Vertical grids</h3>
-        <p>Both z-level files and files with a varying vertical grid are supported, provided cell thickness is stored in the simulation output.</p>
-      </div>
-      <div class="info-card">
-        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>Folder structure</h3>
-        <p>Files need a consistent, logical naming convention, e.g. <code>YYYY/MM/model_output_YYYYMMDD.nc</code>. OceanVal automatically identifies the naming convention and matches the right files.</p>
-      </div>
-      <div class="info-card">
-        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Time requirements</h3>
-        <p>At least a single year of model output is required. Time resolution can be daily or monthly.</p>
-      </div>
-    </div>
+    <p>Validating ecosystem models with OceanVal is a three step process. First you register the model-observation mappings you want to validate against. Next, you matchup your model output with those observations. Finally, you build the validation report, which computes statistics and generates the HTML report you can view in your browser.</p>
 
-    <h2 id="gridded">Gridded observational data</h2>
-    <p>Gridded observations (e.g. satellite data) should also be in NetCDF format — in a single file or multiple files, which OceanVal will merge. Files must be CF-compliant, which gridded observational products almost always are.</p>
-    <p>Vertically-resolved files are supported, with depth as a dimension and a consistent vertical grid — the norm for gridded data products.</p>
-    <div class="callout">
-      <div class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>Key OceanVal assumption</div>
-      <p>If you supply a gridded file with only one timestep, OceanVal assumes it represents a climatological annual average.</p>
-    </div>
-    <p><strong>Time requirements:</strong> ideally observational files contain time information — its absence can make it impossible to figure out how to handle the data, and may raise an error.</p>
+    <h2 id="register">Step 1: Register the model-observation mappings</h2>
+    <p>Work from a fresh, empty directory: OceanVal writes its matchup files and report there. Register the observations you need:</p>
+    <div class="code-block">
+      <div class="code-card__bar">
+        <div class="code-card__dots"><span></span><span></span><span></span></div>
+        <span class="code-card__label">python</span>
+        <button class="code-card__copy" data-copy-target="#qs-code-1">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          <span class="copy-label">Copy</span>
+        </button>
+      </div>
+      <pre id="qs-code-1"><span class="tok-kw">import</span> oceanval
 
-    <h2 id="insitu">In-situ observational data</h2>
-    <p>In-situ observations (e.g. from research cruises or moorings) should be in CSV format. Supplying anything other than the columns below will raise an error, and OceanVal checks that required columns are present.</p>
-    <div class="data-columns">
-      <div class="col required">
-        <strong>Required columns</strong>
-        <ul>
-          <li><code>lon</code> — longitude, decimal degrees</li>
-          <li><code>lat</code> — latitude, decimal degrees</li>
-          <li><code>observation</code> — the observed value, ideally in the same units as the model output</li>
-        </ul>
-      </div>
-      <div class="col">
-        <strong>Optional columns</strong>
-        <ul>
-          <li><code>depth</code> — depth in metres. Required for subsurface validation; if supplied for surface-only validation, only the top 5 m is used</li>
-          <li><code>year</code>, <code>month</code>, <code>day</code> — as much or as little time information as you have</li>
-          <li><code>source</code> — a label for the data's provenance, e.g. a cruise or platform ID</li>
-        </ul>
-      </div>
+<span class="tok-com"># 1. Register: compare the model variable "thetao" with WOA23 temperature</span>
+oceanval.<a href="api.html#add_gridded_comparison"><span class="tok-fn">add_gridded_comparison</span></a>(
+    name=<span class="tok-str">"temperature"</span>,
+    model_variable=<span class="tok-str">"thetao"</span>,
+    recipe={<span class="tok-str">"temperature"</span>: <span class="tok-str">"woa23"</span>},
+    start=<span class="tok-num">2005</span>,
+    end=<span class="tok-num">2014</span>,
+    climatology=<span class="tok-kw">True</span>,
+)</pre>
     </div>
+    <p>Replace <code>thetao</code> with the temperature variable name used in your model's NetCDF files.</p>
+    <p>To use other variables or your own observation files, see <a href="recipes.html">Recipes</a> and <a href="how-to-use.html">How to use OceanVal</a>.</p>
+
+    <h2 id="match">Step 2: Matchup model and observations</h2>
+    <p>Once your datasets are registered, pair the model output against them with <a href="api.html#matchup"><code>matchup</code></a>:</p>
+    <div class="code-block">
+      <div class="code-card__bar">
+        <div class="code-card__dots"><span></span><span></span><span></span></div>
+        <span class="code-card__label">python</span>
+        <button class="code-card__copy" data-copy-target="#qs-code-2">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          <span class="copy-label">Copy</span>
+        </button>
+      </div>
+      <pre id="qs-code-2"><span class="tok-com"># 2. Match: pair model output with the observations</span>
+oceanval.<a href="api.html#matchup"><span class="tok-fn">matchup</span></a>(
+    sim_dir=<span class="tok-str">"/path/to/model/output"</span>,
+    start=<span class="tok-num">2005</span>,
+    end=<span class="tok-num">2014</span>,
+    cores=<span class="tok-num">4</span>,
+)</pre>
+    </div>
+    <p>OceanVal will scan <code>sim_dir</code>, report the file pattern it has identified, and ask you to confirm before matching. The matched data is written to an <code>oceanval_matchups</code> directory.</p>
+
+    <h2 id="report">Step 3: Build the validation report</h2>
+    <p>Run validation from the same directory:</p>
+    <div class="code-block">
+      <div class="code-card__bar">
+        <div class="code-card__dots"><span></span><span></span><span></span></div>
+        <span class="code-card__label">python</span>
+      </div>
+      <pre><span class="tok-com"># 3. Report: compute statistics and build the HTML report</span>
+oceanval.<a href="api.html#validate"><span class="tok-fn">validate</span></a>()</pre>
+    </div>
+    <p>The report is written below <code>oceanval_report</code> and opens in your browser when the build completes. It includes climatology maps, bias maps, seasonality analysis, spatial correlation tables, and full documentation of the methods used.</p>
+
+    <h2 id="next">Next steps</h2>
+    <ul>
+      <li>Add more variables: each <a href="recipes.html">recipe</a> is one extra <a href="api.html#add_gridded_comparison"><code>add_gridded_comparison</code></a> call.</li>
+      <li>Validate against your own gridded or in-situ data: see <a href="how-to-use.html">How to use OceanVal</a>.</li>
+      <li>Compare several simulations side by side with <a href="api.html#compare"><code>oceanval.compare()</code></a>.</li>
+    </ul>
+
+    <h2 id="trouble">Troubleshooting</h2>
+    <p>If no matchups are produced, check the model directory structure, variable names, time resolution, units, and climatology setting. The most common issue with monthly model output and in-situ observations is using daily matching precision; see the time resolution guidance in <a href="how-to-use.html">How to use OceanVal</a>, or browse the <a href="qa.html">Q&amp;A</a>.</p>
   </div>
 </div>
 
@@ -151,7 +173,6 @@
       <h4>Project</h4>
       <ul>
         <li><a href="about.html">About &amp; contact</a></li>
-        <li><a href="version-history.html">Version history</a></li>
         <li><a href="https://github.com/pmlmodelling/oceanVal" target="_blank" rel="noopener">GitHub repository</a></li>
         <li><a href="https://github.com/pmlmodelling/oceanVal/issues" target="_blank" rel="noopener">Report an issue</a></li>
         <li><a href="https://anaconda.org/conda-forge/oceanval" target="_blank" rel="noopener">conda-forge package</a></li>

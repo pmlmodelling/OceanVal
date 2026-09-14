@@ -999,34 +999,6 @@ tbody tr.hidden-row { display: none; }
 .info-card h3 { display: flex; align-items: center; gap: .6em; }
 .info-card h3 svg { width: 20px; height: 20px; color: var(--teal-600); }
 
-.version-history-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  background: #fff;
-}
-.version-history-list li { border-bottom: 1px solid var(--line); }
-.version-history-list li:last-child { border-bottom: none; }
-.version-history-list a {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 20px;
-  font-family: var(--font-mono);
-  font-weight: 600;
-  color: var(--ink);
-}
-.version-history-list a:hover { background: var(--bg-alt); color: var(--teal-700); }
-.version-history-list a::after {
-  content: "→";
-  font-family: var(--font-body);
-  font-weight: 400;
-  color: var(--muted-light);
-}
-
 /* ---------------------------- responsive ---------------------------- */
 
 @media (max-width: 980px) {

@@ -15,11 +15,18 @@ obs-data.html            /
 qa.html                 /
 api.html               /
 about.html          /
+version-history.html   Links to archive/vX.Y.Z/ snapshots - see "Archived
+                        versions" below
 assets/
   css/style.css      Design system (design tokens, components)
   js/main.js         Nav, copy-to-clipboard, FAQ accordion, recipe filters, scrollspy
   img/               Logo (from oceanval/data/oceanval_wordmark.svg), PML logo, favicon
+archive/             Per-release snapshots of the ten pages above (minus
+                      version-history.html itself) + assets/, written by
+                      .github/workflows/docs-archive.yml. Don't hand-edit it.
 example-report/       Sample validate() output, linked from a few pages.
+                      Deliberately excluded from archive/ snapshots (it's
+                      large and not version-specific).
 ```
 
 ## Previewing locally
@@ -60,8 +67,40 @@ on page load and fills in the placeholder `v&hellip;` with the current
 version. Don't hardcode a version number here — it needs that literal
 placeholder text to find and replace.
 
-There's only one version of the site published — this is a plain "what's the
-latest release" indicator, not a version switcher.
+This is a plain "what's the latest release" indicator, not a version
+switcher — only one version of the site is served at the root. (An earlier
+version of this site tried a header dropdown that switched the whole site
+between versions with a redirect-to-stable-by-default scheme; it didn't work
+reliably and was reverted. Don't rebuild that without being asked - see
+"Archived versions" below for the version-history page instead.)
+
+## Archived versions
+
+`.github/workflows/docs-archive.yml` runs whenever a GitHub Release is
+created. It reads the version from `setup.py` (the source of truth - not the
+release's tag name, not PyPI, since PyPI's publish can race this workflow),
+copies this directory's pages plus `assets/` into `archive/vX.Y.Z/`
+(excluding `version-history.html` itself, and rewriting its and
+`example-report/`'s links to point back at the live, shared copies two
+levels up), and freezes the header badge in the snapshot to a plain
+"vX.Y.Z (archived)" span - it must never update again, unlike the live
+badge. It then updates `archive/versions.json` (newest first) and rewrites
+the list between the `<!-- OCEANVAL_VERSION_HISTORY_START -->` /
+`<!-- OCEANVAL_VERSION_HISTORY_END -->` markers in `version-history.html` to
+match. Finally it commits and pushes that to `main` and explicitly dispatches
+`pages.yml` (a `GITHUB_TOKEN` push doesn't trigger other workflows on its
+own, so this can't just rely on the normal push trigger).
+
+Existing snapshots are never touched by a later release - only a brand new
+`archive/vX.Y.Z/` directory gets created each time. If that directory already
+exists (e.g. the workflow re-ran for some reason), it's left alone rather
+than overwritten.
+
+`version-history.html` itself is a normal hand-authored page (same header,
+nav, and footer as the rest of the site — keep it in sync with the other
+nine if you change shared markup) with one auto-generated `<ul>` in the
+middle. Don't hand-edit between its markers; everything else on the page is
+yours to edit like any other.
 
 ## Updating content
 
@@ -70,4 +109,4 @@ Page content is authored by hand to match the current oceanVal docs
 so if the underlying package docs change, update the corresponding `.html`
 file(s) directly. Shared header/nav/footer markup is duplicated across pages
 (no static-site generator), so a nav or footer change should be applied to
-all nine `.html` files.
+all ten `.html` files (nine content pages plus `version-history.html`).

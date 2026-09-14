@@ -17,9 +17,10 @@ updating to match, and update whichever do:
    `https://pmlmodelling.github.io/OceanVal/` via
    `.github/workflows/pages.yml`. Plain static HTML, no build step, no
    templating engine — shared header/nav/footer markup is duplicated across
-   all nine `.html` files, so a structural change (not just page-specific
-   content) needs to be applied to all of them. See `docs-site/README.md`
-   for the page-by-page structure and how to preview locally.
+   all ten `.html` files (nine content pages plus `version-history.html`),
+   so a structural change (not just page-specific content) needs to be
+   applied to all of them. See `docs-site/README.md` for the page-by-page
+   structure and how to preview locally.
 2. **`docs/source/*.rst`** — the Sphinx/Read the Docs source. `docs-site/`'s
    pages were originally redesigned from these `.rst` files and mirror them
    roughly 1:1 (`api.rst`↔`api.html`, `how_to_use.rst`↔`how-to-use.html`,
@@ -37,11 +38,22 @@ updating to match, and update whichever do:
 Don't hand-edit the "vX.Y.Z" badge next to the logo in each page's header
 (`#oceanval-docs-version`) — it needs no manual update, ever.
 `docs-site/assets/js/main.js` fetches `https://pypi.org/pypi/oceanval/json`
-client-side on page load and fills it in. There is deliberately only one
-version of this site published (no archive, no version switcher) — see
-`docs-site/README.md`'s "Version badge" section. A version-selector /
-per-release-archive system was built and then deliberately reverted here
-(too complex, didn't work reliably) — don't rebuild it without being asked.
+client-side on page load and fills it in. This badge is a plain "what's
+current" indicator, not a version switcher — see `docs-site/README.md`'s
+"Version badge" section. (A header dropdown that switched the *whole site*
+between versions, plus a synchronous redirect-to-stable-by-default script,
+was built and then deliberately reverted — it didn't work reliably. Don't
+rebuild that specific design without being asked.)
+
+Don't hand-create or hand-edit anything under `docs-site/archive/`, or the
+`<!-- OCEANVAL_VERSION_HISTORY_START -->`/`_END` block inside
+`version-history.html` — `.github/workflows/docs-archive.yml` maintains
+both automatically on every GitHub Release (snapshotting the site's pages,
+excluding `version-history.html` itself and `example-report/`, under
+`archive/vX.Y.Z/`, keyed off the version in `setup.py`, then updating the
+version-history list to match). See `docs-site/README.md`'s "Archived
+versions" section. The rest of `version-history.html` (header, nav, footer,
+intro copy) is a normal hand-authored page like the other nine.
 
 Once you're done, show me a summary of what you changed and why before
 committing. Commit only the files that actually needed to change, write a
