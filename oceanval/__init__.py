@@ -202,7 +202,7 @@ def _offline_report_navigation(
     wordmark_block = ""
     if wordmark_path:
         wordmark_block = (
-            '<a href="https://oceanval.readthedocs.io/" class="oceanval-wordmark-link" '
+            '<a href="https://pmlmodelling.github.io/OceanVal/" class="oceanval-wordmark-link" '
             'target="_blank" rel="noopener">'
             '<span class="oceanval-wordmark-label">Produced by</span>'
             f'<img class="oceanval-wordmark" src="{wordmark_path}" alt="oceanval">'
