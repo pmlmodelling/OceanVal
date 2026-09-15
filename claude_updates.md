@@ -48,12 +48,18 @@ rebuild that specific design without being asked.)
 Don't hand-create or hand-edit anything under `docs-site/archive/`, or the
 `<!-- OCEANVAL_VERSION_HISTORY_START -->`/`_END` block inside
 `version-history.html` — `.github/workflows/docs-archive.yml` maintains
-both automatically on every GitHub Release (snapshotting the site's pages,
-excluding `version-history.html` itself and `example-report/`, under
-`archive/vX.Y.Z/`, keyed off the version in `setup.py`, then updating the
-version-history list to match). See `docs-site/README.md`'s "Archived
-versions" section. The rest of `version-history.html` (header, nav, footer,
-intro copy) is a normal hand-authored page like the other nine.
+both automatically on every GitHub Release. It only archives `index.html`
+and `api.html` (not the other seven pages — they're not meaningfully
+version-specific, and archiving nine pages a release doesn't scale), with
+their nav simplified to a single "Version history" link and any link to an
+un-archived page rewritten to point at the live copy, under
+`archive/vX.Y.Z/`, keyed off the version in `setup.py`. It then updates the
+version-history list to match, linking each entry straight to its archived
+`api.html`. See `docs-site/README.md`'s "Archived versions" section. The
+rest of `version-history.html` (header, nav, footer) is a normal
+hand-authored page like the other nine, though its intro copy now
+specifically references the API archive, not a general docs archive — keep
+that in mind if this scope changes again.
 
 Once you're done, show me a summary of what you changed and why before
 committing. Commit only the files that actually needed to change, write a

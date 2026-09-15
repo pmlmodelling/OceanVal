@@ -21,9 +21,10 @@ assets/
   css/style.css      Design system (design tokens, components)
   js/main.js         Nav, copy-to-clipboard, FAQ accordion, recipe filters, scrollspy
   img/               Logo (from oceanval/data/oceanval_wordmark.svg), PML logo, favicon
-archive/             Per-release snapshots of the ten pages above (minus
-                      version-history.html itself) + assets/, written by
-                      .github/workflows/docs-archive.yml. Don't hand-edit it.
+archive/             Per-release snapshots of just index.html + api.html
+                      (nav simplified to a single Version history link) +
+                      assets/, written by .github/workflows/docs-archive.yml.
+                      Don't hand-edit it.
 example-report/       Sample validate() output, linked from a few pages.
                       Deliberately excluded from archive/ snapshots (it's
                       large and not version-specific).
@@ -79,15 +80,23 @@ reliably and was reverted. Don't rebuild that without being asked - see
 `.github/workflows/docs-archive.yml` runs whenever a GitHub Release is
 created. It reads the version from `setup.py` (the source of truth - not the
 release's tag name, not PyPI, since PyPI's publish can race this workflow),
-copies this directory's pages plus `assets/` into `archive/vX.Y.Z/`
-(excluding `version-history.html` itself, and rewriting its and
-`example-report/`'s links to point back at the live, shared copies two
-levels up), and freezes the header badge in the snapshot to a plain
-"vX.Y.Z (archived)" span - it must never update again, unlike the live
-badge. It then updates `archive/versions.json` (newest first) and rewrites
-the list between the `<!-- OCEANVAL_VERSION_HISTORY_START -->` /
-`<!-- OCEANVAL_VERSION_HISTORY_END -->` markers in `version-history.html` to
-match. Finally it commits and pushes that to `main` and explicitly dispatches
+and copies only `index.html`, `api.html`, and `assets/` into
+`archive/vX.Y.Z/` — the other seven pages (`installing.html`,
+`quickstart.html`, `how-to-use.html`, `recipes.html`, `obs-data.html`,
+`qa.html`, `about.html`) aren't meaningfully version-specific, and archiving
+all nine pages of every release indefinitely doesn't scale. Within the
+snapshot, the nav on both pages is simplified down to a single "Version
+history" link, and any link to one of the seven un-archived pages (plus
+`example-report/` and `version-history.html`, neither of which is
+version-specific either) is rewritten to point at the live copy instead of
+404ing inside the snapshot. It also freezes the header badge in the
+snapshot to a plain "vX.Y.Z (archived)" span - it must never update again,
+unlike the live badge. It then updates `archive/versions.json` (newest
+first) and rewrites the list between the
+`<!-- OCEANVAL_VERSION_HISTORY_START -->` / `<!-- OCEANVAL_VERSION_HISTORY_END -->`
+markers in `version-history.html` to match, linking each version straight
+to its archived `api.html` (the only substantive content in the snapshot).
+Finally it commits and pushes that to `main` and explicitly dispatches
 `pages.yml` (a `GITHUB_TOKEN` push doesn't trigger other workflows on its
 own, so this can't just rely on the normal push trigger).
 
