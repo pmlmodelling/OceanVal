@@ -62,6 +62,7 @@ def test_build_book_uses_offline_html_for_jupyter_book_2():
         "report/_build/html",
         ["report/notebooks/example.ipynb", "report/notebooks/summary.ipynb"],
         validation_links=None,
+        pdf=False,
     )
     remove_diagnostics.assert_called_once_with(
         ["report/notebooks/example.ipynb", "report/notebooks/summary.ipynb"]
@@ -216,6 +217,7 @@ def test_offline_report_pages_group_navigation_and_hide_code(tmp_path):
             str(source_notebook_dir / "002_summary.ipynb"),
             str(source_notebook_dir / "003_foo_temperature.ipynb"),
         ],
+        pdf=True,
     )
 
     # there is no index.html: reports land straight on a notebook page
@@ -232,6 +234,33 @@ def test_offline_report_pages_group_navigation_and_hide_code(tmp_path):
     assert ".oceanval-sidebar{position:fixed!important" in report_page
     assert "sessionStorage" in report_page
     assert report_page.index('class="oceanval-nav-sections"') < report_page.index('class="oceanval-viewpdf-btn"')
+
+
+def test_offline_report_pages_pdf_off_by_default(tmp_path):
+    output_dir = tmp_path / "_build" / "html"
+    notebook_dir = output_dir / "notebooks"
+    notebook_dir.mkdir(parents=True)
+    source_notebook_dir = tmp_path / "notebooks"
+    source_notebook_dir.mkdir()
+
+    page = notebook_dir / "001_methods.html"
+    page.write_text(
+        '<html><head></head><body class="jp-Notebook"><main>Report</main></body></html>'
+    )
+    notebook = nbformat.v4.new_notebook(
+        cells=[nbformat.v4.new_markdown_cell("# Validation metrics summary")]
+    )
+    notebook_path = source_notebook_dir / "001_methods.ipynb"
+    nbformat.write(notebook, notebook_path)
+
+    oceanval._write_offline_report_pages(str(output_dir), [str(notebook_path)])
+
+    report_page = page.read_text()
+    # the CSS rules for these classes are always embedded in the stylesheet;
+    # what must be absent is the actual element using them
+    assert 'class="oceanval-viewpdf-btn"' not in report_page
+    assert 'class="oceanval-download-btn"' not in report_page
+    assert list(output_dir.rglob("*.pdf")) == []
 
 
 def test_pdf_latex_is_embedded_as_svg():

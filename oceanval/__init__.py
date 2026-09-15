@@ -49,7 +49,7 @@ def _jupyter_book_major_version():
         return 1
 
 
-def _build_book(book_dir, validation_links=None):
+def _build_book(book_dir, validation_links=None, pdf=False):
     if _jupyter_book_major_version() >= 2:
         notebooks = glob.glob(os.path.join(book_dir, "notebooks", "*.ipynb"))
         notebooks.sort(
@@ -91,7 +91,7 @@ def _build_book(book_dir, validation_links=None):
         shutil.copyfile(
             os.path.join(book_dir, "oceanval_wordmark.svg"), os.path.join(output_dir, "oceanval_wordmark.svg")
         )
-        _write_offline_report_pages(output_dir, notebooks, validation_links=validation_links)
+        _write_offline_report_pages(output_dir, notebooks, validation_links=validation_links, pdf=pdf)
     else:
         subprocess.run(["jupyter-book", "build", book_dir], check=True)
 
@@ -209,10 +209,15 @@ def _offline_report_navigation(
             '</a>'
         )
 
+    pdf_button = (
+        f'<a href="{pdf_href}" class="oceanval-viewpdf-btn">View all as pdf</a>'
+        if pdf_href else ""
+    )
+
     return (
         "<aside class=\"oceanval-sidebar\">"
         f"<div class=\"oceanval-nav-sections\">{''.join(sections)}</div>"
-        f'<a href="{pdf_href}" class="oceanval-viewpdf-btn">View all as pdf</a>'
+        f"{pdf_button}"
         f"{validation_block}"
         "</aside>"
         f"{wordmark_block}"
@@ -376,16 +381,16 @@ def _render_offline_report_pdfs(pages):
             )
 
 
-def _write_offline_report_pages(output_dir, notebooks, validation_links=None):
+def _write_offline_report_pages(output_dir, notebooks, validation_links=None, pdf=False):
     validation_links = validation_links or []
     page_validation_links = [
         (label, os.path.relpath(target, os.path.join(output_dir, "notebooks")))
         for label, target in validation_links
     ]
     style = _offline_report_style()
-    pdf_style = _offline_report_pdf_style()
+    pdf_style = _offline_report_pdf_style() if pdf else None
     page_navigation = _offline_report_navigation(
-        output_dir, notebooks, "../oceanval_report.pdf",
+        output_dir, notebooks, "../oceanval_report.pdf" if pdf else None,
         validation_links=page_validation_links, wordmark_path="../oceanval_wordmark.svg",
     )
 
@@ -398,29 +403,32 @@ def _write_offline_report_pages(output_dir, notebooks, validation_links=None):
         with open(page, "r") as report_page:
             raw_html = report_page.read()
 
-        title_match = re.search(r"<title>(.*?)</title>", raw_html, re.S)
-        title = title_match.group(1).strip() if title_match else stem
-        body_match = re.search(r"<body[^>]*>(.*)</body>", raw_html, re.S)
-        body_content = body_match.group(1) if body_match else raw_html
-        # strip heading anchor links (e.g. the clickable "¶") from the PDF export
-        body_content = re.sub(
-            r'<a[^>]*class="[^"]*(?:headerlink|anchor-link)[^"]*"[^>]*>.*?</a>',
-            "",
-            body_content,
-            flags=re.S,
-        )
-        body_content = _render_latex_for_pdf(body_content)
-        notebook_bodies[notebook] = body_content
-        pdf_source = (
-            f"<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
-            f"<title>{html.escape(title)}</title>{pdf_style}</head><body>{body_content}</body></html>"
-        )
-        pdf_path = os.path.join(output_dir, "notebooks", f"{stem}.pdf")
-        pdf_jobs.append((pdf_source, pdf_path, os.path.dirname(page)))
+        download_link = ""
+        if pdf:
+            title_match = re.search(r"<title>(.*?)</title>", raw_html, re.S)
+            title = title_match.group(1).strip() if title_match else stem
+            body_match = re.search(r"<body[^>]*>(.*)</body>", raw_html, re.S)
+            body_content = body_match.group(1) if body_match else raw_html
+            # strip heading anchor links (e.g. the clickable "¶") from the PDF export
+            body_content = re.sub(
+                r'<a[^>]*class="[^"]*(?:headerlink|anchor-link)[^"]*"[^>]*>.*?</a>',
+                "",
+                body_content,
+                flags=re.S,
+            )
+            body_content = _render_latex_for_pdf(body_content)
+            notebook_bodies[notebook] = body_content
+            pdf_source = (
+                f"<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+                f"<title>{html.escape(title)}</title>{pdf_style}</head><body>{body_content}</body></html>"
+            )
+            pdf_path = os.path.join(output_dir, "notebooks", f"{stem}.pdf")
+            pdf_jobs.append((pdf_source, pdf_path, os.path.dirname(page)))
 
-        download_link = (
-            f'<a class="oceanval-download-btn" href="{stem}.pdf" download>View page as pdf</a>'
-        )
+            download_link = (
+                f'<a class="oceanval-download-btn" href="{stem}.pdf" download>View page as pdf</a>'
+            )
+
         page_html = re.sub(
             r"(<body[^>]*>)",
             lambda match: f"{match.group(1)}{page_navigation}{download_link}",
@@ -432,14 +440,15 @@ def _write_offline_report_pages(output_dir, notebooks, validation_links=None):
         )
         page_updates.append((page, page_html))
 
-    if notebook_bodies:
+    if pdf and notebook_bodies:
         combined_source = _combined_report_pdf_source(
             output_dir, notebooks, notebook_bodies, pdf_style
         )
         combined_path = os.path.join(output_dir, "oceanval_report.pdf")
         pdf_jobs.append((combined_source, combined_path, output_dir))
 
-    _render_offline_report_pdfs(pdf_jobs)
+    if pdf:
+        _render_offline_report_pdfs(pdf_jobs)
 
     for page, page_html in page_updates:
         with open(page, "w") as report_page:
@@ -566,6 +575,7 @@ def validate(
     region=None,
     data_dir=".",
     out_dir=".",
+    pdf=False,
     test=False
 ):
     # docstring
@@ -582,6 +592,8 @@ def validate(
         Whether to use a fixed scale for the seasonal plots. Default is False. If True, the minimum and maximum values are capped to cover the 2nd and 98th percentiles of both model and observations.
     region : str or None
         The region being validated. Must be either "nwes" (northwest European Shelf) or "global". Default is None.
+    pdf : bool
+        Whether to also generate PDF downloads of the report (a per-page PDF and a combined PDF of the whole report). Default is False, since generating them is slow and most users only need the HTML report.
     test : bool
         Default is False. Ignore, unless you are testing oceanval.
 
@@ -1018,7 +1030,7 @@ def validate(
         f"{book_dir}/oceanval_wordmark.svg",
     )
 
-    _build_book(book_dir)
+    _build_book(book_dir, pdf=pdf)
 
     stamps = [
         os.path.basename(x) for x in glob.glob(f"{book_dir}/notebooks/.trackers/*")
@@ -1049,7 +1061,7 @@ def validate(
         webbrowser.open("file://" + os.path.abspath(out_ff))
 
 
-def rebuild(data_dir="."):
+def rebuild(data_dir=".", pdf=False):
     """
     Rebuild the validation report after modifying notebooks.
     Use this if you have modified the notebooks generated and want to create a new validation report.
@@ -1058,6 +1070,8 @@ def rebuild(data_dir="."):
     ----------
     data_dir : str
         The directory where the oceanval_report directory is located. Default is current directory.
+    pdf : bool
+        Whether to also generate PDF downloads of the report. Default is False.
     """
     # check data_dir exists
     if not os.path.exists(data_dir):
@@ -1066,13 +1080,13 @@ def rebuild(data_dir="."):
     data_dir = os.path.expanduser(data_dir)
     data_dir = os.path.abspath(data_dir)
 
-    _build_book(f"{data_dir}/oceanval_report")
+    _build_book(f"{data_dir}/oceanval_report", pdf=pdf)
 
     out_ff = _summary_report_page(f"{data_dir}/oceanval_report/_build/html")
     webbrowser.open("file://" + os.path.abspath(out_ff))
 
 
-def compare(model_dict=None, view=True, ask=True):
+def compare(model_dict=None, view=True, ask=True, pdf=False):
     """
     Compare pre-validated simulations.
     This function will compare the validation output from multiple simulations.
@@ -1085,6 +1099,8 @@ def compare(model_dict=None, view=True, ask=True):
         Open the comparison report in a web browser after it is generated.
     ask : bool
         If the comparison directory already exists, ask before replacing it.
+    pdf : bool
+        Whether to also generate PDF downloads of the report. Default is False.
     """
     if model_dict is None:
         raise AttributeError("model_dict must be provided")
@@ -1203,7 +1219,7 @@ def compare(model_dict=None, view=True, ask=True):
             )
         except FileNotFoundError:
             pass
-    _build_book("oceanval_comparison/compare", validation_links=validation_links)
+    _build_book("oceanval_comparison/compare", validation_links=validation_links, pdf=pdf)
 
     if view:
         first_notebook_html = os.path.splitext(comparison_notebooks[0])[0] + ".html"
