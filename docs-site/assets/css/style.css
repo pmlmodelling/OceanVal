@@ -999,6 +999,61 @@ tbody tr.hidden-row { display: none; }
 .info-card h3 { display: flex; align-items: center; gap: .6em; }
 .info-card h3 svg { width: 20px; height: 20px; color: var(--teal-600); }
 
+/* ------------------- clickable script card ------------------- */
+
+.script-card {
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+  padding: 1.25rem 1.4rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--bg-alt);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+.script-card:hover {
+  border-color: var(--teal-400);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+.script-card__icon {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-sm);
+  display: grid;
+  place-items: center;
+  background: var(--teal-100);
+  color: var(--teal-600);
+}
+.script-card__icon svg { width: 22px; height: 22px; }
+.script-card__body { flex: 1 1 auto; min-width: 0; }
+.script-card__title {
+  display: block;
+  font-family: var(--font-head);
+  font-weight: 600;
+  color: var(--ink);
+}
+.script-card__sub {
+  display: block;
+  font-size: .92rem;
+  color: var(--muted);
+  margin-top: .2rem;
+}
+.script-card__arrow {
+  flex: 0 0 auto;
+  color: var(--teal-600);
+  transition: transform .15s ease;
+}
+.script-card:hover .script-card__arrow { transform: translateX(4px); }
+
+@media (max-width: 540px) {
+  .script-card { align-items: flex-start; }
+  .script-card__arrow { display: none; }
+}
+
 .version-history-list {
   list-style: none;
   margin: 0;
