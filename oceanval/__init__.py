@@ -165,19 +165,16 @@ def _offline_report_title(notebook_path):
 
 
 def _zip_offline_report(build_html_dir, zip_path):
-    """Zip up a built offline report (the HTML pages, wordmark, and any PDFs)
-    into a single self-contained archive, so the report can be copied
+    """Zip up a built offline report (the HTML pages, wordmark, and any PDFs -
+    all of which live together in build_html_dir/notebooks) into a single
+    self-contained archive with no subfolders, so the report can be copied
     elsewhere and viewed by just extracting and opening it."""
     if os.path.exists(zip_path):
         os.remove(zip_path)
+    pages_dir = os.path.join(build_html_dir, "notebooks")
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-        for root, _, files in os.walk(build_html_dir):
-            for name in files:
-                path = os.path.join(root, name)
-                arcname = os.path.join(
-                    "oceanval_report", os.path.relpath(path, build_html_dir)
-                )
-                zf.write(path, arcname)
+        for name in sorted(os.listdir(pages_dir)):
+            zf.write(os.path.join(pages_dir, name), os.path.join("oceanval_report", name))
 
 
 def _summary_report_page(build_html_dir):
@@ -411,7 +408,7 @@ def _write_offline_report_pages(output_dir, notebooks, validation_links=None, pd
     style = _offline_report_style()
     pdf_style = _offline_report_pdf_style() if pdf else None
     page_navigation = _offline_report_navigation(
-        output_dir, notebooks, "../oceanval_report.pdf" if pdf else None,
+        output_dir, notebooks, "oceanval_report.pdf" if pdf else None,
         validation_links=page_validation_links, wordmark_path="oceanval_wordmark.svg",
     )
 
@@ -465,8 +462,8 @@ def _write_offline_report_pages(output_dir, notebooks, validation_links=None, pd
         combined_source = _combined_report_pdf_source(
             output_dir, notebooks, notebook_bodies, pdf_style
         )
-        combined_path = os.path.join(output_dir, "oceanval_report.pdf")
-        pdf_jobs.append((combined_source, combined_path, output_dir))
+        combined_path = os.path.join(output_dir, "notebooks", "oceanval_report.pdf")
+        pdf_jobs.append((combined_source, combined_path, os.path.join(output_dir, "notebooks")))
 
     if pdf:
         _render_offline_report_pdfs(pdf_jobs)
