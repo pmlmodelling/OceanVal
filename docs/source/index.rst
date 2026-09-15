@@ -1,6 +1,12 @@
 OceanVal: automated ocean model validation
 ===========================================
 
+.. important::
+
+   **This documentation is archived.** OceanVal's documentation has moved to
+   `pmlmodelling.github.io/OceanVal <https://pmlmodelling.github.io/OceanVal/>`_ —
+   please update your bookmarks. This Read the Docs site is no longer updated.
+
 **Point OceanVal at your model output. Get back a complete validation report.**
 
 OceanVal is a Python package that automates the slow and tedious parts of
