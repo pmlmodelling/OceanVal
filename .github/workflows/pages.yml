@@ -36,6 +36,28 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Version the shared stylesheet and script
+        # Pages serves assets with a 10-minute cache, and every page links
+        # them by the same fixed URL - so after a deploy that pairs new HTML
+        # with new CSS, returning visitors can get the new page drawn with the
+        # old stylesheet. Tagging each link with a hash of the file makes any
+        # change a new URL. Only the deployed copy is rewritten, never the
+        # repo, and archived snapshots are left alone: they carry their own
+        # frozen assets.
+        run: |
+          set -euo pipefail
+          for asset in css/style.css js/main.js; do
+            hash=$(sha256sum "docs-site/assets/$asset" | cut -c1-10)
+            find docs-site -name '*.html' -not -path 'docs-site/archive/*' -print0 \
+              | xargs -0 sed -i "s#assets/${asset}\"#assets/${asset}?v=${hash}\"#g"
+            stamped=$(grep -rl --include='*.html' "assets/${asset}?v=${hash}\"" docs-site | wc -l)
+            echo "assets/${asset} -> ?v=${hash} on ${stamped} pages"
+            # a renamed or moved asset would otherwise leave this silently doing nothing
+            if [ "$stamped" -eq 0 ]; then
+              echo "No pages link assets/${asset} - has it moved?" >&2
+              exit 1
+            fi
+          done
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact
