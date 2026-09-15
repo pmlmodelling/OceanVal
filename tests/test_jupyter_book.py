@@ -1,7 +1,10 @@
+import importlib.resources
 import re
 from unittest.mock import call, patch
 
 import nbformat
+import pytest
+
 import oceanval
 
 
@@ -64,6 +67,7 @@ def test_build_book_uses_offline_html_for_jupyter_book_2():
         ["report/notebooks/example.ipynb", "report/notebooks/summary.ipynb"],
         validation_links=None,
         pdf=False,
+        word=False,
     )
     remove_diagnostics.assert_called_once_with(
         ["report/notebooks/example.ipynb", "report/notebooks/summary.ipynb"]
@@ -262,6 +266,111 @@ def test_offline_report_pages_pdf_off_by_default(tmp_path):
     assert 'class="oceanval-viewpdf-btn"' not in report_page
     assert 'class="oceanval-download-btn"' not in report_page
     assert list(output_dir.rglob("*.pdf")) == []
+
+
+def test_offline_report_word_keeps_latex_for_pandoc(tmp_path):
+    output_dir = tmp_path / "_build" / "html"
+    notebook_dir = output_dir / "notebooks"
+    notebook_dir.mkdir(parents=True)
+    source_notebook_dir = tmp_path / "notebooks"
+    source_notebook_dir.mkdir()
+
+    (notebook_dir / "001_methods.html").write_text(
+        "<html><head><title>Validation metrics summary</title></head>"
+        '<body class="jp-Notebook"><main><p>a model $m$</p></main></body></html>'
+    )
+    notebook = nbformat.v4.new_notebook(
+        cells=[nbformat.v4.new_markdown_cell("# Validation metrics summary")]
+    )
+    notebook_path = source_notebook_dir / "001_methods.ipynb"
+    nbformat.write(notebook, notebook_path)
+
+    # the mocked pandoc writes no file, so there is nothing to format
+    with patch("oceanval.subprocess.run") as run, patch(
+        "oceanval._polish_word_report"
+    ):
+        oceanval._write_offline_report_pages(
+            str(output_dir), [str(notebook_path)], word=True
+        )
+
+    command = run.call_args.args[0]
+    assert command[0] == "pandoc"
+    assert "html+tex_math_dollars" in command
+    assert command[-1] == str(notebook_dir / "oceanval_report.docx")
+
+    # pandoc turns LaTeX into real Word equations, so unlike the PDF export
+    # the maths must reach it as LaTeX rather than as images
+    source = run.call_args.kwargs["input"].decode()
+    assert "$m$" in source
+    assert "data:image/svg+xml" not in source
+
+    # the report pages offer the Word file as a download
+    report_page = (notebook_dir / "001_methods.html").read_text()
+    assert (
+        '<a href="oceanval_report.docx" class="oceanval-word-btn" download>'
+        "Download as Word</a>"
+    ) in report_page
+
+
+def test_word_report_is_formatted(tmp_path):
+    docx = pytest.importorskip("docx")
+
+    document = docx.Document()
+    document.add_paragraph("Some prose")
+    document.add_paragraph().add_run().add_picture(
+        str(
+            importlib.resources.files("oceanval").joinpath(
+                "data/oceanval_wordmark.png"
+            )
+        ),
+        width=docx.shared.Mm(20),
+    )
+    document.add_table(rows=1, cols=2)
+    report = tmp_path / "oceanval_report.docx"
+    document.save(str(report))
+
+    oceanval._polish_word_report(str(report))
+
+    formatted = docx.Document(str(report))
+    prose, figure = formatted.paragraphs[0], formatted.paragraphs[1]
+    assert prose.alignment is None
+    assert figure.alignment == docx.enum.text.WD_ALIGN_PARAGRAPH.CENTER
+    assert (
+        formatted.tables[0].alignment == docx.enum.table.WD_TABLE_ALIGNMENT.CENTER
+    )
+
+    footer = formatted.sections[0].footer
+    footer_xml = footer._element.xml
+    assert "Produced by" in footer_xml
+    assert "PAGE" in footer_xml and "NUMPAGES" in footer_xml
+    assert "https://pmlmodelling.github.io/OceanVal/" in (
+        footer.part.rels[
+            next(r for r in footer.part.rels if footer.part.rels[r].is_external)
+        ].target_ref
+    )
+
+
+def test_offline_report_word_button_absent_by_default(tmp_path):
+    output_dir = tmp_path / "_build" / "html"
+    notebook_dir = output_dir / "notebooks"
+    notebook_dir.mkdir(parents=True)
+    source_notebook_dir = tmp_path / "notebooks"
+    source_notebook_dir.mkdir()
+
+    page = notebook_dir / "001_methods.html"
+    page.write_text(
+        '<html><head></head><body class="jp-Notebook"><main>Report</main></body></html>'
+    )
+    notebook = nbformat.v4.new_notebook(
+        cells=[nbformat.v4.new_markdown_cell("# Validation metrics summary")]
+    )
+    notebook_path = source_notebook_dir / "001_methods.ipynb"
+    nbformat.write(notebook, notebook_path)
+
+    oceanval._write_offline_report_pages(str(output_dir), [str(notebook_path)])
+
+    assert 'class="oceanval-word-btn"' not in page.read_text()
+    assert list(output_dir.rglob("*.docx")) == []
 
 
 def test_pdf_latex_is_embedded_as_svg():

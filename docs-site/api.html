@@ -166,7 +166,7 @@
     <span class="kicker">Reports and maintenance</span>
 
     <div class="api-card" id="validate">
-      <div class="api-card__head"><div class="sig">oceanval.validate(lon_lim=None, lat_lim=None, concise=True, fixed_scale=False, region=None, data_dir=".", out_dir=".", pdf=False, zip=False)</div></div>
+      <div class="api-card__head"><div class="sig">oceanval.validate(lon_lim=None, lat_lim=None, concise=True, fixed_scale=False, region=None, data_dir=".", out_dir=".", pdf=False, word=False, zip=False)</div></div>
       <div class="api-card__body">
         <p>Compute validation statistics from matched data and build the HTML report. Run from the same directory used for <code>matchup</code>.</p>
         <details class="param-details">
@@ -178,7 +178,8 @@
             <li><code class="param-name">fixed_scale</code><p>Whether to use a fixed colour scale for the seasonal plots, capping min/max to the 2nd/98th percentile. Default <code>False</code>.</p></li>
             <li><code class="param-name">data_dir</code> / <code class="param-name">out_dir</code><p>Where matchup data is read from / the report is written to. Default to the current directory.</p></li>
             <li><code class="param-name">pdf</code><p>Whether to also generate PDF downloads of the report (a per-page PDF and a combined PDF of the whole report). Default <code>False</code> — generating them is slow, and most users only need the HTML report.</p></li>
-            <li><code class="param-name">zip</code><p>Whether to also bundle the report into a zip archive (<code>oceanval_report.zip</code>) in the output directory, containing just the files needed to view the complete report — the HTML pages, and the PDFs too if <code>pdf=True</code>. Default <code>False</code>.</p></li>
+            <li><code class="param-name">word</code><p>Whether to also generate a Word version of the report (<code>oceanval_report.docx</code>), with figures, tables and editable Word equations. Default <code>False</code>. Requires <a href="https://pandoc.org/" target="_blank" rel="noopener">pandoc</a>.</p></li>
+            <li><code class="param-name">zip</code><p>Whether to also bundle the report into a zip archive (<code>oceanval_report.zip</code>) in the output directory, containing just the files needed to view the complete report — the HTML pages, plus the PDFs and Word file if those were generated. Default <code>False</code>.</p></li>
           </ul>
         </details>
       </div>

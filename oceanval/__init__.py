@@ -50,7 +50,7 @@ def _jupyter_book_major_version():
         return 1
 
 
-def _build_book(book_dir, validation_links=None, pdf=False):
+def _build_book(book_dir, validation_links=None, pdf=False, word=False):
     if _jupyter_book_major_version() >= 2:
         notebooks = glob.glob(os.path.join(book_dir, "notebooks", "*.ipynb"))
         notebooks.sort(
@@ -96,7 +96,9 @@ def _build_book(book_dir, validation_links=None, pdf=False):
             os.path.join(book_dir, "oceanval_wordmark.svg"),
             os.path.join(output_dir, "notebooks", "oceanval_wordmark.svg"),
         )
-        _write_offline_report_pages(output_dir, notebooks, validation_links=validation_links, pdf=pdf)
+        _write_offline_report_pages(
+            output_dir, notebooks, validation_links=validation_links, pdf=pdf, word=word
+        )
     else:
         subprocess.run(["jupyter-book", "build", book_dir], check=True)
 
@@ -189,7 +191,7 @@ def _summary_report_page(build_html_dir):
 
 def _offline_report_navigation(
     output_dir, notebooks, pdf_href, validation_links=None,
-    wordmark_path=None,
+    wordmark_path=None, word_href=None,
 ):
     sections = []
     for title, section_notebooks in _offline_report_sections(output_dir, notebooks):
@@ -232,10 +234,16 @@ def _offline_report_navigation(
         if pdf_href else ""
     )
 
+    word_button = (
+        f'<a href="{word_href}" class="oceanval-word-btn" download>Download as Word</a>'
+        if word_href else ""
+    )
+
     return (
         "<aside class=\"oceanval-sidebar\">"
         f"<div class=\"oceanval-nav-sections\">{''.join(sections)}</div>"
         f"{pdf_button}"
+        f"{word_button}"
         f"{validation_block}"
         "</aside>"
         f"{wordmark_block}"
@@ -249,10 +257,10 @@ def _offline_report_style():
         "max-height:100vh;overflow:hidden;background:#0f7c7c;border-right:1px solid #0a5f5f;padding:28px 24px;"
         "z-index:10;color:#fff;display:flex;flex-direction:column;box-sizing:border-box}"
         ".oceanval-nav-sections{flex:1 1 auto;overflow-y:auto;min-height:0;padding-bottom:16px}"
-        ".oceanval-viewpdf-btn{display:block;flex:0 0 auto;margin-top:12px;background:#fff;"
+        ".oceanval-viewpdf-btn,.oceanval-word-btn{display:block;flex:0 0 auto;margin-top:12px;background:#fff;"
         "border-radius:6px;padding:10px 12px;font-family:Arial,sans-serif;font-size:13px;font-weight:700;"
         "text-align:center;text-decoration:none;box-sizing:border-box}"
-        ".oceanval-viewpdf-btn:hover{background:rgba(255,255,255,0.85)}"
+        ".oceanval-viewpdf-btn:hover,.oceanval-word-btn:hover{background:rgba(255,255,255,0.85)}"
         ".oceanval-validation-links{flex:0 0 auto;border-top:1px solid rgba(255,255,255,0.4);"
         "margin-top:12px;padding-top:12px;display:flex;flex-direction:column;gap:8px}"
         ".oceanval-validation-heading{margin:0 0 4px!important}"
@@ -266,7 +274,7 @@ def _offline_report_style():
         ".oceanval-sidebar li a{display:block;border-left:3px solid transparent;padding:8px 9px;"
         "font-family:Arial,sans-serif;font-size:14px;line-height:1.35}.oceanval-sidebar li a:hover"
         "{background:rgba(255,255,255,0.16);border-left-color:#fff}"
-        ".oceanval-sidebar a.oceanval-viewpdf-btn{color:#0f7c7c}"
+        ".oceanval-sidebar a.oceanval-viewpdf-btn,.oceanval-sidebar a.oceanval-word-btn{color:#0f7c7c}"
         ".oceanval-sidebar a.oceanval-validation-link{color:#0f7c7c}"
         ".jp-Notebook{margin-left:340px!important;margin-right:300px!important;font-size:1.15rem}"
         ".jp-Notebook p,.jp-Notebook li,.jp-Notebook dd{margin-top:0;margin-bottom:0.9em}"
@@ -430,6 +438,179 @@ def _combined_report_pdf_source(output_dir, notebooks, notebook_bodies, pdf_styl
     )
 
 
+def _render_offline_report_word(output_dir, notebooks, notebook_bodies, docx_path):
+    """Convert the report to a Word document, using pandoc.
+
+    The bodies still hold their LaTeX, so the maths becomes real Word
+    equations rather than pictures of equations.
+    """
+    parts = []
+    for _, section_notebooks in _offline_report_sections(output_dir, notebooks):
+        for notebook in section_notebooks:
+            body = notebook_bodies.get(notebook)
+            if body is not None:
+                parts.append(body)
+    source = (
+        "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+        f"<title>OceanVal validation report</title></head><body>{''.join(parts)}</body></html>"
+    )
+
+    try:
+        subprocess.run(
+            [
+                "pandoc",
+                "--from",
+                "html+tex_math_dollars",
+                "--to",
+                "docx",
+                "--metadata",
+                "title=OceanVal validation report",
+                "--resource-path",
+                os.path.join(output_dir, "notebooks"),
+                "--output",
+                docx_path,
+            ],
+            input=source.encode(),
+            check=True,
+            capture_output=True,
+        )
+    except FileNotFoundError:
+        warnings.warn(
+            "pandoc is not installed, so the Word report was not generated. "
+            "Install it with 'conda install -c conda-forge pandoc'."
+        )
+        return
+    except subprocess.CalledProcessError as error:
+        warnings.warn(
+            f"Could not generate the Word report ({error.stderr.decode().strip()})."
+        )
+        return
+
+    _polish_word_report(docx_path)
+
+
+def _word_page_number_field(paragraph, instruction, placeholder):
+    # Word computes PAGE/NUMPAGES when the document opens; the placeholder is
+    # what readers that don't evaluate fields fall back to. Each part of the
+    # field needs its own run, or readers style the computed number oddly.
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+
+    def add_run(element):
+        paragraph.add_run()._r.append(element)
+
+    begin = OxmlElement("w:fldChar")
+    begin.set(qn("w:fldCharType"), "begin")
+    instruction_element = OxmlElement("w:instrText")
+    instruction_element.set(qn("xml:space"), "preserve")
+    instruction_element.text = instruction
+    separate = OxmlElement("w:fldChar")
+    separate.set(qn("w:fldCharType"), "separate")
+    end = OxmlElement("w:fldChar")
+    end.set(qn("w:fldCharType"), "end")
+
+    add_run(begin)
+    add_run(instruction_element)
+    add_run(separate)
+    paragraph.add_run(placeholder)
+    add_run(end)
+
+
+def _polish_word_report(docx_path):
+    """Centre the figures and tables, and add the OceanVal footer.
+
+    pandoc gives images and prose the same paragraph style, so the figures
+    can only be centred after the fact, and it writes no footer at all.
+    """
+    try:
+        import docx
+        from docx.enum.table import WD_ALIGN_VERTICAL, WD_TABLE_ALIGNMENT
+        from docx.enum.text import WD_ALIGN_PARAGRAPH
+        from docx.opc.constants import RELATIONSHIP_TYPE
+        from docx.oxml import OxmlElement
+        from docx.oxml.ns import qn
+        from docx.shared import Mm, Pt, RGBColor
+    except ImportError:
+        warnings.warn(
+            "python-docx is not installed, so the Word report was left "
+            "unformatted. Install it with 'pip install python-docx'."
+        )
+        return
+
+    document = docx.Document(docx_path)
+
+    for paragraph_element in document.element.body.iter(qn("w:p")):
+        if paragraph_element.find(f".//{qn('w:drawing')}") is not None:
+            docx.text.paragraph.Paragraph(
+                paragraph_element, document
+            ).alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    for table in document.tables:
+        table.alignment = WD_TABLE_ALIGNMENT.CENTER
+
+    section = document.sections[0]
+    # pandoc leaves the page setup empty, so Word would fall back to whatever
+    # its locale default is - pin it to A4, to match the PDF report
+    section.page_width = Mm(210)
+    section.page_height = Mm(297)
+    section.top_margin = Mm(18)
+    section.bottom_margin = Mm(20)
+    section.left_margin = Mm(16)
+    section.right_margin = Mm(16)
+
+    footer = section.footer
+    footer.is_linked_to_previous = False
+    for paragraph in list(footer.paragraphs):
+        paragraph._element.getparent().remove(paragraph._element)
+
+    layout = footer.add_table(
+        rows=1, cols=2, width=section.page_width - section.left_margin - section.right_margin
+    )
+    wordmark_cell, page_cell = layout.rows[0].cells
+
+    label = wordmark_cell.paragraphs[0]
+    label_run = label.add_run("Produced by")
+    label_run.font.size = Pt(8)
+    label_run.font.name = "Arial"
+    label_run.font.color.rgb = RGBColor(0x0E, 0x3A, 0x45)
+
+    wordmark = wordmark_cell.add_paragraph()
+    wordmark.add_run().add_picture(
+        io.BytesIO(
+            importlib.resources.files(__name__)
+            .joinpath("data/oceanval_wordmark.png")
+            .read_bytes()
+        ),
+        width=Mm(32),
+    )
+    # link the wordmark to the docs site, as the HTML and PDF reports do
+    relationship_id = wordmark.part.relate_to(
+        "https://pmlmodelling.github.io/OceanVal/",
+        RELATIONSHIP_TYPE.HYPERLINK,
+        is_external=True,
+    )
+    hyperlink = OxmlElement("w:hyperlink")
+    hyperlink.set(qn("r:id"), relationship_id)
+    picture_run = wordmark.runs[0]._r
+    picture_run.getparent().remove(picture_run)
+    hyperlink.append(picture_run)
+    wordmark._p.append(hyperlink)
+
+    page_cell.vertical_alignment = WD_ALIGN_VERTICAL.BOTTOM
+    page_paragraph = page_cell.paragraphs[0]
+    page_paragraph.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    page_paragraph.add_run("Page ")
+    _word_page_number_field(page_paragraph, " PAGE ", "1")
+    page_paragraph.add_run(" of ")
+    _word_page_number_field(page_paragraph, " NUMPAGES ", "1")
+    for run in page_paragraph.runs:
+        run.font.size = Pt(8.5)
+        run.font.name = "Arial"
+        run.font.color.rgb = RGBColor(0x6B, 0x7A, 0x8D)
+
+    document.save(docx_path)
+
+
 def _render_offline_report_pdfs(pages):
     # pages: iterable of (html_string, pdf_path, base_url) tuples
     try:
@@ -449,7 +630,9 @@ def _render_offline_report_pdfs(pages):
             )
 
 
-def _write_offline_report_pages(output_dir, notebooks, validation_links=None, pdf=False):
+def _write_offline_report_pages(
+    output_dir, notebooks, validation_links=None, pdf=False, word=False
+):
     validation_links = validation_links or []
     page_validation_links = [
         (label, os.path.relpath(target, os.path.join(output_dir, "notebooks")))
@@ -460,11 +643,13 @@ def _write_offline_report_pages(output_dir, notebooks, validation_links=None, pd
     page_navigation = _offline_report_navigation(
         output_dir, notebooks, "oceanval_report.pdf" if pdf else None,
         validation_links=page_validation_links, wordmark_path="oceanval_wordmark.svg",
+        word_href="oceanval_report.docx" if word else None,
     )
 
     pdf_jobs = []
     page_updates = []
     notebook_bodies = {}
+    word_bodies = {}
     for notebook in notebooks:
         stem = os.path.splitext(os.path.basename(notebook))[0]
         page = os.path.join(output_dir, "notebooks", f"{stem}.html")
@@ -472,18 +657,24 @@ def _write_offline_report_pages(output_dir, notebooks, validation_links=None, pd
             raw_html = report_page.read()
 
         download_link = ""
-        if pdf:
+        if pdf or word:
             title_match = re.search(r"<title>(.*?)</title>", raw_html, re.S)
             title = title_match.group(1).strip() if title_match else stem
             body_match = re.search(r"<body[^>]*>(.*)</body>", raw_html, re.S)
             body_content = body_match.group(1) if body_match else raw_html
-            # strip heading anchor links (e.g. the clickable "¶") from the PDF export
+            # strip heading anchor links (e.g. the clickable "¶") from the export
             body_content = re.sub(
                 r'<a[^>]*class="[^"]*(?:headerlink|anchor-link)[^"]*"[^>]*>.*?</a>',
                 "",
                 body_content,
                 flags=re.S,
             )
+
+        if word:
+            # left as LaTeX, which pandoc turns into real Word equations
+            word_bodies[notebook] = body_content
+
+        if pdf:
             body_content = _render_latex_for_pdf(body_content)
             notebook_bodies[notebook] = body_content
             pdf_source = (
@@ -518,6 +709,14 @@ def _write_offline_report_pages(output_dir, notebooks, validation_links=None, pd
 
     if pdf:
         _render_offline_report_pdfs(pdf_jobs)
+
+    if word and word_bodies:
+        _render_offline_report_word(
+            output_dir,
+            notebooks,
+            word_bodies,
+            os.path.join(output_dir, "notebooks", "oceanval_report.docx"),
+        )
 
     for page, page_html in page_updates:
         with open(page, "w") as report_page:
@@ -645,6 +844,7 @@ def validate(
     data_dir=".",
     out_dir=".",
     pdf=False,
+    word=False,
     zip=False,
     test=False
 ):
@@ -664,8 +864,10 @@ def validate(
         The region being validated. Must be either "nwes" (northwest European Shelf) or "global". Default is None.
     pdf : bool
         Whether to also generate PDF downloads of the report (a per-page PDF and a combined PDF of the whole report). Default is False, since generating them is slow and most users only need the HTML report.
+    word : bool
+        Whether to also generate a Word version of the report (oceanval_report.docx), with the maths as editable Word equations. Default is False. Requires pandoc.
     zip : bool
-        Whether to also bundle the report into a zip archive (oceanval_report.zip) in the output directory, containing just the files needed to view the complete report (the HTML pages and, if pdf=True, the PDFs too). Default is False.
+        Whether to also bundle the report into a zip archive (oceanval_report.zip) in the output directory, containing just the files needed to view the complete report (the HTML pages, plus the PDFs and Word file if those were generated). Default is False.
     test : bool
         Default is False. Ignore, unless you are testing oceanval.
 
@@ -1102,7 +1304,7 @@ def validate(
         f"{book_dir}/oceanval_wordmark.svg",
     )
 
-    _build_book(book_dir, pdf=pdf)
+    _build_book(book_dir, pdf=pdf, word=word)
 
     if zip:
         _zip_offline_report(

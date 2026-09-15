@@ -15,5 +15,6 @@ jupyter-book
 fiona
 multiprocess
 weasyprint
+python-docx
 
 
