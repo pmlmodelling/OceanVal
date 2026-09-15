@@ -87,9 +87,13 @@ def _build_book(book_dir, validation_links=None, pdf=False):
                 check=True,
             )
         os.makedirs(output_dir, exist_ok=True)
-        # notebook pages reference the wordmark via a relative "../" path
+        # keep the wordmark alongside the notebook pages (not one level up)
+        # so the notebooks/ directory is self-contained and can be copied
+        # elsewhere on its own
+        os.makedirs(os.path.join(output_dir, "notebooks"), exist_ok=True)
         shutil.copyfile(
-            os.path.join(book_dir, "oceanval_wordmark.svg"), os.path.join(output_dir, "oceanval_wordmark.svg")
+            os.path.join(book_dir, "oceanval_wordmark.svg"),
+            os.path.join(output_dir, "notebooks", "oceanval_wordmark.svg"),
         )
         _write_offline_report_pages(output_dir, notebooks, validation_links=validation_links, pdf=pdf)
     else:
@@ -391,7 +395,7 @@ def _write_offline_report_pages(output_dir, notebooks, validation_links=None, pd
     pdf_style = _offline_report_pdf_style() if pdf else None
     page_navigation = _offline_report_navigation(
         output_dir, notebooks, "../oceanval_report.pdf" if pdf else None,
-        validation_links=page_validation_links, wordmark_path="../oceanval_wordmark.svg",
+        validation_links=page_validation_links, wordmark_path="oceanval_wordmark.svg",
     )
 
     pdf_jobs = []
