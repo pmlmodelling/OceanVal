@@ -23,6 +23,7 @@ import base64
 import io
 from oceanval.fvcom import fvcom_preprocess
 import importlib
+import zipfile
 
 from oceanval.parsers import Validator, definitions#, summaries
 
@@ -161,6 +162,22 @@ def _offline_report_title(notebook_path):
                 return line.removeprefix("# ").strip()
     stem = os.path.splitext(os.path.basename(notebook_path))[0]
     return re.sub(r"^\d+_", "", stem).replace("_", " ").title()
+
+
+def _zip_offline_report(build_html_dir, zip_path):
+    """Zip up a built offline report (the HTML pages, wordmark, and any PDFs)
+    into a single self-contained archive, so the report can be copied
+    elsewhere and viewed by just extracting and opening it."""
+    if os.path.exists(zip_path):
+        os.remove(zip_path)
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        for root, _, files in os.walk(build_html_dir):
+            for name in files:
+                path = os.path.join(root, name)
+                arcname = os.path.join(
+                    "oceanval_report", os.path.relpath(path, build_html_dir)
+                )
+                zf.write(path, arcname)
 
 
 def _summary_report_page(build_html_dir):
@@ -580,6 +597,7 @@ def validate(
     data_dir=".",
     out_dir=".",
     pdf=False,
+    zip=False,
     test=False
 ):
     # docstring
@@ -598,6 +616,8 @@ def validate(
         The region being validated. Must be either "nwes" (northwest European Shelf) or "global". Default is None.
     pdf : bool
         Whether to also generate PDF downloads of the report (a per-page PDF and a combined PDF of the whole report). Default is False, since generating them is slow and most users only need the HTML report.
+    zip : bool
+        Whether to also bundle the report into a zip archive (oceanval_report.zip) in the output directory, containing just the files needed to view the complete report (the HTML pages and, if pdf=True, the PDFs too). Default is False.
     test : bool
         Default is False. Ignore, unless you are testing oceanval.
 
@@ -1035,6 +1055,12 @@ def validate(
     )
 
     _build_book(book_dir, pdf=pdf)
+
+    if zip:
+        _zip_offline_report(
+            os.path.join(book_dir, "_build", "html"),
+            os.path.join(out_dir, "oceanval_report.zip"),
+        )
 
     stamps = [
         os.path.basename(x) for x in glob.glob(f"{book_dir}/notebooks/.trackers/*")
