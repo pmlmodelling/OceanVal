@@ -1,3 +1,4 @@
+import re
 from unittest.mock import call, patch
 
 import nbformat
@@ -272,3 +273,31 @@ def test_pdf_latex_is_embedded_as_svg():
     assert "\\(" not in rendered
     assert "\\[" not in rendered
     assert "$m$" not in rendered
+
+
+def test_pdf_latex_is_sized_relative_to_the_text():
+    rendered = oceanval._render_latex_for_pdf(
+        '<p>Inline $m$</p><div class="math">\\[E=mc^2\\]</div>'
+    )
+
+    inline = re.search(r'class="oceanval-math-inline" style="([^"]*)"', rendered)
+    display = re.search(r'class="oceanval-math-display" style="([^"]*)"', rendered)
+
+    # sized in em so the maths scales with the body text, and sat on the
+    # baseline rather than being forced to a fixed height
+    assert re.fullmatch(
+        r"width:[\d.]+em;height:[\d.]+em;vertical-align:-[\d.]+em", inline.group(1)
+    )
+    # no height, so an over-wide equation scales instead of being squashed
+    assert re.fullmatch(r"width:[\d.]+em", display.group(1))
+
+
+def test_pdf_pages_are_numbered_and_carry_a_linked_wordmark():
+    style = oceanval._offline_report_pdf_style()
+    footer = oceanval._offline_report_pdf_footer()
+
+    assert "@bottom-left{content:'Page ' counter(page) ' of ' counter(pages)" in style
+    assert "@bottom-right{content:element(oceanvalfooter)}" in style
+    assert ".oceanval-pdf-footer{position:running(oceanvalfooter)}" in style
+    assert 'href="https://pmlmodelling.github.io/OceanVal/"' in footer
+    assert "data:image/svg+xml;base64," in footer

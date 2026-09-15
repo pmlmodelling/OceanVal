@@ -302,7 +302,10 @@ def _offline_report_sidebar_script():
 
 def _offline_report_pdf_style():
     return (
-        "<style>@page{size:A4;margin:18mm 16mm}"
+        "<style>@page{size:A4;margin:18mm 16mm 20mm;"
+        "@bottom-left{content:'Page ' counter(page) ' of ' counter(pages);"
+        "font-family:Georgia,'Times New Roman',serif;font-size:8.5pt;color:#6b7a8d}"
+        "@bottom-right{content:element(oceanvalfooter)}}"
         "body{font-family:Georgia,'Times New Roman',serif;color:#203047;"
         "margin:0;line-height:1.55;font-size:12.5pt}"
         "h1{font-size:20pt;margin:0 0 12pt}h2{font-size:15pt;margin:18pt 0 8pt}"
@@ -314,9 +317,27 @@ def _offline_report_pdf_style():
         "tr,td,th{page-break-inside:avoid;break-inside:avoid}"
         "td,th{border:1px solid #ccc;padding:5px 8px;font-size:9.5pt}"
         "pre{white-space:pre-wrap;word-break:break-word;font-size:9.5pt}"
-        ".oceanval-math-inline{height:1.2em;vertical-align:middle}"
-        ".oceanval-math-display{display:block;max-width:100%;margin:10pt auto}"
+        # width, height and baseline offset are set per expression, in em, by
+        # _render_latex_for_pdf
+        ".oceanval-math-inline{display:inline;margin:0}"
+        ".oceanval-math-display{display:block;height:auto;max-width:100%;margin:12pt auto}"
+        ".oceanval-pdf-footer{position:running(oceanvalfooter)}"
+        ".oceanval-pdf-footer img{height:5.5mm;margin:0;display:block}"
         ".headerlink,.anchor-link{display:none}</style>"
+    )
+
+
+def _offline_report_pdf_footer():
+    """Wordmark linking to the OceanVal site, repeated in each PDF page's footer."""
+    wordmark = importlib.resources.files(__name__).joinpath(
+        "data/oceanval_wordmark.svg"
+    ).read_bytes()
+    encoded = base64.b64encode(wordmark).decode("ascii")
+    return (
+        '<div class="oceanval-pdf-footer">'
+        '<a href="https://pmlmodelling.github.io/OceanVal/">'
+        f'<img src="data:image/svg+xml;base64,{encoded}" alt="OceanVal">'
+        "</a></div>"
     )
 
 
@@ -332,15 +353,29 @@ def _render_latex_for_pdf(body_content):
     if not any(re.search(pattern, body_content, flags=re.S) for pattern, _ in patterns):
         return body_content
 
-    from matplotlib.mathtext import math_to_image
+    from matplotlib.font_manager import FontProperties
+    from matplotlib.mathtext import MathTextParser, math_to_image
+
+    # matplotlib reports the size of a rendered expression in points for a
+    # given font size, so rendering at a known size lets those be turned into
+    # em - the maths then scales with the surrounding text instead of being
+    # forced to a fixed height, which blew up short expressions like "m" and
+    # squashed tall ones like a fraction. stix is a Times-like maths font, so
+    # equations sit better alongside the report's serif body text than
+    # matplotlib's sans-serif default.
+    reference_size = 12.0
+    prop = FontProperties(size=reference_size, math_fontfamily="stix")
+    parser = MathTextParser("path")
 
     def replace_math(match, display):
         expression = match.group(1).strip()
         buffer = io.BytesIO()
         try:
+            width, height, depth = parser.parse(f"${expression}$", dpi=72, prop=prop)[:3]
             math_to_image(
                 f"${expression}$",
                 buffer,
+                prop=prop,
                 dpi=200,
                 format="svg",
                 color="#203047",
@@ -348,8 +383,23 @@ def _render_latex_for_pdf(body_content):
         except Exception:
             return match.group(0)
         encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
-        class_name = "oceanval-math-display" if display else "oceanval-math-inline"
-        return f'<img class="{class_name}" src="data:image/svg+xml;base64,{encoded}" alt="{html.escape(expression)}">'
+        if display:
+            # height is left to the aspect ratio so that an equation too wide
+            # for the page scales down rather than being squashed
+            class_name = "oceanval-math-display"
+            style = f"width:{width / reference_size:.3f}em"
+        else:
+            class_name = "oceanval-math-inline"
+            style = (
+                f"width:{width / reference_size:.3f}em;"
+                f"height:{height / reference_size:.3f}em;"
+                # sits the image on the text baseline, allowing for descenders
+                f"vertical-align:-{depth / reference_size:.3f}em"
+            )
+        return (
+            f'<img class="{class_name}" style="{style}" '
+            f'src="data:image/svg+xml;base64,{encoded}" alt="{html.escape(expression)}">'
+        )
 
     for pattern, display in patterns:
         body_content = re.sub(
@@ -376,7 +426,7 @@ def _combined_report_pdf_source(output_dir, notebooks, notebook_bodies, pdf_styl
     return (
         "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
         f"<title>OceanVal validation report</title>{pdf_style}</head><body>"
-        f"{''.join(parts)}</body></html>"
+        f"{_offline_report_pdf_footer()}{''.join(parts)}</body></html>"
     )
 
 
@@ -438,7 +488,8 @@ def _write_offline_report_pages(output_dir, notebooks, validation_links=None, pd
             notebook_bodies[notebook] = body_content
             pdf_source = (
                 f"<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
-                f"<title>{html.escape(title)}</title>{pdf_style}</head><body>{body_content}</body></html>"
+                f"<title>{html.escape(title)}</title>{pdf_style}</head>"
+                f"<body>{_offline_report_pdf_footer()}{body_content}</body></html>"
             )
             pdf_path = os.path.join(output_dir, "notebooks", f"{stem}.pdf")
             pdf_jobs.append((pdf_source, pdf_path, os.path.dirname(page)))
