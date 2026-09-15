@@ -58,6 +58,7 @@
       <li class="docs-toc-sub"><a href="#point">Point (in-situ) data</a></li>
       <li><a href="#match">Step 2: Matchup output</a></li>
       <li><a href="#report">Step 3: Build the report</a></li>
+      <li class="docs-toc-sub"><a href="#formats">Word and PDF versions</a></li>
       <li><a href="#compare">Comparing simulations</a></li>
     </ul>
   </aside>
@@ -256,11 +257,27 @@
         <li><code class="param-name">fixed_scale</code><p>Whether to use a fixed colour scale for the seasonal plots, capping min/max to the 2nd/98th percentile. Defaults to <code>False</code>.</p></li>
         <li><code class="param-name">data_dir</code> / <code class="param-name">out_dir</code><p>Where matchup data is read from / the report is written to. Default to the current directory.</p></li>
         <li><code class="param-name">pdf</code><p>Whether to also generate PDF downloads of the report (a per-page PDF and a combined PDF of the whole report). Defaults to <code>False</code>, since generating them is slow and most users only need the HTML report.</p></li>
-        <li><code class="param-name">word</code><p>Whether to also generate a Word version of the report (<code>oceanval_report.docx</code>), with figures, tables and editable Word equations. Defaults to <code>False</code>. Requires <a href="https://pandoc.org/" target="_blank" rel="noopener">pandoc</a>.</p></li>
+        <li><code class="param-name">word</code><p>Whether to also generate Word versions of the report &mdash; one per page, plus a combined <code>oceanval_report.docx</code> &mdash; with figures, tables and editable Word equations. Defaults to <code>False</code>. Requires <a href="https://pandoc.org/" target="_blank" rel="noopener">pandoc</a>.</p></li>
         <li><code class="param-name">zip</code><p>Whether to also bundle the report into a zip archive (<code>oceanval_report.zip</code>) in the output directory, containing just the files needed to view the complete report — the HTML pages, plus the PDFs and Word file if those were generated. Defaults to <code>False</code>.</p></li>
       </ul>
     </details>
     <p>This generates and opens an HTML page you can view in a web browser.</p>
+
+    <h3 id="formats">Word and PDF versions of the report</h3>
+    <p>The report is HTML by default. If you need something to edit, circulate or drop into a deliverable, ask for a Word version as well:</p>
+    <div class="code-block">
+      <div class="code-card__bar"><div class="code-card__dots"><span></span><span></span><span></span></div><span class="code-card__label">python</span></div>
+      <pre>oceanval.<a href="api.html#validate"><span class="tok-fn">validate</span></a>(word=<span class="tok-kw">True</span>)</pre>
+    </div>
+    <p>This writes <code>oceanval_report.docx</code> — the whole report as a single document — plus one <code>.docx</code> per page, alongside the HTML files. The report itself gains download buttons for them, so you can pick up the Word file straight from the page you are reading.</p>
+    <p>The Word version is built to be worked on rather than just read:</p>
+    <ul class="param-list">
+      <li><p>Equations are real, editable Word equations rather than pictures, so you can lift a formula straight into a paper or report.</p></li>
+      <li><p>Figures and tables are centred, the page is A4, and every page carries a page number.</p></li>
+      <li><p>In the combined document each page becomes a numbered chapter, so figures and tables read as <code>1.1</code>, <code>1.2</code>, <code>2.1</code> and so on, and cross-references in the text follow the same numbering. The single-page files number their own figures from 1, matching the HTML page they came from.</p></li>
+    </ul>
+    <p>Word output needs <a href="https://pandoc.org/" target="_blank" rel="noopener">pandoc</a> installed (<code>conda install -c conda-forge pandoc</code>). If it is missing, OceanVal warns and still builds the HTML report.</p>
+    <p>PDF works the same way, via <code>pdf=True</code>, and the two can be combined. Both are off by default because they add time to the build and most people only need the HTML.</p>
 
     <hr class="divider">
     <span class="kicker">Beyond the basics</span>
@@ -279,6 +296,7 @@
 )</pre>
     </div>
     <p><code>model_dict</code> maps a short name for each model to its validation output directory. The HTML comparison report is written to <code>oceanval_comparison/compare/_build/html/notebooks/comparison_seasonal.html</code>.</p>
+    <p>Comparison reports take <code>word=True</code> and <code>pdf=True</code> as well, producing the same <a href="#formats">Word and PDF versions</a> as a validation report.</p>
     <div class="callout">
       <div class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Can I access and use OceanVal's validation code?</div>
       <p>Yes. OceanVal uses Jupyter notebooks to run validation calculations and generate plots. They live in the <code>oceanval_report/notebooks</code> directory of the report output — copy and edit them for a more customised validation. They're designed for internal use, so not especially user-friendly, but should be clear enough.</p>

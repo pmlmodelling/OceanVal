@@ -178,7 +178,7 @@
             <li><code class="param-name">fixed_scale</code><p>Whether to use a fixed colour scale for the seasonal plots, capping min/max to the 2nd/98th percentile. Default <code>False</code>.</p></li>
             <li><code class="param-name">data_dir</code> / <code class="param-name">out_dir</code><p>Where matchup data is read from / the report is written to. Default to the current directory.</p></li>
             <li><code class="param-name">pdf</code><p>Whether to also generate PDF downloads of the report (a per-page PDF and a combined PDF of the whole report). Default <code>False</code> — generating them is slow, and most users only need the HTML report.</p></li>
-            <li><code class="param-name">word</code><p>Whether to also generate a Word version of the report (<code>oceanval_report.docx</code>), with figures, tables and editable Word equations. Default <code>False</code>. Requires <a href="https://pandoc.org/" target="_blank" rel="noopener">pandoc</a>.</p></li>
+            <li><code class="param-name">word</code><p>Whether to also generate Word versions of the report &mdash; one per page, plus a combined <code>oceanval_report.docx</code> &mdash; with figures, tables and editable Word equations. Default <code>False</code>. Requires <a href="https://pandoc.org/" target="_blank" rel="noopener">pandoc</a>.</p></li>
             <li><code class="param-name">zip</code><p>Whether to also bundle the report into a zip archive (<code>oceanval_report.zip</code>) in the output directory, containing just the files needed to view the complete report — the HTML pages, plus the PDFs and Word file if those were generated. Default <code>False</code>.</p></li>
           </ul>
         </details>
@@ -193,7 +193,7 @@
     </div>
 
     <div class="api-card" id="compare">
-      <div class="api-card__head"><div class="sig">oceanval.compare(model_dict=None, view=True, ask=True, pdf=False)</div></div>
+      <div class="api-card__head"><div class="sig">oceanval.compare(model_dict=None, view=True, ask=True, pdf=False, word=False)</div></div>
       <div class="api-card__body">
         <p>Compare the validation output from multiple already-validated simulations, writing a shared comparison report. Output: <code>oceanval_comparison/compare/_build/html/notebooks/comparison_seasonal.html</code>.</p>
         <details class="param-details">
@@ -203,6 +203,7 @@
             <li><code class="param-name">view</code><p>Open the comparison report in a browser once built. Default <code>True</code>.</p></li>
             <li><code class="param-name">ask</code><p>Ask for confirmation before replacing an existing comparison directory. Default <code>True</code>.</p></li>
             <li><code class="param-name">pdf</code><p>Whether to also generate PDF downloads of the comparison report. Default <code>False</code>.</p></li>
+            <li><code class="param-name">word</code><p>Whether to also generate Word versions of the comparison report — one per page, plus a combined <code>oceanval_report.docx</code>. Default <code>False</code>. Requires <a href="https://pandoc.org/" target="_blank" rel="noopener">pandoc</a>.</p></li>
           </ul>
         </details>
       </div>
