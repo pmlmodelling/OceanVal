@@ -281,7 +281,9 @@ def _offline_report_style():
         ".jp-Notebook table{margin-left:auto!important;margin-right:auto!important}"
         ".jp-Notebook img,.jp-Notebook figure{display:block;margin-left:auto;margin-right:auto}"
         ".jp-Notebook figcaption{text-align:center}"
-        ".oceanval-download-btn{position:fixed;top:24px;right:24px;z-index:20;width:220px;box-sizing:border-box;"
+        ".oceanval-page-downloads{position:fixed;top:24px;right:24px;z-index:20;width:220px;"
+        "display:flex;flex-direction:column;gap:8px}"
+        ".oceanval-download-btn{width:100%;box-sizing:border-box;"
         "background:#0f7c7c;color:#fff;border:1px solid #0a5f5f;border-radius:6px;padding:10px 14px;"
         "font-family:Arial,sans-serif;font-size:13px;font-weight:700;cursor:pointer;text-align:center;"
         "text-decoration:none;display:block}"
@@ -293,7 +295,8 @@ def _offline_report_style():
         ".oceanval-wordmark-link:hover .oceanval-wordmark{opacity:0.85}"
         "@media(max-width:720px){.oceanval-sidebar{position:static!important;width:auto;height:auto;max-height:none;padding:20px;overflow:visible}.oceanval-nav-sections{overflow:visible;padding-bottom:0}"
         ".jp-Notebook{margin-left:auto!important;margin-right:0!important}"
-        ".oceanval-download-btn{position:static;width:auto;margin:16px 0 0 20px}.oceanval-wordmark-link{position:static;margin:16px 0 0 20px}.oceanval-wordmark{width:132px}}</style>"
+        ".oceanval-page-downloads{position:static;width:auto;margin:16px 0 0 20px;align-items:flex-start}"
+        ".oceanval-download-btn{width:auto}.oceanval-wordmark-link{position:static;margin:16px 0 0 20px}.oceanval-wordmark{width:132px}}</style>"
     )
 
 
@@ -419,18 +422,41 @@ def _render_latex_for_pdf(body_content):
     return body_content
 
 
-def _combined_report_pdf_source(output_dir, notebooks, notebook_bodies, pdf_style):
-    # concatenates each page's PDF body in the same order as the sidebar navigation
-    parts = []
-    first = True
+def _chapter_numbered_body(body, chapter):
+    """Number one notebook's title, figures and tables as a chapter.
+
+    Each notebook numbers its own figures from 1, which collides once they
+    are gathered into a single document, so in the combined reports
+    "Figure 1" of chapter 3 becomes "Figure 3.1". Cross-references in the
+    prose ("Figure 2 shows...") are written the same way, so the one
+    substitution covers both them and the captions.
+    """
+    body = re.sub(
+        r"\b(Figure|Table)(\s+)(\d+)\b",
+        lambda match: f"{match.group(1)}{match.group(2)}{chapter}.{match.group(3)}",
+        body,
+    )
+    return re.sub(r"(<h1[^>]*>)", rf"\g<1>{chapter}. ", body, count=1)
+
+
+def _combined_report_chapters(output_dir, notebooks, notebook_bodies):
+    """Notebook bodies, in reading order, each numbered as a chapter."""
+    chapter = 0
     for _, section_notebooks in _offline_report_sections(output_dir, notebooks):
         for notebook in section_notebooks:
             body = notebook_bodies.get(notebook)
             if body is None:
                 continue
-            break_style = "" if first else "page-break-before:always;break-before:page;"
-            parts.append(f'<section style="{break_style}">{body}</section>')
-            first = False
+            chapter += 1
+            yield _chapter_numbered_body(body, chapter)
+
+
+def _combined_report_pdf_source(output_dir, notebooks, notebook_bodies, pdf_style):
+    # concatenates each page's PDF body in the same order as the sidebar navigation
+    parts = []
+    for body in _combined_report_chapters(output_dir, notebooks, notebook_bodies):
+        break_style = "" if not parts else "page-break-before:always;break-before:page;"
+        parts.append(f'<section style="{break_style}">{body}</section>')
     return (
         "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
         f"<title>OceanVal validation report</title>{pdf_style}</head><body>"
@@ -438,55 +464,55 @@ def _combined_report_pdf_source(output_dir, notebooks, notebook_bodies, pdf_styl
     )
 
 
-def _render_offline_report_word(output_dir, notebooks, notebook_bodies, docx_path):
-    """Convert the report to a Word document, using pandoc.
-
-    The bodies still hold their LaTeX, so the maths becomes real Word
-    equations rather than pictures of equations.
-    """
-    parts = []
-    for _, section_notebooks in _offline_report_sections(output_dir, notebooks):
-        for notebook in section_notebooks:
-            body = notebook_bodies.get(notebook)
-            if body is not None:
-                parts.append(body)
-    source = (
+def _word_report_source(body):
+    return (
         "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
-        f"<title>OceanVal validation report</title></head><body>{''.join(parts)}</body></html>"
+        f"<title>OceanVal validation report</title></head><body>{body}</body></html>"
     )
 
-    try:
-        subprocess.run(
-            [
-                "pandoc",
-                "--from",
-                "html+tex_math_dollars",
-                "--to",
-                "docx",
-                "--metadata",
-                "title=OceanVal validation report",
-                "--resource-path",
-                os.path.join(output_dir, "notebooks"),
-                "--output",
-                docx_path,
-            ],
-            input=source.encode(),
-            check=True,
-            capture_output=True,
-        )
-    except FileNotFoundError:
-        warnings.warn(
-            "pandoc is not installed, so the Word report was not generated. "
-            "Install it with 'conda install -c conda-forge pandoc'."
-        )
-        return
-    except subprocess.CalledProcessError as error:
-        warnings.warn(
-            f"Could not generate the Word report ({error.stderr.decode().strip()})."
-        )
-        return
 
-    _polish_word_report(docx_path)
+def _render_offline_report_word(documents, resource_path):
+    """Convert report pages to Word documents, using pandoc.
+
+    documents: iterable of (html_source, docx_path, title) tuples, where the
+    title is the document heading pandoc adds, or None for a page that
+    already opens with its own heading.
+
+    The sources still hold their LaTeX, so the maths becomes real Word
+    equations rather than pictures of equations.
+    """
+    for source, docx_path, title in documents:
+        command = [
+            "pandoc",
+            "--from",
+            "html+tex_math_dollars",
+            "--to",
+            "docx",
+            "--resource-path",
+            resource_path,
+            "--output",
+            docx_path,
+        ]
+        if title:
+            command[-2:-2] = ["--metadata", f"title={title}"]
+        try:
+            subprocess.run(
+                command, input=source.encode(), check=True, capture_output=True
+            )
+        except FileNotFoundError:
+            warnings.warn(
+                "pandoc is not installed, so the Word report was not generated. "
+                "Install it with 'conda install -c conda-forge pandoc'."
+            )
+            return
+        except subprocess.CalledProcessError as error:
+            warnings.warn(
+                f"Could not generate {os.path.basename(docx_path)} "
+                f"({error.stderr.decode().strip()})."
+            )
+            continue
+
+        _polish_word_report(docx_path)
 
 
 def _word_page_number_field(paragraph, instruction, placeholder):
@@ -647,6 +673,7 @@ def _write_offline_report_pages(
     )
 
     pdf_jobs = []
+    word_jobs = []
     page_updates = []
     notebook_bodies = {}
     word_bodies = {}
@@ -656,7 +683,7 @@ def _write_offline_report_pages(
         with open(page, "r") as report_page:
             raw_html = report_page.read()
 
-        download_link = ""
+        page_downloads = []
         if pdf or word:
             title_match = re.search(r"<title>(.*?)</title>", raw_html, re.S)
             title = title_match.group(1).strip() if title_match else stem
@@ -673,6 +700,19 @@ def _write_offline_report_pages(
         if word:
             # left as LaTeX, which pandoc turns into real Word equations
             word_bodies[notebook] = body_content
+            # the page's own Word file mirrors its HTML page, so it is not
+            # chapter numbered - only the combined report is
+            word_jobs.append(
+                (
+                    _word_report_source(body_content),
+                    os.path.join(output_dir, "notebooks", f"{stem}.docx"),
+                    None,
+                )
+            )
+            page_downloads.append(
+                f'<a class="oceanval-download-btn" href="{stem}.docx" download>'
+                "Download page as Word</a>"
+            )
 
         if pdf:
             body_content = _render_latex_for_pdf(body_content)
@@ -685,13 +725,19 @@ def _write_offline_report_pages(
             pdf_path = os.path.join(output_dir, "notebooks", f"{stem}.pdf")
             pdf_jobs.append((pdf_source, pdf_path, os.path.dirname(page)))
 
-            download_link = (
-                f'<a class="oceanval-download-btn" href="{stem}.pdf" download>View page as pdf</a>'
+            page_downloads.insert(
+                0,
+                f'<a class="oceanval-download-btn" href="{stem}.pdf" download>View page as pdf</a>',
             )
 
+        downloads = (
+            f'<div class="oceanval-page-downloads">{"".join(page_downloads)}</div>'
+            if page_downloads
+            else ""
+        )
         page_html = re.sub(
             r"(<body[^>]*>)",
-            lambda match: f"{match.group(1)}{page_navigation}{download_link}",
+            lambda match: f"{match.group(1)}{page_navigation}{downloads}",
             raw_html,
             count=1,
         )
@@ -711,12 +757,19 @@ def _write_offline_report_pages(
         _render_offline_report_pdfs(pdf_jobs)
 
     if word and word_bodies:
-        _render_offline_report_word(
-            output_dir,
-            notebooks,
-            word_bodies,
-            os.path.join(output_dir, "notebooks", "oceanval_report.docx"),
+        combined_body = "".join(
+            _combined_report_chapters(output_dir, notebooks, word_bodies)
         )
+        word_jobs.append(
+            (
+                _word_report_source(combined_body),
+                os.path.join(output_dir, "notebooks", "oceanval_report.docx"),
+                "OceanVal validation report",
+            )
+        )
+
+    if word_jobs:
+        _render_offline_report_word(word_jobs, os.path.join(output_dir, "notebooks"))
 
     for page, page_html in page_updates:
         with open(page, "w") as report_page:
@@ -865,7 +918,7 @@ def validate(
     pdf : bool
         Whether to also generate PDF downloads of the report (a per-page PDF and a combined PDF of the whole report). Default is False, since generating them is slow and most users only need the HTML report.
     word : bool
-        Whether to also generate a Word version of the report (oceanval_report.docx), with the maths as editable Word equations. Default is False. Requires pandoc.
+        Whether to also generate Word versions of the report (one per page, plus a combined oceanval_report.docx), with the maths as editable Word equations. Default is False. Requires pandoc.
     zip : bool
         Whether to also bundle the report into a zip archive (oceanval_report.zip) in the output directory, containing just the files needed to view the complete report (the HTML pages, plus the PDFs and Word file if those were generated). Default is False.
     test : bool
@@ -1366,7 +1419,7 @@ def rebuild(data_dir=".", pdf=False):
     webbrowser.open("file://" + os.path.abspath(out_ff))
 
 
-def compare(model_dict=None, view=True, ask=True, pdf=False):
+def compare(model_dict=None, view=True, ask=True, pdf=False, word=False):
     """
     Compare pre-validated simulations.
     This function will compare the validation output from multiple simulations.
@@ -1381,6 +1434,8 @@ def compare(model_dict=None, view=True, ask=True, pdf=False):
         If the comparison directory already exists, ask before replacing it.
     pdf : bool
         Whether to also generate PDF downloads of the report. Default is False.
+    word : bool
+        Whether to also generate Word versions of the report (one per page, plus a combined oceanval_report.docx), with the maths as editable Word equations. Default is False. Requires pandoc.
     """
     if model_dict is None:
         raise AttributeError("model_dict must be provided")
@@ -1499,7 +1554,12 @@ def compare(model_dict=None, view=True, ask=True, pdf=False):
             )
         except FileNotFoundError:
             pass
-    _build_book("oceanval_comparison/compare", validation_links=validation_links, pdf=pdf)
+    _build_book(
+        "oceanval_comparison/compare",
+        validation_links=validation_links,
+        pdf=pdf,
+        word=word,
+    )
 
     if view:
         first_notebook_html = os.path.splitext(comparison_notebooks[0])[0] + ".html"

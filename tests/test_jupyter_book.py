@@ -293,10 +293,16 @@ def test_offline_report_word_keeps_latex_for_pandoc(tmp_path):
             str(output_dir), [str(notebook_path)], word=True
         )
 
-    command = run.call_args.args[0]
-    assert command[0] == "pandoc"
-    assert "html+tex_math_dollars" in command
-    assert command[-1] == str(notebook_dir / "oceanval_report.docx")
+    # one Word file per page, then the combined report
+    outputs = [call.args[0][-1] for call in run.call_args_list]
+    assert outputs == [
+        str(notebook_dir / "001_methods.docx"),
+        str(notebook_dir / "oceanval_report.docx"),
+    ]
+    assert all(
+        call.args[0][0] == "pandoc" and "html+tex_math_dollars" in call.args[0]
+        for call in run.call_args_list
+    )
 
     # pandoc turns LaTeX into real Word equations, so unlike the PDF export
     # the maths must reach it as LaTeX rather than as images
@@ -304,12 +310,72 @@ def test_offline_report_word_keeps_latex_for_pandoc(tmp_path):
     assert "$m$" in source
     assert "data:image/svg+xml" not in source
 
-    # the report pages offer the Word file as a download
+    # both the whole report and the page itself are offered as downloads
     report_page = (notebook_dir / "001_methods.html").read_text()
     assert (
         '<a href="oceanval_report.docx" class="oceanval-word-btn" download>'
         "Download as Word</a>"
     ) in report_page
+    assert (
+        '<a class="oceanval-download-btn" href="001_methods.docx" download>'
+        "Download page as Word</a>"
+    ) in report_page
+
+
+def test_chapter_numbered_body_renumbers_captions_and_references():
+    body = (
+        '<h1 id="x">Temperature validation</h1>'
+        "<p>Figure 2 shows the bias.</p>"
+        "<p><strong>Figure 2</strong>: Bias of temperature.</p>"
+        "<p><strong>Table 1</strong>: Summary statistics.</p>"
+    )
+
+    numbered = oceanval._chapter_numbered_body(body, 3)
+
+    assert '<h1 id="x">3. Temperature validation</h1>' in numbered
+    # the cross-reference in the prose has to stay in step with its caption
+    assert "Figure 3.2 shows the bias" in numbered
+    assert "<strong>Figure 3.2</strong>" in numbered
+    assert "<strong>Table 3.1</strong>" in numbered
+
+
+def test_chapter_numbering_is_only_used_for_the_combined_report(tmp_path):
+    output_dir = tmp_path / "_build" / "html"
+    notebook_dir = output_dir / "notebooks"
+    notebook_dir.mkdir(parents=True)
+    source_notebook_dir = tmp_path / "notebooks"
+    source_notebook_dir.mkdir()
+
+    notebooks = []
+    for stem, title in [("001_first", "First"), ("002_second", "Second")]:
+        (notebook_dir / f"{stem}.html").write_text(
+            f"<html><head><title>{title}</title></head>"
+            f'<body class="jp-Notebook"><h1>{title}</h1>'
+            "<p><strong>Figure 1</strong>: A figure.</p></body></html>"
+        )
+        notebook = nbformat.v4.new_notebook(
+            cells=[nbformat.v4.new_markdown_cell(f"# {title}")]
+        )
+        path = source_notebook_dir / f"{stem}.ipynb"
+        nbformat.write(notebook, path)
+        notebooks.append(str(path))
+
+    with patch("oceanval._render_offline_report_pdfs") as render:
+        oceanval._write_offline_report_pages(str(output_dir), notebooks, pdf=True)
+
+    # each HTML page stands alone, so it keeps numbering from 1
+    for stem in ("001_first", "002_second"):
+        assert "<strong>Figure 1</strong>" in (notebook_dir / f"{stem}.html").read_text()
+        assert "Figure 1.1" not in (notebook_dir / f"{stem}.html").read_text()
+
+    jobs = render.call_args.args[0]
+    per_page = next(src for src, path, _ in jobs if path.endswith("002_second.pdf"))
+    combined = next(src for src, path, _ in jobs if path.endswith("oceanval_report.pdf"))
+
+    # the per-page PDF mirrors its HTML page, the combined one numbers by chapter
+    assert "<strong>Figure 1</strong>" in per_page
+    assert "<strong>Figure 1.1</strong>" in combined
+    assert "<strong>Figure 2.1</strong>" in combined
 
 
 def test_word_report_is_formatted(tmp_path):
@@ -370,7 +436,46 @@ def test_offline_report_word_button_absent_by_default(tmp_path):
     oceanval._write_offline_report_pages(str(output_dir), [str(notebook_path)])
 
     assert 'class="oceanval-word-btn"' not in page.read_text()
+    assert "Download page as Word" not in page.read_text()
     assert list(output_dir.rglob("*.docx")) == []
+
+
+def test_per_page_word_file_is_not_chapter_numbered(tmp_path):
+    output_dir = tmp_path / "_build" / "html"
+    notebook_dir = output_dir / "notebooks"
+    notebook_dir.mkdir(parents=True)
+    source_notebook_dir = tmp_path / "notebooks"
+    source_notebook_dir.mkdir()
+
+    notebooks = []
+    for stem, title in [("001_first", "First"), ("002_second", "Second")]:
+        (notebook_dir / f"{stem}.html").write_text(
+            f"<html><head><title>{title}</title></head>"
+            f'<body class="jp-Notebook"><h1>{title}</h1>'
+            "<p><strong>Figure 1</strong>: A figure.</p></body></html>"
+        )
+        notebook = nbformat.v4.new_notebook(
+            cells=[nbformat.v4.new_markdown_cell(f"# {title}")]
+        )
+        path = source_notebook_dir / f"{stem}.ipynb"
+        nbformat.write(notebook, path)
+        notebooks.append(str(path))
+
+    with patch("oceanval.subprocess.run") as run, patch("oceanval._polish_word_report"):
+        oceanval._write_offline_report_pages(str(output_dir), notebooks, word=True)
+
+    sources = {
+        call.args[0][-1]: call.kwargs["input"].decode() for call in run.call_args_list
+    }
+    second = sources[str(notebook_dir / "002_second.docx")]
+    combined = sources[str(notebook_dir / "oceanval_report.docx")]
+
+    # a page's own Word file mirrors its HTML page; only the combined report
+    # is numbered by chapter
+    assert "<strong>Figure 1</strong>" in second
+    assert "Figure 1.1" not in second
+    assert "<strong>Figure 1.1</strong>" in combined
+    assert "<strong>Figure 2.1</strong>" in combined
 
 
 def test_pdf_latex_is_embedded_as_svg():
