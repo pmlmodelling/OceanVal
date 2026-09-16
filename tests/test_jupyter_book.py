@@ -1,5 +1,6 @@
 import importlib.resources
 import re
+import shutil
 from unittest.mock import call, patch
 
 import nbformat
@@ -407,12 +408,106 @@ def test_word_report_is_formatted(tmp_path):
 
     footer = formatted.sections[0].footer
     footer_xml = footer._element.xml
-    assert "Produced by" in footer_xml
     assert "PAGE" in footer_xml and "NUMPAGES" in footer_xml
-    assert "https://pmlmodelling.github.io/OceanVal/" in (
-        footer.part.rels[
-            next(r for r in footer.part.rels if footer.part.rels[r].is_external)
-        ].target_ref
+    # the footer is the wordmark alone - no caption, and no link off the page
+    assert "Produced by" not in footer_xml
+    assert not [rel for rel in footer.part.rels.values() if rel.is_external]
+
+
+def _docx_from_html(tmp_path, body, name="report.docx", title=None):
+    source = oceanval._word_report_source(body)
+    path = tmp_path / name
+    oceanval._render_offline_report_word(
+        [(source, str(path), title, title is not None)], str(tmp_path)
+    )
+    return path
+
+
+def test_word_tables_are_ruled_like_a_book_table(tmp_path):
+    docx = pytest.importorskip("docx")
+    qn = pytest.importorskip("docx.oxml.ns").qn
+    if shutil.which("pandoc") is None:
+        pytest.skip("pandoc is not installed")
+
+    report = _docx_from_html(
+        tmp_path,
+        "<table><thead><tr><th>Variable</th><th>Bias</th></tr></thead>"
+        "<tbody><tr><td>Temperature</td><td>0.14</td></tr>"
+        "<tr><td>Salinity</td><td>-0.21</td></tr></tbody></table>",
+    )
+    table = docx.Document(str(report)).tables[0]
+
+    def border(properties, edge):
+        borders = properties.find(qn("w:tblBorders")) if properties.tag.endswith(
+            "}tblPr"
+        ) else properties.find(qn("w:tcBorders"))
+        return borders.find(qn(f"w:{edge}")).get(qn("w:val"))
+
+    # a rule above the table and below its last row, and none down the sides
+    # or between the body rows
+    tbl_pr = table._tbl.tblPr
+    assert border(tbl_pr, "bottom") == "single"
+    assert border(tbl_pr, "insideH") == "none"
+    assert border(tbl_pr, "insideV") == "none"
+    assert border(tbl_pr, "left") == "none"
+
+    header = table.rows[0]
+    for cell in header.cells:
+        # the third rule, under a header the reader can pick out at a glance
+        assert border(cell._tc.tcPr, "top") == "single"
+        assert border(cell._tc.tcPr, "bottom") == "single"
+        assert all(run.font.bold for run in cell.paragraphs[0].runs)
+
+    for cell in table.rows[1].cells:
+        assert all(not run.font.bold for run in cell.paragraphs[0].runs)
+
+
+def test_word_report_drops_the_heading_bookmarks(tmp_path):
+    docx = pytest.importorskip("docx")
+    qn = pytest.importorskip("docx.oxml.ns").qn
+    if shutil.which("pandoc") is None:
+        pytest.skip("pandoc is not installed")
+
+    report = _docx_from_html(
+        tmp_path,
+        '<h1 id="summary">Summary</h1><p>See <a href="#detail">the detail</a>.</p>'
+        '<h2 id="detail">Detail</h2><p>Prose.</p>',
+    )
+    body = docx.Document(str(report)).element.body
+    names = [start.get(qn("w:name")) for start in body.iter(qn("w:bookmarkStart"))]
+
+    # Word marks every bookmark in the margin, and the headings' own ones are
+    # never pointed at; the one an internal link needs is kept
+    assert names == ["detail"]
+    assert [end.get(qn("w:id")) for end in body.iter(qn("w:bookmarkEnd"))] == [
+        next(body.iter(qn("w:bookmarkStart"))).get(qn("w:id"))
+    ]
+
+
+def test_combined_word_report_starts_each_chapter_on_a_new_page(tmp_path):
+    docx = pytest.importorskip("docx")
+    if shutil.which("pandoc") is None:
+        pytest.skip("pandoc is not installed")
+
+    body = "<h1>First</h1><p>One.</p><h1>Second</h1><p>Two.</p><h1>Third</h1>"
+    combined = docx.Document(
+        str(_docx_from_html(tmp_path, body, "combined.docx", title="OceanVal"))
+    )
+    chapters = [
+        paragraph
+        for paragraph in combined.paragraphs
+        if paragraph.style.name == "Heading 1"
+    ]
+    # the first chapter follows the report title rather than leaving a page
+    # holding nothing but it
+    assert [
+        chapter.paragraph_format.page_break_before for chapter in chapters
+    ] == [None, True, True]
+
+    per_page = docx.Document(str(_docx_from_html(tmp_path, body, "page.docx")))
+    assert all(
+        paragraph.paragraph_format.page_break_before is None
+        for paragraph in per_page.paragraphs
     )
 
 

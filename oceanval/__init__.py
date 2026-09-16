@@ -474,14 +474,15 @@ def _word_report_source(body):
 def _render_offline_report_word(documents, resource_path):
     """Convert report pages to Word documents, using pandoc.
 
-    documents: iterable of (html_source, docx_path, title) tuples, where the
-    title is the document heading pandoc adds, or None for a page that
-    already opens with its own heading.
+    documents: iterable of (html_source, docx_path, title, chapter_breaks)
+    tuples, where the title is the document heading pandoc adds, or None
+    for a page that already opens with its own heading, and chapter_breaks
+    says whether the document runs several chapters together.
 
     The sources still hold their LaTeX, so the maths becomes real Word
     equations rather than pictures of equations.
     """
-    for source, docx_path, title in documents:
+    for source, docx_path, title, chapter_breaks in documents:
         command = [
             "pandoc",
             "--from",
@@ -512,7 +513,7 @@ def _render_offline_report_word(documents, resource_path):
             )
             continue
 
-        _polish_word_report(docx_path)
+        _polish_word_report(docx_path, chapter_breaks=chapter_breaks)
 
 
 def _word_page_number_field(paragraph, instruction, placeholder):
@@ -542,18 +543,170 @@ def _word_page_number_field(paragraph, instruction, placeholder):
     add_run(end)
 
 
-def _polish_word_report(docx_path):
+# where a <w:tblBorders>/<w:tcBorders> element has to sit among its siblings
+# for the document to stay schema valid
+_WORD_TBL_BORDER_SUCCESSORS = (
+    "w:shd", "w:tblLayout", "w:tblCellMar", "w:tblLook",
+    "w:tblCaption", "w:tblDescription", "w:tblPrChange",
+)
+_WORD_TBL_CELL_MAR_SUCCESSORS = (
+    "w:tblLook", "w:tblCaption", "w:tblDescription", "w:tblPrChange",
+)
+_WORD_TC_BORDER_SUCCESSORS = (
+    "w:shd", "w:noWrap", "w:tcMar", "w:textDirection", "w:tcFitText",
+    "w:vAlign", "w:hideMark", "w:headers", "w:cellIns", "w:cellDel",
+    "w:cellMerge", "w:tcPrChange",
+)
+
+
+def _word_set_borders(properties, tag, successors, edges):
+    """Put a <w:tblBorders> or <w:tcBorders> on a properties element.
+
+    edges: (name, visible) pairs, which must be given in schema order.
+    """
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+
+    for existing in properties.findall(qn(tag)):
+        properties.remove(existing)
+
+    borders = OxmlElement(tag)
+    for edge, visible in edges:
+        element = OxmlElement(f"w:{edge}")
+        element.set(qn("w:val"), "single" if visible else "none")
+        element.set(qn("w:sz"), "8" if visible else "0")
+        element.set(qn("w:space"), "0")
+        element.set(qn("w:color"), "000000" if visible else "auto")
+        borders.append(element)
+    properties.insert_element_before(borders, *successors)
+
+
+def _word_header_rows(table):
+    """The rows pandoc marked as the table's repeating header."""
+    from docx.oxml.ns import qn
+
+    return [
+        row
+        for row in table.rows
+        if row._tr.find(f"{qn('w:trPr')}/{qn('w:tblHeader')}") is not None
+    ]
+
+
+def _style_word_table(table):
+    """Rule the table like a book table, and embolden its header.
+
+    pandoc's own table style draws a single line under the header row,
+    which leaves the table floating in the prose. The rules above the
+    header and below the last row are what close it off, and no line is
+    drawn between the body rows or between the columns.
+    """
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+
+    # pandoc gives every column the same width, which wraps a long label
+    # while a column of short numbers sits half empty; autofit only takes
+    # effect once the widths it wrote stop being asked for
+    table.autofit = True
+    for column in table._tbl.tblGrid.gridCol_lst:
+        column.set(qn("w:w"), "0")
+
+    tbl_pr = table._tbl.tblPr
+    _word_set_borders(
+        tbl_pr,
+        "w:tblBorders",
+        _WORD_TBL_BORDER_SUCCESSORS,
+        [
+            ("top", True),
+            ("left", False),
+            ("bottom", True),
+            ("right", False),
+            ("insideH", False),
+            ("insideV", False),
+        ],
+    )
+
+    # without a little room around the text, the rules crowd it
+    for existing in tbl_pr.findall(qn("w:tblCellMar")):
+        tbl_pr.remove(existing)
+    cell_margins = OxmlElement("w:tblCellMar")
+    for edge, width in (("top", 60), ("left", 108), ("bottom", 60), ("right", 108)):
+        element = OxmlElement(f"w:{edge}")
+        element.set(qn("w:w"), str(width))
+        element.set(qn("w:type"), "dxa")
+        cell_margins.append(element)
+    tbl_pr.insert_element_before(cell_margins, *_WORD_TBL_CELL_MAR_SUCCESSORS)
+
+    header_rows = _word_header_rows(table)
+    if not header_rows:
+        return
+
+    for row in header_rows:
+        for cell in row.cells:
+            for paragraph in cell.paragraphs:
+                for run in paragraph.runs:
+                    run.font.bold = True
+
+    # a cell's own borders win over the table's, and pandoc's table style
+    # rules under the first row whether or not more header rows follow, so
+    # every header row has to say where its lines go
+    for index, row in enumerate(header_rows):
+        for cell in row.cells:
+            _word_set_borders(
+                cell._tc.get_or_add_tcPr(),
+                "w:tcBorders",
+                _WORD_TC_BORDER_SUCCESSORS,
+                [
+                    ("top", index == 0),
+                    ("left", False),
+                    ("bottom", index == len(header_rows) - 1),
+                    ("right", False),
+                    ("insideH", False),
+                    ("insideV", False),
+                ],
+            )
+
+
+def _strip_word_bookmarks(document):
+    """Drop the bookmarks pandoc writes for every heading id.
+
+    Word draws a marker in the margin for each of them, and the report has
+    no use for them; any bookmark an internal link points at is kept, so
+    that the links still work, as are Word's own hidden bookmarks.
+    """
+    from docx.oxml.ns import qn
+
+    body = document.element.body
+    anchors = {
+        link.get(qn("w:anchor"))
+        for link in body.iter(qn("w:hyperlink"))
+        if link.get(qn("w:anchor"))
+    }
+
+    kept = set()
+    for start in list(body.iter(qn("w:bookmarkStart"))):
+        name = start.get(qn("w:name")) or ""
+        if name in anchors or name.startswith("_"):
+            kept.add(start.get(qn("w:id")))
+            continue
+        start.getparent().remove(start)
+    for end in list(body.iter(qn("w:bookmarkEnd"))):
+        if end.get(qn("w:id")) not in kept:
+            end.getparent().remove(end)
+
+
+def _polish_word_report(docx_path, chapter_breaks=False):
     """Centre the figures and tables, and add the OceanVal footer.
 
     pandoc gives images and prose the same paragraph style, so the figures
     can only be centred after the fact, and it writes no footer at all.
+
+    chapter_breaks starts every chapter of the combined report on a fresh
+    page, as the PDF report does.
     """
     try:
         import docx
         from docx.enum.table import WD_ALIGN_VERTICAL, WD_TABLE_ALIGNMENT
         from docx.enum.text import WD_ALIGN_PARAGRAPH
-        from docx.opc.constants import RELATIONSHIP_TYPE
-        from docx.oxml import OxmlElement
         from docx.oxml.ns import qn
         from docx.shared import Mm, Pt, RGBColor
     except ImportError:
@@ -573,6 +726,20 @@ def _polish_word_report(docx_path):
 
     for table in document.tables:
         table.alignment = WD_TABLE_ALIGNMENT.CENTER
+        _style_word_table(table)
+
+    _strip_word_bookmarks(document)
+
+    if chapter_breaks:
+        chapters = [
+            paragraph
+            for paragraph in document.paragraphs
+            if paragraph.style is not None and paragraph.style.name == "Heading 1"
+        ]
+        # the first chapter carries on from the report title rather than
+        # leaving a page holding nothing but that title
+        for chapter in chapters[1:]:
+            chapter.paragraph_format.page_break_before = True
 
     section = document.sections[0]
     # pandoc leaves the page setup empty, so Word would fall back to whatever
@@ -594,13 +761,9 @@ def _polish_word_report(docx_path):
     )
     wordmark_cell, page_cell = layout.rows[0].cells
 
-    label = wordmark_cell.paragraphs[0]
-    label_run = label.add_run("Produced by")
-    label_run.font.size = Pt(8)
-    label_run.font.name = "Arial"
-    label_run.font.color.rgb = RGBColor(0x0E, 0x3A, 0x45)
-
-    wordmark = wordmark_cell.add_paragraph()
+    # the wordmark stands on its own in the Word report - no caption above it
+    # and no link off to the docs site
+    wordmark = wordmark_cell.paragraphs[0]
     wordmark.add_run().add_picture(
         io.BytesIO(
             importlib.resources.files(__name__)
@@ -609,18 +772,6 @@ def _polish_word_report(docx_path):
         ),
         width=Mm(32),
     )
-    # link the wordmark to the docs site, as the HTML and PDF reports do
-    relationship_id = wordmark.part.relate_to(
-        "https://pmlmodelling.github.io/OceanVal/",
-        RELATIONSHIP_TYPE.HYPERLINK,
-        is_external=True,
-    )
-    hyperlink = OxmlElement("w:hyperlink")
-    hyperlink.set(qn("r:id"), relationship_id)
-    picture_run = wordmark.runs[0]._r
-    picture_run.getparent().remove(picture_run)
-    hyperlink.append(picture_run)
-    wordmark._p.append(hyperlink)
 
     page_cell.vertical_alignment = WD_ALIGN_VERTICAL.BOTTOM
     page_paragraph = page_cell.paragraphs[0]
@@ -707,6 +858,7 @@ def _write_offline_report_pages(
                     _word_report_source(body_content),
                     os.path.join(output_dir, "notebooks", f"{stem}.docx"),
                     None,
+                    False,
                 )
             )
             page_downloads.append(
@@ -765,6 +917,7 @@ def _write_offline_report_pages(
                 _word_report_source(combined_body),
                 os.path.join(output_dir, "notebooks", "oceanval_report.docx"),
                 "OceanVal validation report",
+                True,
             )
         )
 
