@@ -37,13 +37,16 @@ updating to match, and update whichever do:
 
 Don't hand-edit the "vX.Y.Z" badge next to the logo in each page's header
 (`#oceanval-docs-version`) — it needs no manual update, ever.
-`docs-site/assets/js/main.js` fetches `https://pypi.org/pypi/oceanval/json`
-client-side on page load and fills it in. This badge is a plain "what's
-current" indicator, not a version switcher — see `docs-site/README.md`'s
-"Version badge" section. (A header dropdown that switched the *whole site*
-between versions, plus a synchronous redirect-to-stable-by-default script,
-was built and then deliberately reverted — it didn't work reliably. Don't
-rebuild that specific design without being asked.)
+`docs-site/assets/js/main.js` fetches `setup.py` from `main` on GitHub
+client-side on page load, regexes the `version=` line out of it, and fills
+the badge in — deliberately `setup.py`, not the latest PyPI release, so it
+doesn't lag behind a merged-but-not-yet-released feature. This badge is a
+plain "what version is this" indicator, not a version switcher — see
+`docs-site/README.md`'s "Version badge" section. (A header dropdown that
+switched the *whole site* between versions, plus a synchronous
+redirect-to-stable-by-default script, was built and then deliberately
+reverted — it didn't work reliably. Don't rebuild that specific design
+without being asked.)
 
 Don't hand-create or hand-edit anything under `docs-site/archive/`, or the
 `<!-- OCEANVAL_VERSION_HISTORY_START -->`/`_END` block inside

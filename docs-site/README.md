@@ -62,14 +62,22 @@ starting with an underscore.
 
 ## Version badge
 
-Every page shows the latest OceanVal release next to the header logo
+Every page shows OceanVal's current version next to the header logo
 (`<span id="oceanval-docs-version" class="brand-version">`). It's entirely
-client-side: `assets/js/main.js` fetches `https://pypi.org/pypi/oceanval/json`
-on page load and fills in the placeholder `v&hellip;` with the current
-version. Don't hardcode a version number here — it needs that literal
-placeholder text to find and replace.
+client-side: `assets/js/main.js` fetches `setup.py` from the `main` branch
+on GitHub (`raw.githubusercontent.com/pmlmodelling/oceanVal/main/setup.py`)
+on page load, reads the `version=` line out of it with a regex, and fills
+in the placeholder `v&hellip;` with that version. Don't hardcode a version
+number here — it needs that literal placeholder text to find and replace.
 
-This is a plain "what's the latest release" indicator, not a version
+This deliberately reads `setup.py` rather than the latest PyPI release: the
+two can differ for a while after a feature is merged to `main` but before
+its version bump is actually released, and the badge should reflect what's
+in the repo, not lag behind it. (`docs-archive.yml` already uses `setup.py`
+as its own source of truth for the same reason - see "Archived versions"
+below.)
+
+This is a plain "what version is this" indicator, not a version
 switcher — only one version of the site is served at the root. (An earlier
 version of this site tried a header dropdown that switched the whole site
 between versions with a redirect-to-stable-by-default scheme; it didn't work

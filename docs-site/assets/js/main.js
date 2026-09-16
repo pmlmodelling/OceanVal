@@ -166,21 +166,24 @@
     window.addEventListener("scroll", updateToc, { passive: true });
   }
 
-  /* ---------- docs version (latest PyPI release) ---------- */
+  /* ---------- docs version (this repo's setup.py, not the last PyPI
+     release - they can differ once a feature is merged but not yet
+     published) ---------- */
   var versionEls = document.querySelectorAll("#oceanval-docs-version");
   if (versionEls.length) {
-    fetch("https://pypi.org/pypi/oceanval/json")
-      .then(function (res) { return res.json(); })
-      .then(function (data) {
-        var version = data && data.info && data.info.version;
+    fetch("https://raw.githubusercontent.com/pmlmodelling/oceanVal/main/setup.py")
+      .then(function (res) { return res.text(); })
+      .then(function (text) {
+        var match = text.match(/version\s*=\s*['"]([^'"]+)['"]/);
+        var version = match && match[1];
         if (!version) return;
         versionEls.forEach(function (el) {
           el.textContent = "v" + version;
-          el.title = "OceanVal v" + version + " (latest PyPI release)";
+          el.title = "OceanVal v" + version + " (main branch)";
         });
       })
       .catch(function () {
-        /* PyPI unreachable (offline, blocked, rate-limited): leave the
+        /* GitHub unreachable (offline, blocked, rate-limited): leave the
            static fallback text in the HTML in place rather than showing
            an error or a stale version number. */
       });
