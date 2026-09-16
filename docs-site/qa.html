@@ -22,14 +22,30 @@
     <nav class="nav-links" id="nav-links">
       <a href="installing.html" data-page="installing.html">Install</a>
       <a href="quickstart.html" data-page="quickstart.html">Quickstart</a>
-      <a href="how-to-use.html" data-page="how-to-use.html">Guide</a>
-      <a href="recipes.html" data-page="recipes.html">Recipes</a>
+      <div class="nav-drop">
+        <button class="nav-drop-toggle" type="button" aria-expanded="false" aria-haspopup="true">
+          How to use
+          <svg class="nav-drop-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="nav-drop-menu">
+          <a href="how-to-use.html" data-page="how-to-use.html">Guide</a>
+          <a href="recipes.html" data-page="recipes.html">Recipes</a>
+          <a href="obs-data.html" data-page="obs-data.html">Data formats</a>
+          <a href="qa.html" data-page="qa.html">Q&amp;A</a>
+          <a href="api.html" data-page="api.html">API</a>
+        </div>
+      </div>
       <a href="create-recipes.html" data-page="create-recipes.html">A rapid workflow</a>
-      <a href="obs-data.html" data-page="obs-data.html">Data formats</a>
-      <a href="qa.html" data-page="qa.html">Q&amp;A</a>
-      <a href="api.html" data-page="api.html">API</a>
-      <a href="about.html" data-page="about.html">About</a>
-      <a href="version-history.html" data-page="version-history.html">Version history</a>
+      <div class="nav-drop">
+        <button class="nav-drop-toggle" type="button" aria-expanded="false" aria-haspopup="true">
+          Info
+          <svg class="nav-drop-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="nav-drop-menu">
+          <a href="about.html" data-page="about.html">About</a>
+          <a href="version-history.html" data-page="version-history.html">Version history</a>
+        </div>
+      </div>
     </nav>
     <div class="nav-actions">
       <a class="icon-btn" href="https://github.com/pmlmodelling/oceanVal" target="_blank" rel="noopener" aria-label="OceanVal on GitHub">

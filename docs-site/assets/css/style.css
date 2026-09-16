@@ -283,6 +283,116 @@ li { margin-bottom: 0.45em; }
   .nav-actions .btn-outline-text { display: none; }
 }
 
+/* ---------------------------- nav dropdown ---------------------------- */
+
+.nav-drop { position: relative; }
+
+.nav-drop-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  color: var(--ink-soft);
+  font-weight: 500;
+  font-size: 0.94rem;
+  padding: 0.4em 0;
+  border-bottom: 2px solid transparent;
+}
+.nav-drop-toggle:hover,
+.nav-drop-toggle.active,
+.nav-drop-toggle[aria-expanded="true"] {
+  color: var(--teal-600);
+  border-bottom-color: var(--teal-500);
+}
+.nav-drop-caret { width: 14px; height: 14px; flex-shrink: 0; transition: transform 0.15s ease; }
+.nav-drop-toggle[aria-expanded="true"] .nav-drop-caret,
+.nav-drop:hover .nav-drop-caret { transform: rotate(180deg); }
+
+.nav-drop-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+@media (min-width: 901px) {
+  .nav-drop-menu {
+    position: absolute;
+    top: calc(100% + 14px);
+    left: 50%;
+    min-width: 180px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
+    padding: 0.4rem;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateX(-50%) translateY(-6px);
+    transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s;
+    z-index: 50;
+  }
+  /* a hover-capable pointer can open it without JS; is-open (from a click,
+     e.g. on a touch-enabled laptop) keeps it open once JS has run */
+  .nav-drop:hover .nav-drop-menu,
+  .nav-drop.is-open .nav-drop-menu {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0);
+  }
+  .nav-links .nav-drop-menu a {
+    border-bottom: none;
+    border-radius: var(--radius-sm);
+    padding: 0.55em 0.8em;
+    white-space: nowrap;
+  }
+  .nav-links .nav-drop-menu a:hover,
+  .nav-links .nav-drop-menu a.active {
+    background: var(--teal-50);
+    color: var(--teal-600);
+    border-bottom: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .nav-drop-menu {
+    display: none;
+    padding-left: 1rem;
+  }
+  .nav-drop.is-open .nav-drop-menu { display: flex; }
+  .nav-drop-toggle { width: 100%; justify-content: space-between; padding: 0.85em 0; border-bottom: 1px solid var(--line-soft); }
+}
+
+/* ---------------------------- dev banner ---------------------------- */
+
+.dev-banner {
+  background: var(--coral);
+  color: #fff;
+}
+.dev-banner .container {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65em;
+  padding: 0.9em 24px;
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+.dev-banner p { margin: 0; color: #fff; }
+.dev-banner svg { width: 19px; height: 19px; flex-shrink: 0; margin-top: 0.15em; }
+.dev-banner strong { font-weight: 700; }
+.dev-banner code { background: rgba(255,255,255,0.22); color: #fff; }
+.dev-banner a { color: #fff; text-decoration: underline; text-underline-offset: 2px; font-weight: 600; }
+.dev-banner a:hover { text-decoration-color: transparent; }
+
+@media (max-width: 620px) {
+  .dev-banner .container { font-size: 0.88rem; }
+}
+
 /* ---------------------------- hero ---------------------------- */
 
 .hero {

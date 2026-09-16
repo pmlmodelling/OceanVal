@@ -26,10 +26,45 @@
     });
   }
 
+  /* ---------- nav "How to use" dropdown ---------- */
+  var navDrops = document.querySelectorAll(".nav-drop");
+
+  function closeNavDrops(except) {
+    navDrops.forEach(function (drop) {
+      if (drop === except) return;
+      drop.classList.remove("is-open");
+      var toggle = drop.querySelector(".nav-drop-toggle");
+      if (toggle) toggle.setAttribute("aria-expanded", "false");
+    });
+  }
+
+  navDrops.forEach(function (drop) {
+    var toggle = drop.querySelector(".nav-drop-toggle");
+    if (!toggle) return;
+    toggle.addEventListener("click", function (event) {
+      event.stopPropagation();
+      var open = !drop.classList.contains("is-open");
+      closeNavDrops(open ? drop : null);
+      drop.classList.toggle("is-open", open);
+      toggle.setAttribute("aria-expanded", open ? "true" : "false");
+    });
+  });
+  document.addEventListener("click", function () { closeNavDrops(); });
+  document.addEventListener("keydown", function (event) {
+    if (event.key === "Escape") closeNavDrops();
+  });
+
   /* ---------- mark active nav link ---------- */
   var here = (location.pathname.split("/").pop() || "index.html");
   document.querySelectorAll(".nav-links a[data-page]").forEach(function (a) {
-    if (a.getAttribute("data-page") === here) a.classList.add("active");
+    if (a.getAttribute("data-page") === here) {
+      a.classList.add("active");
+      var parentDrop = a.closest(".nav-drop");
+      if (parentDrop) {
+        var parentToggle = parentDrop.querySelector(".nav-drop-toggle");
+        if (parentToggle) parentToggle.classList.add("active");
+      }
+    }
   });
 
   /* ---------- copy-to-clipboard for code cards ---------- */
