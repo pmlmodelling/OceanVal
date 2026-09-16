@@ -5,11 +5,12 @@
 # source of truth for the version being released), not from the release's
 # tag name.
 #
-# Only those two pages are archived - the other seven (installing,
-# quickstart, how-to-use, recipes, obs-data, qa, about) aren't meaningfully
-# version-specific, and archiving all nine pages of every release
+# Only those two pages are archived - the other eight (installing,
+# quickstart, how-to-use, recipes, create-recipes, obs-data, qa, about)
+# aren't meaningfully
+# version-specific, and archiving all ten pages of every release
 # indefinitely doesn't scale. The snapshot's nav is simplified to just a
-# "Version history" link, and any link to one of the seven un-archived pages
+# "Version history" link, and any link to one of the eight un-archived pages
 # (or to example-report/ or version-history.html itself, neither of which is
 # version-specific) is rewritten to point at the live copy instead of 404ing
 # inside the snapshot.
@@ -67,7 +68,7 @@ jobs:
           cp docs-site/index.html docs-site/api.html "$dest"/
           cp -r docs-site/assets "$dest"/
 
-          # Simplify the nav down to just "Version history" (the seven pages
+          # Simplify the nav down to just "Version history" (the eight pages
           # it used to link to aren't in this snapshot), and repoint any
           # link to one of them - or to example-report/ or
           # version-history.html, neither of which is version-specific - at
@@ -80,7 +81,8 @@ jobs:
           dest = Path(sys.argv[1])
           live_only_pages = [
               "installing.html", "quickstart.html", "how-to-use.html",
-              "recipes.html", "obs-data.html", "qa.html", "about.html",
+              "recipes.html", "create-recipes.html", "obs-data.html",
+              "qa.html", "about.html",
               "example-report/", "version-history.html",
           ]
           nav_re = re.compile(r'<nav class="nav-links" id="nav-links">.*?</nav>', re.S)

@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Validating a model with a few lines of code — OceanVal</title>
+<meta name="description" content="Validate a global or Northwest European Shelf biogeochemical model in a few lines of code: create_recipes writes the whole matchup script for you.">
+<link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container nav">
+    <a class="brand" href="index.html">
+      <img src="assets/img/oceanval_wordmark.svg" alt="OceanVal">
+      <span id="oceanval-docs-version" class="brand-version">v&hellip;</span>
+    </a>
+    <nav class="nav-links" id="nav-links">
+      <a href="installing.html" data-page="installing.html">Install</a>
+      <a href="quickstart.html" data-page="quickstart.html">Quickstart</a>
+      <a href="how-to-use.html" data-page="how-to-use.html">Guide</a>
+      <a href="recipes.html" data-page="recipes.html">Recipes</a>
+      <a href="create-recipes.html" data-page="create-recipes.html">A rapid workflow</a>
+      <a href="obs-data.html" data-page="obs-data.html">Data formats</a>
+      <a href="qa.html" data-page="qa.html">Q&amp;A</a>
+      <a href="api.html" data-page="api.html">API</a>
+      <a href="about.html" data-page="about.html">About</a>
+      <a href="version-history.html" data-page="version-history.html">Version history</a>
+    </nav>
+    <div class="nav-actions">
+      <a class="icon-btn" href="https://github.com/pmlmodelling/oceanVal" target="_blank" rel="noopener" aria-label="OceanVal on GitHub">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M12 .5C5.73.5.5 5.74.5 12.09c0 5.08 3.29 9.38 7.86 10.9.57.1.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.53-1.34-1.29-1.7-1.29-1.7-1.05-.72.08-.71.08-.71 1.17.08 1.78 1.2 1.78 1.2 1.03 1.77 2.71 1.26 3.37.96.1-.75.4-1.26.73-1.55-2.56-.29-5.26-1.28-5.26-5.71 0-1.26.45-2.29 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.79 0c2.2-1.49 3.17-1.18 3.17-1.18.64 1.59.24 2.76.12 3.05.74.8 1.18 1.83 1.18 3.09 0 4.44-2.7 5.42-5.28 5.7.42.36.78 1.08.78 2.17 0 1.57-.01 2.83-.01 3.22 0 .3.21.66.8.55A10.6 10.6 0 0 0 23.5 12.1C23.5 5.74 18.27.5 12 .5Z"/></svg>
+      </a>
+      <button class="nav-toggle" id="nav-toggle" aria-label="Toggle menu" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+<div class="page-hero">
+  <div class="container">
+    <div class="breadcrumb"><a href="index.html">Home</a> / A rapid workflow</div>
+    <h1>Validating a model with a few lines of code</h1>
+  </div>
+</div>
+
+<div class="container docs-layout">
+  <aside class="docs-toc">
+    <div class="docs-toc-title">On this page</div>
+    <ul>
+      <li><a href="#generate">Step 1: Generate the script</a></li>
+      <li><a href="#check">Step 2: Check what was found</a></li>
+      <li><a href="#run">Step 3: Run it</a></li>
+      <li><a href="#domain">Choosing the domain</a></li>
+      <li><a href="#inside">Inside the generated script</a></li>
+      <li><a href="#gaps">Filling in the gaps</a></li>
+      <li><a href="#before">Before you run it</a></li>
+      <li><a href="#next">Next steps</a></li>
+    </ul>
+  </aside>
+
+  <div class="docs-content">
+    <p>OceanVal has a built-in 3-step approach that will let you validate models using popular gridded datasets quickly. It will take care of everything for you: it works out which model variable maps to which observational variable, and it will matchup and validate each variable.</p>
+
+    <p><a href="api.html#create_recipes"><code>oceanval.create_recipes</code></a> does that for you. It scans your model output, works out which model variable holds each observational variable, and writes a complete, runnable matchup script. Validating a global or Northwest European Shelf model is then two steps: generate the script, then run it.</p>
+
+    <div class="callout">
+      <div class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>How does create_recipes identify variables?</div>
+      <p>From the <code>long_name</code> attribute in your NetCDF files, not the variable name. A variable called <code>N3_n</code> with a long name of <code>nitrate nitrogen</code> is recognised as nitrate; <code>votemper</code> described as <code>temperature</code> is recognised as temperature. You don't have to rename anything or write a mapping table. Where a model splits a quantity across several variables — chlorophyll across phytoplankton functional types, say — they are summed.</p>
+      <p><strong>Note:</strong> variable identification is an automated process and is not 100% guaranteed to identify variables correctly, so double check the output variables.</p>
+    </div>
+
+    <h2 id="generate">Step 1: Generate the script for model validation</h2>
+    <p>The first step is to tell OceanVal where your simulation data can be found. It will then look through the directories netCDF files and create a script that can be used to matchup and validate your simulation.</p>
+    <div class="code-block">
+      <div class="code-card__bar">
+        <div class="code-card__dots"><span></span><span></span><span></span></div>
+        <span class="code-card__label">python</span>
+        <button class="code-card__copy" data-copy-target="#cr-code-1">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          <span class="copy-label">Copy</span>
+        </button>
+      </div>
+      <pre id="cr-code-1"><span class="tok-kw">import</span> oceanval
+
+oceanval.<a href="api.html#create_recipes"><span class="tok-fn">create_recipes</span></a>(
+    simdir=<span class="tok-str">"/path/to/model/output"</span>,
+    ndown=<span class="tok-num">2</span>,
+    out=<span class="tok-str">"matchup.py"</span>,
+    domain=<span class="tok-str">"global"</span>,
+)</pre>
+    </div>
+    <ul>
+      <li><code>simdir</code> — the top of your model output tree.</li>
+      <li><code>ndown</code> — how many directories below <code>simdir</code> the NetCDF files sit. Use <code>2</code> for output filed as <code>sim/YYYY/MM/*.nc</code>, <code>1</code> for <code>sim/YYYY/*.nc</code>, and <code>0</code> for a single flat directory. It means the same thing as <code>n_dirs_down</code> on <a href="api.html#matchup"><code>matchup</code></a>.</li>
+      <li><code>out</code> — the Python file to write.</li>
+      <li><code>domain</code> — <code>"global"</code> or <code>"nwes"</code>. See <a href="#domain">Choosing the domain</a> below.</li>
+    </ul>
+    <p>Only one file per output stream is read, not every file in the simulation, so this takes seconds rather than minutes even for a long run.</p>
+
+    <h2 id="check">Step 2: Check what was found</h2>
+    <p><code>create_recipes</code> prints what it identified, so you can check it against what you know your model writes before running anything:</p>
+    <div class="code-block">
+      <div class="code-card__bar">
+        <div class="code-card__dots"><span></span><span></span><span></span></div>
+        <span class="code-card__label">output</span>
+      </div>
+      <pre>Wrote matchup.py
+  ammonium: N4_n
+  chlorophyll: P1_Chl+P2_Chl+P3_Chl+P4_Chl
+  nitrate: N3_n
+  oxygen: O2_o
+  phosphate: N1_p
+  salinity: so
+  silicate: N5_s
+  temperature: thetao
+  commented out (no model variable found): alkalinity, kd490, ph</pre>
+    </div>
+    <p>A name joined with <code>+</code> is a sum — here the four ERSEM phytoplankton chlorophyll variables, which together are what the satellite observes.</p>
+    <p>The last line is what OceanVal could not find. This run has no carbonate chemistry or optics, so alkalinity, pH and KD490 were left out. Nothing is silently dropped: those recipes are still written into the script, commented out and ready for you to complete. See <a href="#gaps">Filling in the gaps</a>.</p>
+
+    <h2 id="run">Step 3: Run it</h2>
+    <p>The generated file is an ordinary Python script. Read it, adjust anything you want to change, and run it:</p>
+    <div class="code-block">
+      <div class="code-card__bar">
+        <div class="code-card__dots"><span></span><span></span><span></span></div>
+        <span class="code-card__label">bash</span>
+        <button class="code-card__copy" data-copy-target="#cr-code-2">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          <span class="copy-label">Copy</span>
+        </button>
+      </div>
+      <pre id="cr-code-2">python matchup.py</pre>
+    </div>
+    <p>The script registers every recipe it found a variable for, then calls <a href="api.html#matchup"><code>matchup</code></a> and <a href="api.html#validate"><code>validate</code></a> for you. OceanVal will report the file pattern it has identified and ask you to confirm before matching. When the build finishes, the report opens in your browser.</p>
+    <div class="callout">
+      <div class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Observations download themselves</div>
+      <p>The recipes fetch their observational data when <code>matchup</code> runs — you don't need to download WOA23, OCCCI, GLODAP or NSBC yourself. The first run will therefore spend time pulling data over the network.</p>
+    </div>
+
+    <h2 id="domain">Choosing the domain</h2>
+    <p>Several variables have a recipe in both regions. Registering the same variable twice would replace the first registration, so only one recipe per variable can be live — <code>domain</code> decides which.</p>
+    <ul>
+      <li><code>domain="global"</code> — World Ocean Atlas 2023, Ocean Colour CCI, GLODAPv2.2016b and COBE-SST 2.</li>
+      <li><code>domain="nwes"</code> — the North Sea Biogeochemical Climatology, for Northwest European Shelf models.</li>
+    </ul>
+    <p>This is a default, not a restriction. A variable with a recipe in only one of the two regions still gets that recipe whichever domain you pick:</p>
+    <div class="table-wrap" style="margin-top:1.6rem;">
+      <table>
+        <thead>
+          <tr>
+            <th>Variable</th>
+            <th>Global</th>
+            <th>NW European Shelf</th>
+            <th>Affected by <code>domain</code></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Temperature</td><td>COBE-SST 2, WOA23</td><td>NSBC</td><td><span class="badge badge-yes">Yes</span></td></tr>
+          <tr><td>Salinity</td><td>WOA23</td><td>NSBC</td><td><span class="badge badge-yes">Yes</span></td></tr>
+          <tr><td>Nitrate</td><td>WOA23</td><td>NSBC</td><td><span class="badge badge-yes">Yes</span></td></tr>
+          <tr><td>Phosphate</td><td>WOA23</td><td>NSBC</td><td><span class="badge badge-yes">Yes</span></td></tr>
+          <tr><td>Silicate</td><td>WOA23</td><td>NSBC</td><td><span class="badge badge-yes">Yes</span></td></tr>
+          <tr><td>Oxygen</td><td>WOA23</td><td>NSBC</td><td><span class="badge badge-yes">Yes</span></td></tr>
+          <tr><td>Chlorophyll</td><td>OCCCI</td><td>NSBC</td><td><span class="badge badge-yes">Yes</span></td></tr>
+          <tr><td>Ammonium</td><td>—</td><td>NSBC</td><td><span class="badge badge-no">No</span></td></tr>
+          <tr><td>pH</td><td>GLODAPv2.2016b</td><td>—</td><td><span class="badge badge-no">No</span></td></tr>
+          <tr><td>Alkalinity</td><td>GLODAPv2.2016b</td><td>—</td><td><span class="badge badge-no">No</span></td></tr>
+          <tr><td>KD490</td><td>OCCCI</td><td>—</td><td><span class="badge badge-no">No</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>So a shelf model run with <code>domain="nwes"</code> still gets pH, alkalinity and KD490 from the global datasets, and a global model run with <code>domain="global"</code> still gets ammonium from NSBC. The recipe that loses out is written into the script as a commented alternative, so you can swap back by uncommenting it and commenting out the other.</p>
+
+    <h2 id="inside">Inside the generated script</h2>
+    <p>Every recipe OceanVal ships with appears in the script, in one of three states. The first is live — a model variable was found, and this is the recipe for your domain:</p>
+    <div class="code-block">
+      <div class="code-card__bar">
+        <div class="code-card__dots"><span></span><span></span><span></span></div>
+        <span class="code-card__label">python</span>
+      </div>
+      <pre><span class="tok-com"># Chlorophyll - North Sea Biogeochemical Climatology</span>
+<span class="tok-com"># recipe: 'nsbc'</span>
+oceanval.<a href="api.html#add_gridded_comparison"><span class="tok-fn">add_gridded_comparison</span></a>(
+    name=<span class="tok-str">"chlorophyll"</span>,
+    model_variable=<span class="tok-str">"P1_Chl+P2_Chl+P3_Chl+P4_Chl"</span>,
+    recipe={<span class="tok-str">"chlorophyll"</span>: <span class="tok-str">"nsbc"</span>},
+    climatology=<span class="tok-kw">True</span>,
+    vertical=<span class="tok-kw">False</span>,  <span class="tok-com"># set True to validate the full water column</span>
+)</pre>
+    </div>
+    <p>The second is an alternative source for a variable that is already covered, commented out with an explanation of what to do if you want it instead:</p>
+    <div class="code-block">
+      <div class="code-card__bar">
+        <div class="code-card__dots"><span></span><span></span><span></span></div>
+        <span class="code-card__label">python</span>
+      </div>
+      <pre><span class="tok-com"># Chlorophyll - Ocean Colour CCI (https://esa-oceancolour-cci.org/)</span>
+<span class="tok-com"># recipe: 'occci'</span>
+<span class="tok-com"># The Northwest European Shelf recipe for chlorophyll is registered instead.</span>
+<span class="tok-com"># Registering a second one would replace it, so to validate against</span>
+<span class="tok-com"># this source, comment out the other recipe and uncomment this one.</span>
+<span class="tok-com"># oceanval.add_gridded_comparison(</span>
+<span class="tok-com">#     name="chlorophyll",</span>
+<span class="tok-com">#     model_variable="P1_Chl+P2_Chl+P3_Chl+P4_Chl",</span>
+<span class="tok-com">#     recipe={"chlorophyll": "occci"},</span>
+<span class="tok-com">#     climatology=False,</span>
+<span class="tok-com"># )</span></pre>
+    </div>
+    <p>The third is a recipe with no model variable found — see below. The script ends with the <a href="api.html#matchup"><code>matchup</code></a> and <a href="api.html#validate"><code>validate</code></a> calls that finish the job, with <code>sim_dir</code>, <code>n_dirs_down</code> and the simulation's year range already filled in.</p>
+
+    <h2 id="gaps">Filling in the gaps</h2>
+    <p>A recipe OceanVal could not find a model variable for is written out commented, with the model variable left as a placeholder:</p>
+    <div class="code-block">
+      <div class="code-card__bar">
+        <div class="code-card__dots"><span></span><span></span><span></span></div>
+        <span class="code-card__label">python</span>
+      </div>
+      <pre><span class="tok-com"># Alkalinity - GLODAPv2.2016b (https://www.glodap.info/)</span>
+<span class="tok-com"># recipe: 'glodap'</span>
+<span class="tok-com"># No alkalinity variable was found in the model output.</span>
+<span class="tok-com"># Set model_variable to the name your model uses, then uncomment</span>
+<span class="tok-com"># this block.</span>
+<span class="tok-com"># oceanval.add_gridded_comparison(</span>
+<span class="tok-com">#     name="alkalinity",</span>
+<span class="tok-com">#     model_variable="talk",</span>
+<span class="tok-com">#     recipe={"alkalinity": "glodap"},</span>
+<span class="tok-com">#     climatology=True,</span>
+<span class="tok-com"># )</span></pre>
+    </div>
+    <p>To use it, uncomment the block and replace <code>model_variable</code> with the name your model uses. There are two common reasons a variable is missed:</p>
+    <ul>
+      <li><strong>Your model doesn't produce it.</strong> Leave the block commented — the rest of the report is unaffected.</li>
+      <li><strong>It is described ambiguously.</strong> If two variables in the same file have long names that both look like the quantity, OceanVal will not guess between them, and leaves the recipe commented rather than picking the wrong one. Name the one you want by hand.</li>
+    </ul>
+
+    <h2 id="before">Before you run it</h2>
+    <p>Three things in the generated script are worth a look before you run it.</p>
+    <div class="callout warn">
+      <div class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Check the year range</div>
+      <p>The <code>start</code> and <code>end</code> years on the <code>matchup</code> call are read from the file paths — from a <code>YYYY/</code> directory, or a <code>YYYYMMDD</code> date in the file name. That is a good guess, not a guarantee. If your paths carry no year, the script says so and leaves a placeholder for you to set.</p>
+    </div>
+    <p><strong>WOA23 decadal periods.</strong> The World Ocean Atlas publishes temperature and salinity per decade, and <code>start</code>/<code>end</code> must sit inside one period. The script fills in the period covering your simulation; if your run straddles two, it says so and you will need to choose one.</p>
+    <p><strong>Water-column validation.</strong> Recipes that support it are written with <code>vertical=False</code>, which validates the surface only. Set it to <code>True</code> to validate the full water column — and then <code>matchup</code> also needs <code>thickness</code>, either <code>"z_level"</code> or the name of your model's cell thickness variable.</p>
+
+    <h2 id="next">Next steps</h2>
+    <ul>
+      <li>Browse every recipe, and what each dataset covers, on the <a href="recipes.html">Data recipes</a> page.</li>
+      <li>Add your own gridded or in-situ observations alongside the built-in recipes: see <a href="how-to-use.html">How to use OceanVal</a>.</li>
+      <li>Compare several simulations side by side with <a href="api.html#compare"><code>oceanval.compare()</code></a>.</li>
+      <li>If no matchups are produced, check the <a href="qa.html">Q&amp;A</a>.</li>
+    </ul>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="container footer-pml">
+    <a href="https://pml.ac.uk/" target="_blank" rel="noopener"><img src="assets/img/pml_logo.jpg" alt="Plymouth Marine Laboratory"></a>
+    <span>Developed by the Environmental Intelligence group at Plymouth Marine Laboratory</span>
+  </div>
+  <div class="container footer-top">
+    <div class="footer-brand">
+      <img src="assets/img/oceanval_wordmark.svg" alt="OceanVal">
+      <p>Automated ocean model validation in Python. Match, compute, and report — in a few lines of code.</p>
+      <div class="footer-social">
+        <a href="https://github.com/pmlmodelling/oceanVal" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M12 .5C5.73.5.5 5.74.5 12.09c0 5.08 3.29 9.38 7.86 10.9.57.1.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.53-1.34-1.29-1.7-1.29-1.7-1.05-.72.08-.71.08-.71 1.17.08 1.78 1.2 1.78 1.2 1.03 1.77 2.71 1.26 3.37.96.1-.75.4-1.26.73-1.55-2.56-.29-5.26-1.28-5.26-5.71 0-1.26.45-2.29 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.79 0c2.2-1.49 3.17-1.18 3.17-1.18.64 1.59.24 2.76.12 3.05.74.8 1.18 1.83 1.18 3.09 0 4.44-2.7 5.42-5.28 5.7.42.36.78 1.08.78 2.17 0 1.57-.01 2.83-.01 3.22 0 .3.21.66.8.55A10.6 10.6 0 0 0 23.5 12.1C23.5 5.74 18.27.5 12 .5Z"/></svg>
+        </a>
+        <a href="mailto:rwi@pml.ac.uk" aria-label="Email">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+        </a>
+      </div>
+    </div>
+    <div class="footer-col">
+      <h4>Documentation</h4>
+      <ul>
+        <li><a href="installing.html">Installing</a></li>
+        <li><a href="quickstart.html">Quickstart</a></li>
+        <li><a href="how-to-use.html">How to use OceanVal</a></li>
+        <li><a href="create-recipes.html">Validating a model with a few lines of code</a></li>
+        <li><a href="api.html">API reference</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Data</h4>
+      <ul>
+        <li><a href="recipes.html">Observation recipes</a></li>
+        <li><a href="obs-data.html">Compatible data formats</a></li>
+        <li><a href="qa.html">Q&amp;A</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Project</h4>
+      <ul>
+        <li><a href="about.html">About &amp; contact</a></li>
+        <li><a href="version-history.html">Version history</a></li>
+        <li><a href="https://github.com/pmlmodelling/oceanVal" target="_blank" rel="noopener">GitHub repository</a></li>
+        <li><a href="https://github.com/pmlmodelling/oceanVal/issues" target="_blank" rel="noopener">Report an issue</a></li>
+        <li><a href="https://anaconda.org/conda-forge/oceanval" target="_blank" rel="noopener">conda-forge package</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="container footer-bottom">
+    <span>© 2026 Plymouth Marine Laboratory. Released under the GNU GPLv3 license.</span>
+    <span>Built for ocean modellers, by ocean modellers.</span>
+  </div>
+</footer>
+
+<button class="back-to-top" aria-label="Back to top">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+</button>
+
+<script src="assets/js/main.js"></script>
+</body>
+</html>

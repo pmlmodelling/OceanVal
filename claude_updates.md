@@ -17,7 +17,7 @@ updating to match, and update whichever do:
    `https://pmlmodelling.github.io/OceanVal/` via
    `.github/workflows/pages.yml`. Plain static HTML, no build step, no
    templating engine — shared header/nav/footer markup is duplicated across
-   all ten `.html` files (nine content pages plus `version-history.html`),
+   all eleven `.html` files (ten content pages plus `version-history.html`),
    so a structural change (not just page-specific content) needs to be
    applied to all of them. See `docs-site/README.md` for the page-by-page
    structure and how to preview locally.
@@ -49,15 +49,15 @@ Don't hand-create or hand-edit anything under `docs-site/archive/`, or the
 `<!-- OCEANVAL_VERSION_HISTORY_START -->`/`_END` block inside
 `version-history.html` — `.github/workflows/docs-archive.yml` maintains
 both automatically on every GitHub Release. It only archives `index.html`
-and `api.html` (not the other seven pages — they're not meaningfully
-version-specific, and archiving nine pages a release doesn't scale), with
+and `api.html` (not the other eight pages — they're not meaningfully
+version-specific, and archiving ten pages a release doesn't scale), with
 their nav simplified to a single "Version history" link and any link to an
 un-archived page rewritten to point at the live copy, under
 `archive/vX.Y.Z/`, keyed off the version in `setup.py`. It then updates the
 version-history list to match, linking each entry straight to its archived
 `api.html`. See `docs-site/README.md`'s "Archived versions" section. The
 rest of `version-history.html` (header, nav, footer) is a normal
-hand-authored page like the other nine, though its intro copy now
+hand-authored page like the other ten, though its intro copy now
 specifically references the API archive, not a general docs archive — keep
 that in mind if this scope changes again.
 
