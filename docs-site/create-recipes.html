@@ -90,9 +90,16 @@
   </aside>
 
   <div class="docs-content">
-    <p>OceanVal has a built-in 3-step approach that will let you validate models using popular gridded datasets quickly. It will take care of everything for you: it works out which model variable maps to which observational variable, and it will matchup and validate each variable.</p>
+    <p>OceanVal has a built-in 3-step approach that will let you validate models using popular gridded datasets quickly. It will take care of everything for you: it works out which model variable maps to which observational variable, and it will matchup and validate each variable. This can all be done with 2 lines of code.</p>
+
+    <p>This is all done using OceanVal's built-in data recipes. If you want to know about the recipes available, read <a href="recipes.html">here</a>.</p>
 
     <p><a href="api.html#create_recipes"><code>oceanval.create_recipes</code></a> does that for you. It scans your model output, works out which model variable holds each observational variable, and writes a complete, runnable matchup script. Validating a global or Northwest European Shelf model is then two steps: generate the script, then run it.</p>
+
+    <div class="callout">
+      <div class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Note</div>
+      <p>This approach involves downloading observational data over the internet. In cases where this data is temporarily not available, OceanVal will let you know.</p>
+    </div>
 
     <h2 id="generate">Step 1: Generate the script for model validation</h2>
     <p>The first step is to tell OceanVal where your simulation data can be found. It will then look through the directories netCDF files and create a script that can be used to matchup and validate your simulation.</p>
