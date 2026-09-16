@@ -678,7 +678,7 @@ def build_recipe_script(simdir, ndown, mapping, years=None, domain="global"):
     return "\n".join(lines).rstrip("\n") + "\n"
 
 
-def create_recipes(simdir=None, ndown=None, out=None, domain=None):
+def create_recipes(simdir=None, ndown=None, out=None, domain=None, start=None, end=None):
     """Write a matchup script for a simulation, with its variables filled in.
 
     Scans the netCDF files in simdir, identifies which model variable holds
@@ -701,6 +701,13 @@ def create_recipes(simdir=None, ndown=None, out=None, domain=None):
         live and the other is commented out as an alternative; a variable
         with a recipe only outside this domain still gets that one.
         Required.
+    start : int
+        First year of the simulation to validate. Passed straight through
+        to the generated script's matchup() call, and used to pick the
+        WOA23 decadal period for temperature and salinity. Required.
+    end : int
+        Last year of the simulation to validate, passed through the same
+        way as start. Required.
 
     Returns
     -------------
@@ -720,6 +727,10 @@ def create_recipes(simdir=None, ndown=None, out=None, domain=None):
         raise ValueError(
             'Please provide domain, either "global" or "nwes"'
         )
+    if start is None:
+        raise ValueError("Please provide start, the first year to validate")
+    if end is None:
+        raise ValueError("Please provide end, the last year to validate")
 
     if not isinstance(simdir, str):
         raise TypeError("simdir must be a string")
@@ -734,11 +745,17 @@ def create_recipes(simdir=None, ndown=None, out=None, domain=None):
     if domain.lower() not in DOMAIN_REGIONS:
         raise ValueError('domain must be either "global" or "nwes"')
     domain = domain.lower()
+    if isinstance(start, bool) or not isinstance(start, int):
+        raise TypeError("start must be an integer")
+    if isinstance(end, bool) or not isinstance(end, int):
+        raise TypeError("end must be an integer")
+    if end < start:
+        raise ValueError("end must not be before start")
     if not os.path.isdir(simdir):
         raise ValueError(f"{simdir} is not a directory")
 
     mapping = extract_recipe_variable_mapping(simdir, ndown)
-    years = simulation_years(simdir, simulation_paths(simdir, ndown))
+    years = (start, end)
 
     missing = [
         variable for variable in RECIPE_VARIABLES if mapping.get(variable) is None

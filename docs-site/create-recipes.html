@@ -57,6 +57,17 @@
     </div>
   </div>
 </header>
+
+<!-- TODO: remove this banner once create_recipes ships in a release
+     (conda-forge/pip), i.e. once setup.py's version is >= the first
+     release that includes it. -->
+<div class="dev-banner">
+  <div class="container">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    <p><strong>Not released yet.</strong> <code>create_recipes</code> is on the development version only — not yet on conda-forge or pip. <a href="https://github.com/pmlmodelling/oceanVal" target="_blank" rel="noopener">Install from source</a> to try it now.</p>
+  </div>
+</div>
+
 <div class="page-hero">
   <div class="container">
     <div class="breadcrumb"><a href="index.html">Home</a> / A rapid workflow</div>
@@ -75,7 +86,6 @@
       <li><a href="#inside">Inside the generated script</a></li>
       <li><a href="#gaps">Filling in the gaps</a></li>
       <li><a href="#before">Before you run it</a></li>
-      <li><a href="#next">Next steps</a></li>
     </ul>
   </aside>
 
@@ -83,12 +93,6 @@
     <p>OceanVal has a built-in 3-step approach that will let you validate models using popular gridded datasets quickly. It will take care of everything for you: it works out which model variable maps to which observational variable, and it will matchup and validate each variable.</p>
 
     <p><a href="api.html#create_recipes"><code>oceanval.create_recipes</code></a> does that for you. It scans your model output, works out which model variable holds each observational variable, and writes a complete, runnable matchup script. Validating a global or Northwest European Shelf model is then two steps: generate the script, then run it.</p>
-
-    <div class="callout">
-      <div class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>How does create_recipes identify variables?</div>
-      <p>From the <code>long_name</code> attribute in your NetCDF files, not the variable name. A variable called <code>N3_n</code> with a long name of <code>nitrate nitrogen</code> is recognised as nitrate; <code>votemper</code> described as <code>temperature</code> is recognised as temperature. You don't have to rename anything or write a mapping table. Where a model splits a quantity across several variables — chlorophyll across phytoplankton functional types, say — they are summed.</p>
-      <p><strong>Note:</strong> variable identification is an automated process and is not 100% guaranteed to identify variables correctly, so double check the output variables.</p>
-    </div>
 
     <h2 id="generate">Step 1: Generate the script for model validation</h2>
     <p>The first step is to tell OceanVal where your simulation data can be found. It will then look through the directories netCDF files and create a script that can be used to matchup and validate your simulation.</p>
@@ -108,6 +112,8 @@ oceanval.<a href="api.html#create_recipes"><span class="tok-fn">create_recipes</
     ndown=<span class="tok-num">2</span>,
     out=<span class="tok-str">"matchup.py"</span>,
     domain=<span class="tok-str">"global"</span>,
+    start=<span class="tok-num">2005</span>,
+    end=<span class="tok-num">2014</span>,
 )</pre>
     </div>
     <ul>
@@ -115,8 +121,15 @@ oceanval.<a href="api.html#create_recipes"><span class="tok-fn">create_recipes</
       <li><code>ndown</code> — how many directories below <code>simdir</code> the NetCDF files sit. Use <code>2</code> for output filed as <code>sim/YYYY/MM/*.nc</code>, <code>1</code> for <code>sim/YYYY/*.nc</code>, and <code>0</code> for a single flat directory. It means the same thing as <code>n_dirs_down</code> on <a href="api.html#matchup"><code>matchup</code></a>.</li>
       <li><code>out</code> — the Python file to write.</li>
       <li><code>domain</code> — <code>"global"</code> or <code>"nwes"</code>. See <a href="#domain">Choosing the domain</a> below.</li>
+      <li><code>start</code> / <code>end</code> — first and last year of the simulation to validate. Passed straight through to the generated script's <code>matchup()</code> call, and used to pick the WOA23 decadal period for temperature and salinity below.</li>
     </ul>
     <p>Only one file per output stream is read, not every file in the simulation, so this takes seconds rather than minutes even for a long run.</p>
+
+    <div class="callout">
+      <div class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>How does create_recipes identify variables?</div>
+      <p>From the <code>long_name</code> attribute in your NetCDF files, not the variable name. A variable called <code>N3_n</code> with a long name of <code>nitrate nitrogen</code> is recognised as nitrate; <code>votemper</code> described as <code>temperature</code> is recognised as temperature. You don't have to rename anything or write a mapping table. Where a model splits a quantity across several variables — chlorophyll across phytoplankton functional types, say — they are summed.</p>
+      <p><strong>Note:</strong> variable identification is an automated process and is not 100% guaranteed to identify variables correctly, so double check the output variables.</p>
+    </div>
 
     <h2 id="check">Step 2: Check what was found</h2>
     <p><code>create_recipes</code> prints what it identified, so you can check it against what you know your model writes before running anything:</p>
@@ -255,21 +268,9 @@ oceanval.<a href="api.html#add_gridded_comparison"><span class="tok-fn">add_grid
     </ul>
 
     <h2 id="before">Before you run it</h2>
-    <p>Three things in the generated script are worth a look before you run it.</p>
-    <div class="callout warn">
-      <div class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Check the year range</div>
-      <p>The <code>start</code> and <code>end</code> years on the <code>matchup</code> call are read from the file paths — from a <code>YYYY/</code> directory, or a <code>YYYYMMDD</code> date in the file name. That is a good guess, not a guarantee. If your paths carry no year, the script says so and leaves a placeholder for you to set.</p>
-    </div>
+    <p>Two things in the generated script are worth a look before you run it.</p>
     <p><strong>WOA23 decadal periods.</strong> The World Ocean Atlas publishes temperature and salinity per decade, and <code>start</code>/<code>end</code> must sit inside one period. The script fills in the period covering your simulation; if your run straddles two, it says so and you will need to choose one.</p>
     <p><strong>Water-column validation.</strong> Recipes that support it are written with <code>vertical=False</code>, which validates the surface only. Set it to <code>True</code> to validate the full water column — and then <code>matchup</code> also needs <code>thickness</code>, either <code>"z_level"</code> or the name of your model's cell thickness variable.</p>
-
-    <h2 id="next">Next steps</h2>
-    <ul>
-      <li>Browse every recipe, and what each dataset covers, on the <a href="recipes.html">Data recipes</a> page.</li>
-      <li>Add your own gridded or in-situ observations alongside the built-in recipes: see <a href="how-to-use.html">How to use OceanVal</a>.</li>
-      <li>Compare several simulations side by side with <a href="api.html#compare"><code>oceanval.compare()</code></a>.</li>
-      <li>If no matchups are produced, check the <a href="qa.html">Q&amp;A</a>.</li>
-    </ul>
   </div>
 </div>
 

@@ -88,6 +88,20 @@ class TestArguments:
                 {"simdir": ".", "ndown": 1, "out": "x"},
                 "Please provide domain",
             ),
+            (
+                {"simdir": ".", "ndown": 1, "out": "x", "domain": "global"},
+                "Please provide start",
+            ),
+            (
+                {
+                    "simdir": ".",
+                    "ndown": 1,
+                    "out": "x",
+                    "domain": "global",
+                    "start": 2000,
+                },
+                "Please provide end",
+            ),
         ],
     )
     def test_every_argument_is_required(self, kwargs, message):
@@ -101,6 +115,8 @@ class TestArguments:
                 ndown="2",
                 out=str(tmp_path / "out.py"),
                 domain="global",
+                start=2011,
+                end=2012,
             )
 
     def test_ndown_must_not_be_negative(self, tmp_path):
@@ -110,6 +126,8 @@ class TestArguments:
                 ndown=-1,
                 out=str(tmp_path / "out.py"),
                 domain="global",
+                start=2011,
+                end=2012,
             )
 
     def test_simdir_must_exist(self, tmp_path):
@@ -120,6 +138,8 @@ class TestArguments:
                 ndown=1,
                 out=str(tmp_path / "out.py"),
                 domain="global",
+                start=2011,
+                end=2012,
             )
 
     def test_a_simulation_with_no_files_says_which_argument_to_check(self, tmp_path):
@@ -129,6 +149,8 @@ class TestArguments:
                 ndown=2,
                 out=str(tmp_path / "out.py"),
                 domain="global",
+                start=2011,
+                end=2012,
             )
 
     def test_domain_must_be_a_string(self, tmp_path):
@@ -138,6 +160,8 @@ class TestArguments:
                 ndown=1,
                 out=str(tmp_path / "out.py"),
                 domain=1,
+                start=2011,
+                end=2012,
             )
 
     @pytest.mark.parametrize("domain", ["europe", "local", "", "GLOBALLY"])
@@ -150,6 +174,8 @@ class TestArguments:
                 ndown=1,
                 out=str(tmp_path / "out.py"),
                 domain=domain,
+                start=2011,
+                end=2012,
             )
 
     def test_domain_is_case_insensitive(self, tmp_path):
@@ -160,10 +186,58 @@ class TestArguments:
         out = str(tmp_path / "out.py")
 
         oceanval.create_recipes(
-            simdir=str(tmp_path / "sim"), ndown=0, out=out, domain="NWES"
+            simdir=str(tmp_path / "sim"), ndown=0, out=out, domain="NWES",
+            start=2011, end=2012,
         )
 
         assert 'recipe={"temperature": "nsbc"}' in open(out).read()
+
+    def test_start_must_be_an_integer(self, tmp_path):
+        with pytest.raises(TypeError, match="start must be an integer"):
+            oceanval.create_recipes(
+                simdir=str(tmp_path),
+                ndown=1,
+                out=str(tmp_path / "out.py"),
+                domain="global",
+                start="2011",
+                end=2012,
+            )
+
+    def test_end_must_be_an_integer(self, tmp_path):
+        with pytest.raises(TypeError, match="end must be an integer"):
+            oceanval.create_recipes(
+                simdir=str(tmp_path),
+                ndown=1,
+                out=str(tmp_path / "out.py"),
+                domain="global",
+                start=2011,
+                end="2012",
+            )
+
+    def test_end_must_not_be_before_start(self, tmp_path):
+        with pytest.raises(ValueError, match="end must not be before start"):
+            oceanval.create_recipes(
+                simdir=str(tmp_path),
+                ndown=1,
+                out=str(tmp_path / "out.py"),
+                domain="global",
+                start=2012,
+                end=2011,
+            )
+
+    def test_a_single_year_simulation_is_allowed(self, tmp_path):
+        write_netcdf(
+            str(tmp_path / "sim" / "output.nc"),
+            {"thetao": "sea water potential temperature"},
+        )
+        out = str(tmp_path / "out.py")
+
+        oceanval.create_recipes(
+            simdir=str(tmp_path / "sim"), ndown=0, out=out, domain="global",
+            start=2011, end=2011,
+        )
+
+        assert "start=2011," in open(out).read()
 
 
 class TestVariableIdentification:
@@ -282,13 +356,17 @@ class TestVariableIdentification:
 class TestGeneratedScript:
     def test_the_script_is_valid_python(self, simulation, tmp_path):
         out = str(tmp_path / "matchup.py")
-        oceanval.create_recipes(simdir=simulation, ndown=2, out=out, domain="global")
+        oceanval.create_recipes(
+            simdir=simulation, ndown=2, out=out, domain="global", start=2011, end=2012,
+        )
 
         ast.parse(open(out).read())
 
     def test_matched_recipes_carry_the_model_variable(self, simulation, tmp_path):
         out = str(tmp_path / "matchup.py")
-        oceanval.create_recipes(simdir=simulation, ndown=2, out=out, domain="global")
+        oceanval.create_recipes(
+            simdir=simulation, ndown=2, out=out, domain="global", start=2011, end=2012,
+        )
         script = open(out).read()
 
         assert 'model_variable="thetao"' in script
@@ -302,7 +380,12 @@ class TestGeneratedScript:
         out = str(tmp_path / "matchup.py")
         with pytest.warns(UserWarning, match="No model variables could be identified"):
             oceanval.create_recipes(
-                simdir=str(tmp_path / "sim"), ndown=0, out=out, domain="global"
+                simdir=str(tmp_path / "sim"),
+                ndown=0,
+                out=out,
+                domain="global",
+                start=2011,
+                end=2012,
             )
         script = open(out).read()
 
@@ -317,7 +400,9 @@ class TestGeneratedScript:
         self, simulation, tmp_path
     ):
         out = str(tmp_path / "matchup.py")
-        oceanval.create_recipes(simdir=simulation, ndown=2, out=out, domain="global")
+        oceanval.create_recipes(
+            simdir=simulation, ndown=2, out=out, domain="global", start=2011, end=2012,
+        )
         script = open(out).read()
 
         # registering a variable twice replaces the first registration, so
@@ -332,7 +417,9 @@ class TestGeneratedScript:
 
     def test_domain_prefers_the_matching_regions_recipe(self, simulation, tmp_path):
         out = str(tmp_path / "matchup.py")
-        oceanval.create_recipes(simdir=simulation, ndown=2, out=out, domain="nwes")
+        oceanval.create_recipes(
+            simdir=simulation, ndown=2, out=out, domain="nwes", start=2011, end=2012,
+        )
         script = open(out).read()
 
         # temperature has a recipe in both regions; nwes must win, and the
@@ -357,31 +444,39 @@ class TestGeneratedScript:
         out = str(tmp_path / "matchup.py")
         # nitrate is identified (N3_n) but NWES has no nitrate recipe of its
         # own to prefer, so the global woa23 one stays live either way
-        oceanval.create_recipes(simdir=simulation, ndown=2, out=out, domain="nwes")
+        oceanval.create_recipes(
+            simdir=simulation, ndown=2, out=out, domain="nwes", start=2011, end=2012,
+        )
         script = open(out).read()
 
         assert 'name="nitrate",' in script
         assert 'recipe={"nitrate": "woa23"},' in script
         assert '\noceanval.add_gridded_comparison(\n    name="nitrate",' in script
 
-    def test_the_matchup_call_uses_the_simulation_and_its_years(
+    def test_the_matchup_call_uses_the_simulation_and_the_given_years(
         self, simulation, tmp_path
     ):
         out = str(tmp_path / "matchup.py")
-        oceanval.create_recipes(simdir=simulation, ndown=2, out=out, domain="global")
+        oceanval.create_recipes(
+            simdir=simulation, ndown=2, out=out, domain="global", start=2009, end=2013,
+        )
         script = open(out).read()
 
+        # start/end are passed straight through to matchup(), not inferred
+        # from the simulation's file paths (which are 2011-2012 here)
         assert f'sim_dir="{os.path.abspath(simulation)}",' in script
         assert "n_dirs_down=2," in script
-        assert "start=2011," in script
-        assert "end=2012," in script
+        assert "start=2009," in script
+        assert "end=2013," in script
         assert "oceanval.validate()" in script
 
-    def test_woa23_recipes_get_the_decadal_period_covering_the_simulation(
+    def test_woa23_recipes_get_the_decadal_period_covering_the_given_years(
         self, simulation, tmp_path
     ):
         out = str(tmp_path / "matchup.py")
-        oceanval.create_recipes(simdir=simulation, ndown=2, out=out, domain="global")
+        oceanval.create_recipes(
+            simdir=simulation, ndown=2, out=out, domain="global", start=2011, end=2012,
+        )
         script = open(out).read()
 
         # WOA23 temperature and salinity are published per decade, and
