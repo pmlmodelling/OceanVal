@@ -8,6 +8,7 @@ import nctoolkit as nc
 nc.session_info["stamp"] = nc.session_info["stamp"] + "_ecoval_output_"
 import copy
 from oceanval.matchall import matchup
+from oceanval.create_recipes import create_recipes
 import dill
 
 from oceanval.session import session_info

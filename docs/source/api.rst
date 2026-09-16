@@ -13,6 +13,7 @@ Configuration and matching
    add_point_comparison
    add_gridded_comparison
    matchup
+   create_recipes
 
 Reports and maintenance
 -----------------------
