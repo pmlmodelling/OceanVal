@@ -1042,18 +1042,46 @@ def fix_toc(concise=True, data_dir=None, out_dir=None):
 
 
 
+def _check_region_file(region_file):
+    """
+    Check a user-supplied regions netCDF and return the number of regions in it.
+
+    Each variable must be a 2D map holding only 1, 0 or missing values. The
+    notebooks multiply the matched data by these maps, so any other value
+    would silently rescale the model and observations.
+    """
+    if not os.path.exists(region_file):
+        raise ValueError(f"subregions file {region_file} does not exist")
+    ds = nc.open_data(region_file, checks=False)
+    contents = ds.contents
+    for _, row in contents.iterrows():
+        if (row.nlevels or 1) > 1 or (row.ntimes or 1) > 1:
+            raise ValueError(
+                f"subregions file variable {row.variable} must be a 2D map, with a single time step and vertical level"
+            )
+    ds_xr = ds.to_xarray()
+    for variable in contents.variable:
+        values = ds_xr[variable]
+        if not (values.isin([0, 1]) | values.isnull()).all():
+            raise ValueError(
+                f"subregions file variable {variable} must only contain 1, 0 or missing values"
+            )
+    return len(contents)
+
+
 def validate(
     lon_lim=None,
     lat_lim=None,
     concise=True,
     fixed_scale=False,
-    region=None,
+    subregions=None,
     data_dir=".",
     out_dir=".",
     pdf=False,
     word=False,
     zip=False,
-    test=False
+    test=False,
+    region=None
 ):
     # docstring
     """
@@ -1067,8 +1095,8 @@ def validate(
         The latitude limits for the validation. Default is None
     fixed_scale : bool
         Whether to use a fixed scale for the seasonal plots. Default is False. If True, the minimum and maximum values are capped to cover the 2nd and 98th percentiles of both model and observations.
-    region : str or None
-        The region being validated. Must be either "nwes" (northwest European Shelf) or "global". Default is None.
+    subregions : str or None
+        The sub-regions used for the regional summaries. Either "nwes" (northwest European Shelf), "global", or a path to your own regions netCDF (.nc) file. The file should have one 2D (lon/lat) variable per region, with 1 for grid cells in the region and missing values elsewhere. Any 0 is set to missing and ignored in regional summaries. Each region is named by its long_name attribute, or its variable name if it has none. Default is None.
     pdf : bool
         Whether to also generate PDF downloads of the report (a per-page PDF and a combined PDF of the whole report). Default is False, since generating them is slow and most users only need the HTML report.
     word : bool
@@ -1077,6 +1105,8 @@ def validate(
         Whether to also bundle the report into a zip archive (oceanval_report.zip) in the output directory, containing just the files needed to view the complete report (the HTML pages, plus the PDFs and Word file if those were generated). Default is False.
     test : bool
         Default is False. Ignore, unless you are testing oceanval.
+    region : str or None
+        Deprecated, use subregions instead.
 
     Returns
     -------
@@ -1108,8 +1138,17 @@ def validate(
     # convert data_dir to absolute path
     data_dir = os.path.expanduser(data_dir)
     data_dir = os.path.abspath(data_dir)
-    if region is not None and region not in ["nwes", "global"]:
-        raise ValueError("region must be either 'nwes' or 'global'")
+    if region is not None:
+        if subregions is not None:
+            raise ValueError("give subregions or region, not both")
+        warnings.warn("region is deprecated, use subregions instead", FutureWarning)
+        subregions = region
+    region_file = None
+    if subregions is not None and subregions not in ["nwes", "global"]:
+        if not str(subregions).endswith(".nc"):
+            raise ValueError("subregions must be 'nwes', 'global' or a path to a .nc file")
+        region_file = os.path.abspath(os.path.expanduser(subregions))
+        n_regions = _check_region_file(region_file)
     # ensure proper handling of ~
     out_dir = os.path.expanduser(out_dir)
     out_dir = os.path.abspath(out_dir)
@@ -1141,6 +1180,12 @@ def validate(
     if os.path.exists(x_path):
         if x_path == "oceanval_results":
             shutil.rmtree(x_path)
+
+    # keep a copy of the regions file with the results, so the notebooks and
+    # compare can find it
+    if region_file is not None:
+        os.makedirs(f"{out_dir}/oceanval_results", exist_ok=True)
+        shutil.copyfile(region_file, f"{out_dir}/oceanval_results/custom_subdomains.nc")
 
     if empty:
         from shutil import copyfile
@@ -1339,8 +1384,12 @@ def validate(
                             filedata = filedata.replace("template_title", Variable)
                             filedata = filedata.replace("data_dir_value", data_dir)
                             filedata = filedata.replace("source_name", source)
-                            if region == "nwes":
+                            if subregions == "nwes":
                                 filedata = filedata.replace("zonal_height", "6000")
+                            elif region_file is not None:
+                                filedata = filedata.replace(
+                                    "zonal_height", str(max(2000, 350 * (n_regions + 1)))
+                                )
                             else:
                                 filedata = filedata.replace("zonal_height", "2000")
                             # make every letter a capital
@@ -1348,8 +1397,10 @@ def validate(
                             filedata = filedata.replace("source_title", source_capital)
                             if seasonal is False:
                                 filedata = filedata.replace("chunk_seasonal", "")
-                            if region is not None:
-                                filedata = filedata.replace("sub_regions_value", str(region))
+                            if region_file is not None:
+                                filedata = filedata.replace("sub_regions_value", "custom")
+                            elif subregions is not None:
+                                filedata = filedata.replace("sub_regions_value", str(subregions))
 
                             # Write the file out again
                             with open(
