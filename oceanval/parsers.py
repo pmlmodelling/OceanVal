@@ -5,6 +5,7 @@ import os
 import glob
 import warnings
 from oceanval.session import session_info
+from oceanval.utils import loud_warning
 
 
 def read_point(ff, nrows = None):
@@ -264,6 +265,45 @@ def find_recipe(x, start=None, end=None):
 
 # create a validator class
 # create a variable class to hold metadata
+
+def _thredds_unavailable(name, model_variable, source_name, obs_variable,
+                         sample_file, obs_path, reason):
+    """Say loudly that a THREDDS server let us down, and skip the variable.
+
+    A server being down or misbehaving says nothing about whether the rest
+    of the validation can run, so the variable is dropped rather than every
+    other registration going down with it.
+    """
+    details = [
+        f"Variable:       {name}",
+        f"Model variable: {model_variable}",
+        f"Observations:   {source_name}",
+        f"Obs variable:   {obs_variable}",
+        f"THREDDS server: {sample_file}",
+    ]
+    if isinstance(obs_path, list) and len(obs_path) > 1:
+        details.append(f"                (the first of {len(obs_path)} files)")
+    details += [
+        "",
+        reason,
+        "",
+        "The THREDDS server is not available, so this variable is being",
+        "IGNORED and will not be validated. Everything else carries on.",
+    ]
+    loud_warning(
+        f"THREDDS SERVER NOT AVAILABLE - IGNORING {str(name).upper()}",
+        details,
+        warning=(
+            f"THREDDS server unavailable for {name} ({sample_file}): "
+            f"{reason} This variable is being ignored."
+        ),
+    )
+    session_info["end_messages"] += [
+        f"{name} was not registered: the THREDDS server {sample_file} "
+        "was unavailable, so it has not been validated."
+    ]
+
+
 class Variable:
     def __str__(self):
     # add a print method for each atrribute
@@ -463,9 +503,8 @@ class Validator:
             assumed.append("source_info")
 
         source_name = source
-        source = {source: source_info}
         # ensure the sourc key does not included "_"
-        if "_" in source_name: 
+        if "_" in source_name:
             raise ValueError("Source cannot contain '_'")
         if not isinstance(obs_variable, str):
             raise ValueError("obs_variable be provided")
@@ -481,23 +520,55 @@ class Validator:
         if not isinstance(thredds, bool):
             raise ValueError("thredds must be a boolean value")
         
-        # figure out if obs_variable exists in the files
-        if isinstance(obs_path, list):
-            sample_file = obs_path[0]
-        else:
-            if obs_path.endswith(".nc"):
-                sample_file = obs_path
-            else:
-                sample_file = nc.glob(obs_path)[0]
-        try:
-            if thredds is True:
-                ds = nc.open_thredds(sample_file)
-            else:
-                ds = nc.open_data(sample_file, checks = False )
-        except:
-            raise ValueError(f"Could not open observation data file {sample_file}")
-        ds_variables = ds.variables
+        # figure out if obs_variable exists in the files. file_check=False
+        # means "do not go and look", which for thredds also means not
+        # contacting the server at all, so a variable can still be set up
+        # while a server is down and matched up once it is back
         if file_check:
+            if isinstance(obs_path, list):
+                sample_file = obs_path[0]
+            else:
+                if obs_path.endswith(".nc"):
+                    sample_file = obs_path
+                else:
+                    sample_file = nc.glob(obs_path)[0]
+            try:
+                if thredds is True:
+                    ds = nc.open_thredds(sample_file)
+                else:
+                    ds = nc.open_data(sample_file, checks = False )
+            except Exception as exc:
+                if thredds is not True:
+                    raise ValueError(f"Could not open observation data file {sample_file}")
+                _thredds_unavailable(
+                    name, model_variable, source_name, obs_variable,
+                    sample_file, obs_path, f"{type(exc).__name__}: {exc}",
+                )
+                return None
+
+            try:
+                ds_variables = ds.variables
+            except Exception as exc:
+                if thredds is not True:
+                    raise
+                _thredds_unavailable(
+                    name, model_variable, source_name, obs_variable,
+                    sample_file, obs_path,
+                    f"Could not read the contents: {type(exc).__name__}: {exc}",
+                )
+                return None
+
+            # a struggling thredds server can answer without actually serving
+            # anything - the file opens, but it lists no variables at all,
+            # which would otherwise be reported as obs_variable being missing
+            if thredds is True and len(ds_variables) == 0:
+                _thredds_unavailable(
+                    name, model_variable, source_name, obs_variable,
+                    sample_file, obs_path,
+                    "The server opened the file but served no variables at all.",
+                )
+                return None
+
             if obs_variable not in ds_variables:
                 raise ValueError(f"obs_variable {obs_variable} not found in observation data files")
 
@@ -507,44 +578,41 @@ class Validator:
                     raise ValueError(f"Short title for {name} already exists as {session_info['short_title'][name]}, cannot change to {short_title}")
 
 
-        # Figure out if name is already 
+        # Figure out if name is already
 
         # figure out if self[name] exists already
         if getattr(self, name, None) is None:
             var = Variable()
             setattr(self, name, var)
-            self[name].point_dir = None
-            self[name].point_source = None
-            self[name].sources = source 
-            self[name].point_start = -1000
-            self[name].point_end = 3000
-            self[name].vertical_point = None
-            self[name].model_variable = None
-            self[name].obs_multiplier = 1
-            self[name].binning = None
-            self[name].climatology = None
+            self[name].model_variable = model_variable
             self[name].sources = dict()
+            self[name].gridded_comparisons = dict()
+            self[name].point_comparisons = dict()
 
         else:
             if self[name].model_variable != model_variable:
                 raise ValueError(f"Model variable for {name} already exists as {self[name].model_variable}, cannot change to {model_variable}")
-            if self[name].sources is not None:
-                orig_sources = self[name].sources
-            if list(source.keys())[0] in orig_sources:
+            if source_name in self[name].sources:
                 # ensure the value is the same
-                if orig_sources[list(source.keys())[0]] != source[list(source.keys())[0]]:
-                    raise ValueError(f"Source {list(source.keys())[0]} already exists with a different value")
+                if self[name].sources[source_name] != source_info:
+                    raise ValueError(f"Source {source_name} already exists with a different value")
 
+        # each source is its own comparison, so repeated calls with different
+        # sources add to the variable, while the same source again replaces it
+        self[name].gridded_comparisons[source_name] = dict(
+            obs_path = obs_path,
+            obs_variable = obs_variable,
+            start = start,
+            end = end,
+            vertical = vertical,
+            climatology = climatology,
+            obs_multiplier = obs_multiplier,
+            obs_adder = obs_adder,
+            thredds = thredds,
+            recipe = recipe,
+        )
         self[name].sources[source_name] = source_info
-        self[name].obs_adder_gridded = obs_adder
-        self[name].thredds = thredds
-        self[name].climatology = climatology
-        self[name].obs_multiplier_gridded = obs_multiplier
         self[name].n_levels = 1
-        self[name].vertical_gridded = vertical
-        self[name].gridded_start = start
-        self[name].gridded_end = end
-        self[name].gridded = True
         self[name].long_name = long_name
         # if this is None set to Name
         self[name].short_name = short_name
@@ -557,16 +625,6 @@ class Validator:
             assumed.append("short_title")
         # check if this is c
         session_info["short_title"][name] = self[name].short_title
-
-        self[name].sources[source_name] = source_info 
-        self[name].gridded_source = list(source.keys())[0]
-        self[name].model_variable = model_variable
-        # add obs_variable, ensure it's a string
-        self[name].obs_variable = obs_variable
-        # check this exists
-        gridded_dir = obs_path
-        self[name].gridded_dir = gridded_dir
-        self[name].recipe = recipe
 
         # ensure nothing is None
         # warnings for assumptions
@@ -661,7 +719,6 @@ class Validator:
         if source_info is None:
             source_info = f"Source for {source}"
             assumed.append("source_info")
-        source = {source_name: source_info}
         if long_name is None:
             try:
                 long_name = self[name].long_name
@@ -733,14 +790,10 @@ class Validator:
             # add it
             var = Variable()
             setattr(self, name, var)
-            self[name].gridded = False
-            self[name].vertical_gridded = None
-            self[name].recipe = None
+            self[name].model_variable = model_variable
             self[name].sources = dict()
-            self[name].gridded_source = None
-            self[name].thredds = None
-            self[name].gridded_dir = None
-            self[name].obs_variable = None
+            self[name].gridded_comparisons = dict()
+            self[name].point_comparisons = dict()
         else:
             # ensure short title is the same
             if short_title != session_info["short_title"][name]:
@@ -749,23 +802,29 @@ class Validator:
             if self[name].model_variable != model_variable:
                 old_model_variable = self[name].model_variable
                 raise ValueError(f"Model variable for {name} already exists as {old_model_variable}, cannot change to {model_variable}")
-            if self[name].sources is not None:
-                orig_sources = self[name].sources
-            if list(source.keys())[0] in orig_sources:
+            if source_name in self[name].sources:
                 # ensure the value is the same
-                if orig_sources[list(source.keys())[0]] != source[list(source.keys())[0]]:
-                    raise ValueError(f"Source {list(source.keys())[0]} already exists with a different value")
+                if self[name].sources[source_name] != source_info:
+                    raise ValueError(f"Source {source_name} already exists with a different value")
 
+        # each source is its own comparison, so repeated calls with different
+        # sources add to the variable, while the same source again replaces it
+        self[name].point_comparisons[source_name] = dict(
+            obs_path = obs_path,
+            start = start,
+            end = end,
+            vertical = vertical,
+            obs_multiplier = obs_multiplier,
+            obs_adder = obs_adder,
+            binning = binning,
+        )
         self[name].sources[source_name] = source_info
-        self[name].obs_multiplier_point= obs_multiplier
-        self[name].obs_adder_point = obs_adder
         self[name].n_levels = 1
         self[name].long_name = long_name
         if self[name].long_name is None:
             self[name].long_name = name
             assumed.append("long_name")
 
-        self[name].vertical_point = vertical
         self[name].short_name = short_name
         if self[name].short_name is None:
             self[name].short_name = name
@@ -775,17 +834,7 @@ class Validator:
         if self[name].short_title is None:
             self[name].short_title = name.title()
             assumed.append("short_title")
-        self[name].point_start = start
-        self[name].point_end = end
-        # append source to the var.source
-        # check if source key is in orig_source
-        self[name].point_source = list(source.keys())[0]   
-        self[name].model_variable = model_variable
-        self[name].point_dir = obs_path
-
-        # figure out if var.binning exists
-        self[name].binning = binning 
-        #  
+        #
         for vv in assumed:
             print(f"Warning: The attribute {vv} was missing and was assumed for variable {name}")
         session_info["short_title"][name] = short_title

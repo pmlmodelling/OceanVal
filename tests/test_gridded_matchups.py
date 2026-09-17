@@ -37,13 +37,13 @@ class TestFinal:
         
         assert os.path.exists("oceanval_matchups/gridded/temperature/foo_temperature_surface.nc")
         assert os.path.exists("oceanval_matchups/gridded/temperature/foo_temperature_surface_definitions.pkl")
-        assert os.path.exists("oceanval_matchups/gridded/temperature/matchup_dict.pkl")
-        assert os.path.exists("oceanval_matchups/gridded/temperature/temperature_summary.pkl")
+        assert os.path.exists("oceanval_matchups/gridded/temperature/foo_matchup_dict.pkl")
+        assert os.path.exists("oceanval_matchups/gridded/temperature/foo_temperature_summary.pkl")
         assert os.path.exists("oceanval_matchups/mapping.csv")
         assert os.path.exists("oceanval_matchups/short_titles.pkl")
         assert os.path.exists("oceanval_matchups/variables_matched.pkl")
 
-        ff = "oceanval_matchups/gridded/temperature/matchup_dict.pkl"
+        ff = "oceanval_matchups/gridded/temperature/foo_matchup_dict.pkl"
         with open(ff, 'rb') as f:
             matchup_dict = pickle.load(f)
             start = matchup_dict['start']
@@ -83,8 +83,8 @@ class TestFinal:
         
         assert os.path.exists("oceanval_matchups/gridded/temperature/foo_temperature_surface.nc")
         assert os.path.exists("oceanval_matchups/gridded/temperature/foo_temperature_surface_definitions.pkl")
-        assert os.path.exists("oceanval_matchups/gridded/temperature/matchup_dict.pkl")
-        assert os.path.exists("oceanval_matchups/gridded/temperature/temperature_summary.pkl")
+        assert os.path.exists("oceanval_matchups/gridded/temperature/foo_matchup_dict.pkl")
+        assert os.path.exists("oceanval_matchups/gridded/temperature/foo_temperature_summary.pkl")
         assert os.path.exists("oceanval_matchups/mapping.csv")
         assert os.path.exists("oceanval_matchups/short_titles.pkl")
         assert os.path.exists("oceanval_matchups/variables_matched.pkl")
@@ -96,7 +96,7 @@ class TestFinal:
         max_diff = np.abs(df['diff']).max()
         assert max_diff < 1e-5 
 
-        ff ="oceanval_matchups/gridded/temperature/matchup_dict.pkl"
+        ff ="oceanval_matchups/gridded/temperature/foo_matchup_dict.pkl"
         with open(ff, 'rb') as f:
             matchup_dict = pickle.load(f)
             start = matchup_dict['start']
@@ -109,23 +109,19 @@ class TestFinal:
         with open(ff, 'rb') as f:
             definitions = pickle.load(f)
             model_variable = definitions["temperature"].model_variable
-            obs_variable = definitions["temperature"].obs_variable
-            start = definitions["temperature"].gridded_start
-            end = definitions["temperature"].gridded_end
-            obs_path = definitions["temperature"].gridded_dir
-            climatology = definitions["temperature"].climatology
+            comparison = definitions["temperature"].gridded_comparisons["foo"]
+            obs_variable = comparison["obs_variable"]
+            start = comparison["start"]
+            end = comparison["end"]
+            obs_path = comparison["obs_path"]
+            climatology = comparison["climatology"]
             short_name = definitions["temperature"].short_name
             long_name = definitions["temperature"].long_name
             short_title = definitions["temperature"].short_title
-            source = definitions["temperature"].gridded_source
-            point_source = definitions["temperature"].point_source
-            point_dir = definitions["temperature"].point_dir
-            point_start = definitions["temperature"].point_start
-            point_end = definitions["temperature"].point_end
-            vertical_point = definitions["temperature"].vertical_point
-            binning = definitions["temperature"].binning
+            sources = list(definitions["temperature"].gridded_comparisons)
+            point_comparisons = definitions["temperature"].point_comparisons
             n_levels = definitions["temperature"].n_levels
-            thredds = definitions["temperature"].thredds
+            thredds = comparison["thredds"]
 
             assert model_variable == "votemper"
             assert obs_variable == "votemper"
@@ -136,13 +132,8 @@ class TestFinal:
             assert short_name == "temperature"
             assert long_name == "temperature"
             assert short_title == "Temperature"
-            assert source == "foo"
-            assert point_source is None
-            assert point_dir is None
-            point_end = -1000
-            point_start = 3000
-            vertical_point = None
-            binning = None
+            assert sources == ["foo"]
+            assert point_comparisons == {}
             n_levels = 51
             thredds = False
 
@@ -289,3 +280,61 @@ class TestFinal:
         assert np.abs(df['diff']).max() < 1e-5 
 
 
+
+
+class TestMultipleSources:
+
+    def test_each_source_is_matched_up(self):
+        shutil.rmtree("oceanval_matchups", ignore_errors=True)
+        oceanval.reset()
+
+        # the same observations under two sources, one offset by a degree, so
+        # the matchups can be told apart
+        for source, adder in [("foo", 273.15), ("bar", 274.15)]:
+            oceanval.add_gridded_comparison(
+                name = "temperature",
+                obs_path="data/evaldata/gridded/nws/temperature",
+                source = source,
+                model_variable = "votemper",
+                obs_variable = "votemper",
+                climatology = True,
+                start = 2000,
+                end = 2010,
+                obs_adder = adder
+            )
+        for source, vertical in [("foo", True), ("bar", False)]:
+            oceanval.add_point_comparison(
+                name = "temperature",
+                obs_path="data/evaldata/point/nws/all/temperature",
+                source = source,
+                model_variable = "votemper",
+                vertical = vertical,
+                obs_adder = 273.15
+            )
+
+        oceanval.matchup(
+            sim_dir = "data/example",
+            start = 2000,
+            end = 2000,
+            ask = False,
+            thickness = "data/example/e3t.nc",
+            cores = 1)
+
+        gridded_dir = "oceanval_matchups/gridded/temperature/"
+        for source in ["foo", "bar"]:
+            assert os.path.exists(gridded_dir + f"{source}_temperature_surface.nc")
+            assert os.path.exists(gridded_dir + f"{source}_temperature_surface_definitions.pkl")
+            assert os.path.exists(gridded_dir + f"{source}_matchup_dict.pkl")
+            assert os.path.exists(gridded_dir + f"{source}_temperature_summary.pkl")
+
+        # each file holds its own source's observations
+        for source, expected in [("foo", 0), ("bar", -1)]:
+            ds = nc.open_data(gridded_dir + f"{source}_temperature_surface.nc")
+            df = ds.to_dataframe().assign(diff = lambda x: x.model - x.observation)
+            assert np.abs(df["diff"] - expected).max() < 1e-4
+
+        assert os.path.exists("oceanval_matchups/point/all/temperature/foo/foo_all_temperature.csv")
+        assert os.path.exists("oceanval_matchups/point/surface/temperature/bar/bar_surface_temperature.csv")
+
+        shutil.rmtree("oceanval_matchups", ignore_errors=True)
+        oceanval.reset()

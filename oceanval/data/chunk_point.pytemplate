@@ -387,7 +387,7 @@ if available:
 
 # %% tags=["remove-input"]
 # %%capture --no-display
-# %%R -i df -i variable -i unit -i layer_long -w 1000 -h 1200 -i vv_name -i available -i layer_select
+# %%R -i df -i variable -i unit -i layer_long -w 1000 -h 1200 -i vv_name -i available -i layer_select -i point_source
 if(available){
 options(warn=-1)
 # #%%R -i df -i variable -i unit -w 1600 -h 1000
@@ -444,7 +444,7 @@ title <- str_glue("Bias in {layer_long} {vv_name} ({unit})")
 title <- str_replace(title, "O_2", "O<sub>2</sub>")
 title <- str_replace(title, "CO2", "CO<sub>2</sub>")
 
-out = str_glue("../../oceanval_results/{layer_select}/{variable}/{layer_select}_{variable}_bias.csv")
+out = str_glue("../../oceanval_results/{layer_select}/{variable}/{point_source}_{layer_select}_{variable}_bias.csv")
 
 # # check directory exists for out
 if (!dir.exists(dirname(out))){
