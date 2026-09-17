@@ -26,7 +26,7 @@ from oceanval.parsers import Validator, definitions
 from tqdm import tqdm
 from oceanval.utils import extension_of_directory
 from oceanval.parsers import generate_mapping
-from oceanval.gridded import gridded_matchup
+from oceanval.gridded import gridded_matchup, retry_failed_gridded
 
 
 def read_point(ff, nrows = None):
@@ -708,17 +708,17 @@ def matchup(
 
     if len(definitions.keys) == 0:
         raise ValueError("You do not appear to have asked for any variables to be validated!")
+    # each source of a variable is its own comparison, so these hold
+    # (variable, source) pairs
     for key in definitions.keys:
-        if definitions[key].vertical_point is False:
-            if key not in point["surface"]:
-                point["surface"].append(key)
-        if definitions[key].vertical_point is True:
-            if key not in point["all"]:
-                point["all"].append(key)
+        for source, comparison in definitions[key].point_comparisons.items():
+            if comparison["vertical"]:
+                point["all"].append((key, source))
+            else:
+                point["surface"].append((key, source))
         # do the same for gridded
-        if definitions[key].gridded:
-            if key not in gridded:
-                    gridded.append(key)
+        for source in definitions[key].gridded_comparisons:
+            gridded.append((key, source))
 
     # if cache is True, create a cache directory in out_dir
     if cache:
@@ -845,16 +845,11 @@ def matchup(
 
     remove = []
 
-    gridded = [x for x in gridded if x in vars_available]
+    gridded = [x for x in gridded if x[0] in vars_available]
     for key in point.keys():
-        point[key] = [x for x in point[key] if x in vars_available]
+        point[key] = [x for x in point[key] if x[0] in vars_available]
 
-    for vv in point["all"]:
-        if definitions[vv].vertical_point is False:
-            point["all"].remove(vv)
-            point["surface"].append(vv)
-
-    var_chosen = gridded + point["all"] + point["surface"]
+    var_chosen = [vv for vv, source in gridded + point["all"] + point["surface"]]
     var_chosen = list(set(var_chosen))
 
     # create oceanval_matchups directory
@@ -866,13 +861,10 @@ def matchup(
 
     # go through variables in definitions
     thick_check = False
-    for vv in var_chosen:
+    for vv, source in gridded:
         # identifical if vertical_gridded is True
-        try:
-            if definitions[vv].vertical_gridded:
-                thick_check = True
-        except:
-            pass
+        if definitions[vv].gridded_comparisons[source]["vertical"]:
+            thick_check = True
     if len(point["all"]) > 0:
         thick_check = True
 
@@ -1024,7 +1016,7 @@ def matchup(
     print("******************************")
     if len(gridded) > 0:
         print(
-            f"The following variables will be matched up with gridded surface data: {','.join(gridded)}"
+            f"The following variables will be matched up with gridded surface data: {', '.join(f'{vv} ({source})' for vv, source in gridded)}"
         )
 
     print("******************************")
@@ -1092,7 +1084,7 @@ def matchup(
     final_extension = extension_of_directory(sim_dir)
 
     # combine all variables into a list
-    all_vars = gridded + point["all"] + point["surface"]
+    all_vars = [vv for vv, source in gridded + point["all"] + point["surface"]]
     all_vars = list(set(all_vars))
 
     df_variables = all_df.query("variable in @all_vars").reset_index(drop=True)
@@ -1181,12 +1173,10 @@ def matchup(
             # sort the list
             point_vars.sort()
 
-            for vv in point_vars:
+            for vv, source in point_vars:
 
 
-                # try finding source in definitions
                 variable = vv
-                source = definitions[variable].point_source
 
                 out = f"{session_info['out_dir']}/oceanval_matchups/point/{layer}/{variable}/{source}/{source}_{layer}_{variable}.csv"
 
@@ -1250,7 +1240,7 @@ def matchup(
                     session_info["max_year"] = min(session_info["max_year"], sim_end)
 
                     def point_match(
-                        variable, layer="all", ds_depths=None, df_times=None
+                        variable, source, layer="all", ds_depths=None, df_times=None
                     ):
                         with warnings.catch_warnings(record=True) as w:
                             point_variable = variable
@@ -1260,12 +1250,10 @@ def matchup(
                                 ).model_variable
                             )[0]
 
+                            comparison = definitions[variable].point_comparisons[source]
                             paths = glob.glob(
-                                f"{definitions[variable].point_dir}/**.csv"
+                                f"{comparison['obs_path']}/**.csv"
                             )
-
-                            # try finding source in definitions
-                            source = definitions[variable].point_source
 
                             out = f"{session_info['out_dir']}/oceanval_matchups/point/{layer}/{variable}/{source}/{source}_{layer}_{variable}.csv"
 
@@ -1310,8 +1298,8 @@ def matchup(
                                 pass
                             if "year" in df.columns:
                                 # find point_start
-                                point_start = definitions[variable].point_start
-                                point_end = definitions[variable].point_end
+                                point_start = comparison["start"]
+                                point_end = comparison["end"]
                                 df = df.query(
                                     "year >= @point_start and year <= @point_end"
                                 ).reset_index(drop=True)
@@ -1475,12 +1463,12 @@ def matchup(
                             # add model to name column names with frac in them
                             df_all = df_all.dropna().reset_index(drop=True)
                             # fix the observations based on obs_unit_multiplier
-                            multiplier = definitions[variable].obs_multiplier_point
+                            multiplier = comparison["obs_multiplier"]
                             if multiplier != 1:
                                 df_all = df_all.assign(
                                     observation=lambda x: x.observation * multiplier
                                 )
-                            adder = definitions[variable].obs_adder_point
+                            adder = comparison["obs_adder"]
                             if adder != 0:
                                 df_all = df_all.assign(
                                     observation=lambda x: x.observation + adder
@@ -1563,8 +1551,8 @@ def matchup(
                                 point_start = -5000
                                 point_end = 10000
                                 try:
-                                    point_start = definitions[variable].point_start
-                                    point_end = definitions[variable].point_end
+                                    point_start = comparison["start"]
+                                    point_end = comparison["end"]
                                 except:
                                     pass
 
@@ -1598,7 +1586,7 @@ def matchup(
                     out = glob.glob(
                         session_info["out_dir"]
                         + "/"
-                        + f"oceanval_matchups/point/all/{vv}/**_all_{vv}.csv"
+                        + f"oceanval_matchups/point/{key}/{vv}/{source}/{source}_{key}_{vv}.csv"
                     )
 
                     if len(out) > 0:
@@ -1606,13 +1594,13 @@ def matchup(
                             continue
 
                     print(
-                        f"Matching up model output of {key} {vv_variable} with in-situ observational data"
+                        f"Matching up model output of {key} {vv_variable} with {source} in-situ observational data"
                     )
 
                     # try:
                     if True:
                         point_match(
-                            vv, ds_depths=ds_depths, df_times=df_times, layer=key
+                            vv, source, ds_depths=ds_depths, df_times=df_times, layer=key
                         )
                     # except:
                     #     pass
@@ -1637,10 +1625,9 @@ def matchup(
         while len(session_warnings) > 0:
             session_warnings.pop()
 
-    gridded_matchup(
+    gridded_args = dict(
         df_mapping=df_mapping,
         folder=sim_dir,
-        var_choice=gridded,
         exclude=exclude,
         sim_start=sim_start,
         sim_end=sim_end,
@@ -1649,6 +1636,10 @@ def matchup(
         times_dict=times_dict,
         example_files=example_files,
     )
+
+    gridded_matchup(var_choice=gridded, **gridded_args)
+
+    retry_failed_gridded(ask=ask, **gridded_args)
 
     if len(session_info["end_messages"]) > 0:
         print("########################################")

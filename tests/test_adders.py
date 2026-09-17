@@ -291,11 +291,12 @@ class TestAddPointComparison:
         # Verify the variable was added
         assert hasattr(oceanval.definitions, "temperature")
         assert oceanval.definitions["temperature"].model_variable == "temp"
-        assert oceanval.definitions["temperature"].point_source == "TestSource"
-        assert oceanval.definitions["temperature"].point_dir == temp_point_dir
-        assert oceanval.definitions["temperature"].obs_multiplier_point == 1
-        assert oceanval.definitions["temperature"].obs_adder_point == 0
-        assert oceanval.definitions["temperature"].vertical_point == False
+        assert list(oceanval.definitions["temperature"].point_comparisons) == ["TestSource"]
+        comparison = oceanval.definitions["temperature"].point_comparisons["TestSource"]
+        assert comparison["obs_path"] == temp_point_dir
+        assert comparison["obs_multiplier"] == 1
+        assert comparison["obs_adder"] == 0
+        assert comparison["vertical"] == False
 
     # check assumed attributes are set correctly
     # long_name, short_name, short_title, start, end, vertical
@@ -379,12 +380,13 @@ class TestAddPointComparison:
         assert oceanval.definitions["salinity"].long_name == "sea water salinity"
         assert oceanval.definitions["salinity"].short_name == "salinity"
         assert oceanval.definitions["salinity"].short_title == "Salinity" 
-        assert oceanval.definitions["salinity"].vertical_point == True
-        assert oceanval.definitions["salinity"].point_start == -500
-        assert oceanval.definitions["salinity"].point_end == 2000
-        assert oceanval.definitions["salinity"].obs_multiplier_point == 1.5
-        assert oceanval.definitions["salinity"].obs_adder_point == 0.5
-        assert oceanval.definitions["salinity"].binning == [1.0, 10.0]
+        comparison = oceanval.definitions["salinity"].point_comparisons["TestSource"]
+        assert comparison["vertical"] == True
+        assert comparison["start"] == -500
+        assert comparison["end"] == 2000
+        assert comparison["obs_multiplier"] == 1.5
+        assert comparison["obs_adder"] == 0.5
+        assert comparison["binning"] == [1.0, 10.0]
     
     def test_numeric_conversion_for_start_end(self, temp_point_dir):
         """Test that start and end are properly converted to integers"""
@@ -398,8 +400,8 @@ class TestAddPointComparison:
             end="100"
         )
         
-        assert oceanval.definitions["oxygen"].point_start == 0
-        assert oceanval.definitions["oxygen"].point_end == 100
+        assert oceanval.definitions["oxygen"].point_comparisons["TestSource"]["start"] == 0
+        assert oceanval.definitions["oxygen"].point_comparisons["TestSource"]["end"] == 100
     
     def test_assumed_attributes_warning(self, temp_point_dir, capsys):
         """Test that warnings are printed for assumed attributes"""
@@ -602,13 +604,14 @@ class TestAddGriddedComparison:
         # Verify the variable was added
         assert hasattr(oceanval.definitions, "temperature")
         assert oceanval.definitions["temperature"].model_variable == "temp"
-        assert oceanval.definitions["temperature"].gridded_source == "TestSource"
-        assert oceanval.definitions["temperature"].gridded_dir == temp_gridded_file
-        assert oceanval.definitions["temperature"].climatology == True
-        assert oceanval.definitions["temperature"].obs_variable == "N3_n"
-        assert oceanval.definitions["temperature"].obs_multiplier_gridded == 1
-        assert oceanval.definitions["temperature"].obs_adder_gridded == 0
-        assert oceanval.definitions["temperature"].thredds == False
+        assert list(oceanval.definitions["temperature"].gridded_comparisons) == ["TestSource"]
+        comparison = oceanval.definitions["temperature"].gridded_comparisons["TestSource"]
+        assert comparison["obs_path"] == temp_gridded_file
+        assert comparison["climatology"] == True
+        assert comparison["obs_variable"] == "N3_n"
+        assert comparison["obs_multiplier"] == 1
+        assert comparison["obs_adder"] == 0
+        assert comparison["thredds"] == False
     
     def test_successful_addition_with_all_params(self):
         temp_gridded_file = "data/evaldata/gridded/nws/nitrate/model_2000.nc"
@@ -637,13 +640,78 @@ class TestAddGriddedComparison:
         assert oceanval.definitions["salinity"].long_name == "sea water salinity"
         assert oceanval.definitions["salinity"].short_name == "salinity"
         assert oceanval.definitions["salinity"].short_title == "Salinity"
-        assert oceanval.definitions["salinity"].vertical_gridded == True
-        assert oceanval.definitions["salinity"].gridded_start == -500
-        assert oceanval.definitions["salinity"].gridded_end == 2000
-        assert oceanval.definitions["salinity"].obs_multiplier_gridded == 1.5
-        assert oceanval.definitions["salinity"].obs_adder_gridded == 0.5
-        assert oceanval.definitions["salinity"].climatology == False
-        assert oceanval.definitions["salinity"].thredds == False
+        comparison = oceanval.definitions["salinity"].gridded_comparisons["TestSource"]
+        assert comparison["vertical"] == True
+        assert comparison["start"] == -500
+        assert comparison["end"] == 2000
+        assert comparison["obs_multiplier"] == 1.5
+        assert comparison["obs_adder"] == 0.5
+        assert comparison["climatology"] == False
+        assert comparison["thredds"] == False
     
 
 
+class TestMultipleSources:
+    """Repeated calls add sources to a variable rather than replacing it"""
+
+    gridded_file = "data/evaldata/gridded/nws/nitrate/model_2000.nc"
+    point_dir = "data/evaldata/point/nws/all/temperature"
+
+    def add_gridded(self, source, **kwargs):
+        arguments = dict(
+            name="testvar",
+            source=source,
+            model_variable="N3_n",
+            climatology=True,
+            obs_path=self.gridded_file,
+            obs_variable="N3_n",
+        )
+        arguments.update(kwargs)
+        oceanval.add_gridded_comparison(**arguments)
+
+    def test_gridded_sources_are_all_kept(self):
+        oceanval.reset()
+        self.add_gridded("SourceA")
+        self.add_gridded("SourceB", obs_adder=1)
+
+        comparisons = oceanval.definitions["testvar"].gridded_comparisons
+        assert list(comparisons) == ["SourceA", "SourceB"]
+        assert comparisons["SourceA"]["obs_adder"] == 0
+        assert comparisons["SourceB"]["obs_adder"] == 1
+
+    def test_the_same_source_again_replaces_it(self):
+        oceanval.reset()
+        self.add_gridded("SourceA")
+        self.add_gridded("SourceA", obs_adder=2)
+
+        comparisons = oceanval.definitions["testvar"].gridded_comparisons
+        assert list(comparisons) == ["SourceA"]
+        assert comparisons["SourceA"]["obs_adder"] == 2
+
+    def test_a_different_model_variable_still_raises(self):
+        oceanval.reset()
+        self.add_gridded("SourceA")
+        with pytest.raises(ValueError, match="Model variable for testvar already exists"):
+            self.add_gridded("SourceB", model_variable="other")
+
+    def test_a_different_source_info_still_raises(self):
+        oceanval.reset()
+        self.add_gridded("SourceA", source_info="first")
+        with pytest.raises(ValueError, match="Source SourceA already exists"):
+            self.add_gridded("SourceA", source_info="second")
+
+    def test_gridded_and_point_sources_share_a_variable(self):
+        oceanval.reset()
+        self.add_gridded("SourceA")
+        oceanval.add_point_comparison(
+            name="testvar",
+            source="SourceB",
+            model_variable="N3_n",
+            obs_path=self.point_dir,
+            vertical=True,
+        )
+
+        variable = oceanval.definitions["testvar"]
+        assert list(variable.gridded_comparisons) == ["SourceA"]
+        assert list(variable.point_comparisons) == ["SourceB"]
+        assert list(variable.sources) == ["SourceA", "SourceB"]

@@ -60,7 +60,7 @@ An example is shown below:
     You can use whatever you want for the `name` parameter when registering observational datasets. This is only used internally by OceanVal to keep track of things, to name files etc.
     Reports and plots will use the `short_name`, `long_name` and `short_title` parameters for labelling. If you want a better looking report, you should set these parameters.
 
-    You can only validate variables using a single gridded and a single point (in-situ) dataset each time you run a validation.
+    You can validate a variable against more than one gridded or point (in-situ) dataset by calling `add_gridded_comparison` or `add_point_comparison` once per dataset, with the same `name` and a different `source`.
 
 
 

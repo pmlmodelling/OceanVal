@@ -73,6 +73,7 @@
       <li class="docs-toc-sub"><a href="#gridded">Gridded data</a></li>
       <li class="docs-toc-sub"><a href="#recipes">Built-in recipes</a></li>
       <li class="docs-toc-sub"><a href="#point">Point (in-situ) data</a></li>
+      <li class="docs-toc-sub"><a href="#multiple-sources">More than one dataset</a></li>
       <li><a href="#match">Step 2: Matchup output</a></li>
       <li><a href="#report">Step 3: Build the report</a></li>
       <li class="docs-toc-sub"><a href="#own-regions">Using your own regions</a></li>
@@ -199,8 +200,25 @@
     </details>
     <div class="callout">
       <div class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>How does OceanVal handle variable names?</div>
-      <p><code>name</code> can be anything — it's only used internally to keep track of things and name files. Reports and plots use <code>short_name</code>, <code>long_name</code> and <code>short_title</code> for labelling, so set these for a better-looking report. You can only validate a variable using a single gridded and a single point dataset at a time.</p>
+      <p><code>name</code> can be anything — it's only used internally to keep track of things and name files. Reports and plots use <code>short_name</code>, <code>long_name</code> and <code>short_title</code> for labelling, so set these for a better-looking report. A variable can be validated against several gridded and point datasets at once — see below.</p>
     </div>
+
+    <h3 id="multiple-sources">Validating a variable against more than one dataset</h3>
+    <p>Call <a href="api.html#add_gridded_comparison"><code>oceanval.add_gridded_comparison</code></a> or <a href="api.html#add_point_comparison"><code>oceanval.add_point_comparison</code></a> once per dataset, with the same <code>name</code> and a different <code>source</code>. Each source is matched up and reported separately:</p>
+    <div class="code-block">
+      <div class="code-card__bar"><div class="code-card__dots"><span></span><span></span><span></span></div><span class="code-card__label">python</span></div>
+      <pre>oceanval.<a href="api.html#add_gridded_comparison"><span class="tok-fn">add_gridded_comparison</span></a>(
+    name=<span class="tok-str">"temperature"</span>,
+    model_variable=<span class="tok-str">"votemper"</span>,
+    recipe={<span class="tok-str">"temperature"</span>: <span class="tok-str">"cobe2"</span>},
+)
+oceanval.<a href="api.html#add_gridded_comparison"><span class="tok-fn">add_gridded_comparison</span></a>(
+    name=<span class="tok-str">"temperature"</span>,
+    model_variable=<span class="tok-str">"votemper"</span>,
+    recipe={<span class="tok-str">"temperature"</span>: <span class="tok-str">"nsbc"</span>},
+)</pre>
+    </div>
+    <p>Every call for a variable must use the same <code>model_variable</code> and labels. Registering a source that is already registered for that variable replaces it, so re-running a script or notebook cell is safe. Where a variable has more than one source, the summary page labels it with the source, e.g. "Temperature (COBE2)".</p>
 
     <h2 id="match">Step 2: Matchup model output with observations</h2>
     <p>Once your datasets are registered, pair the model output against them with <a href="api.html#matchup"><code>oceanval.matchup</code></a>:</p>
@@ -258,6 +276,10 @@
     <div class="callout">
       <div class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Where does OceanVal save matchup files?</div>
       <p>By default, in the directory where <a href="api.html#matchup"><code>oceanval.matchup</code></a> is run: <code>oceanval_matchups/gridded</code> (<code>.nc</code> files) and <code>oceanval_matchups/point</code> (<code>.csv</code> files). Model output is named "model" and observations "observation" in each file.</p>
+    </div>
+    <div class="callout">
+      <div class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>A note on handling high-resolution gridded observational data</div>
+      <p>OceanVal will automatically regrid observational data that spans more than 90° longitude or 90° latitude to a spatial resolution of 0.5° by 0.5°. This will make minimal differences to validation statistics, but will ensure that high-resolution spatial data does not cause processes such as plotting to crash.</p>
     </div>
 
     <h2 id="report">Step 3: Build the validation report</h2>
