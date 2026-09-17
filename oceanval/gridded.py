@@ -652,24 +652,6 @@ def gridded_matchup(
                     ds_model_surface.subset(lon=lons, lat=lats)
                     ds_model_surface.run()
 
-                    lon_name = [x for x in ds_model_surface.to_xarray().coords if "lon" in x][0 ]
-                    lat_name = [x for x in ds_model_surface.to_xarray().coords if "lat" in x][0 ]
-                    ds_test = ds_model_surface.copy()
-                    ds_test.subset(variable = "observation")
-                    ds_test.tmean()
-                    ds_test.run()
-                    df_test = ds_test.to_dataframe().reset_index().dropna()
-                    lons = df_test[lon_name].values
-                    # handle lon > 180 properly
-                    lons = ((lons + 180) % 360) - 180
-                    lon_max = lons.max() 
-                    lon_min = lons.min()
-                    lat_max = df_test[lat_name].max()
-                    lat_min = df_test[lat_name].min()
-                    ds_model_surface.run()
-    #                ds_model_surface.subset(lon=[lon_min, lon_max], lat=[lat_min, lat_max])
-                    ds_model_surface.run()
-
                     # special handling of temperature
                     if vv == "temperature":
                         max_model = ds_model_surface.to_xarray().model.max()
@@ -683,6 +665,18 @@ def gridded_matchup(
                             ds_model_surface.assign(observation = lambda x: x.observation + add_to_obs)
                         else:
                             add_to_obs = 0
+
+                    # crop to the lon/lat extent that actually has non-missing
+                    # model values - the model grid's own coordinates can span
+                    # a wider box than the area it has data for
+                    df_test = ds_model_surface.to_dataframe().reset_index()
+                    df_test = df_test[df_test["model"].notna()]
+                    lon_name = [x for x in df_test.columns if "lon" in x][0]
+                    lat_name = [x for x in df_test.columns if "lat" in x][0]
+                    lons = ((df_test[lon_name].values + 180) % 360) - 180
+                    lon_min, lon_max = lons.min(), lons.max()
+                    lat_min, lat_max = df_test[lat_name].min(), df_test[lat_name].max()
+                    ds_model_surface.subset(lon=[lon_min, lon_max], lat=[lat_min, lat_max])
 
                     ds_model_surface.to_nc(out_file, zip=True, overwrite=True)
                     out_file = out_file.replace(".nc", "_definitions.pkl")
@@ -751,20 +745,6 @@ def gridded_matchup(
                         with open(out1, "wb") as f:
                             pickle.dump(the_dict, f)
 
-                        ds_test = ds_model.copy()
-                        ds_test.subset(variable = "observation")
-                        ds_test.tmean()
-                        ds_test.run()
-                        df_test = ds_test.to_dataframe().reset_index().dropna()
-                        lons = df_test[lon_name].values
-                        lons = ((lons + 180) % 360) - 180
-                        lon_max = lons.max()
-                        lon_min = lons.min()
-                        lat_max = df_test[lat_name].max()
-                        lat_min = df_test[lat_name].min()
-
-                        ds_model.subset(lon=[lon_min, lon_max], lat=[lat_min, lat_max])
-
                         # special handling of temperature
                         if vv == "temperature":
                             max_model = ds_model.to_xarray().model.max()
@@ -779,6 +759,18 @@ def gridded_matchup(
                             else:
                                 add_to_obs = 0
 
+                        # crop to the lon/lat extent that actually has
+                        # non-missing model values - the model grid's own
+                        # coordinates can span a wider box than the area it
+                        # has data for
+                        df_test = ds_model.to_dataframe().reset_index()
+                        df_test = df_test[df_test["model"].notna()]
+                        lon_name = [x for x in df_test.columns if "lon" in x][0]
+                        lat_name = [x for x in df_test.columns if "lat" in x][0]
+                        lons = ((df_test[lon_name].values + 180) % 360) - 180
+                        lon_min, lon_max = lons.min(), lons.max()
+                        lat_min, lat_max = df_test[lat_name].min(), df_test[lat_name].max()
+                        ds_model.subset(lon=[lon_min, lon_max], lat=[lat_min, lat_max])
 
                         ds_model.to_nc(out_file_vertical, zip=True, overwrite=True)
                     out_file = out_file.replace(".nc", "_definitions.pkl")
