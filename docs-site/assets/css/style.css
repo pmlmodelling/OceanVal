@@ -422,6 +422,8 @@ li { margin-bottom: 0.45em; }
   padding-bottom: 70px;
 }
 
+.hero-grid > * { min-width: 0; }
+
 .hero h1 { color: #fff; margin-bottom: 0.5em; }
 .hero h1 em { font-style: normal; color: var(--teal-200); }
 
@@ -1196,7 +1198,6 @@ tbody tr.hidden-row { display: none; }
 
 @media (max-width: 980px) {
   .hero-grid { grid-template-columns: 1fr; }
-  .hero-panel { order: -1; }
   .steps { grid-template-columns: 1fr; }
   .step-arrow { display: none; }
   .features-grid { grid-template-columns: repeat(2, 1fr); }
