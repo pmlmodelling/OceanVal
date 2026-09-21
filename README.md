@@ -1,7 +1,10 @@
-<a href="https://pmlmodelling.github.io/OceanVal/"><img src="docs-site/assets/img/oceanval_wordmark.svg" width="240" alt="OceanVal" align="middle" /></a>
-[![Documentation Status](https://readthedocs.org/projects/oceanval/badge/?version=latest)](https://oceanval.readthedocs.io/en/latest/?badge=latest)
-[![Conda Badge](https://anaconda.org/conda-forge/oceanval/badges/version.svg)](https://anaconda.org/channels/conda-forge/packages/oceanval/overview)
-![GitHub Testing](https://github.com/pmlmodelling/oceanVal/actions/workflows/python-app.yml/badge.svg)
+<a href="https://pmlmodelling.github.io/OceanVal/"><img src="docs-site/assets/img/oceanval_wordmark.svg" width="240" alt="OceanVal" align="left" /></a>
+<p align="right">
+  <a href="https://oceanval.readthedocs.io/en/latest/?badge=latest"><img src="https://readthedocs.org/projects/oceanval/badge/?version=latest" alt="Documentation Status" /></a>
+  <a href="https://anaconda.org/channels/conda-forge/packages/oceanval/overview"><img src="https://anaconda.org/conda-forge/oceanval/badges/version.svg" alt="Conda Badge" /></a>
+  <img src="https://github.com/pmlmodelling/oceanVal/actions/workflows/python-app.yml/badge.svg" alt="GitHub Testing" />
+</p>
+<br clear="left" />
 
 Ocean model validation made easy in Python.
 
