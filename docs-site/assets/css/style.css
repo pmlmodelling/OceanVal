@@ -368,31 +368,6 @@ li { margin-bottom: 0.45em; }
   .nav-drop-toggle { width: 100%; justify-content: space-between; padding: 0.85em 0; border-bottom: 1px solid var(--line-soft); }
 }
 
-/* ---------------------------- dev banner ---------------------------- */
-
-.dev-banner {
-  background: var(--coral);
-  color: #fff;
-}
-.dev-banner .container {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.65em;
-  padding: 0.9em 24px;
-  font-size: 0.95rem;
-  line-height: 1.4;
-}
-.dev-banner p { margin: 0; color: #fff; }
-.dev-banner svg { width: 19px; height: 19px; flex-shrink: 0; margin-top: 0.15em; }
-.dev-banner strong { font-weight: 700; }
-.dev-banner code { background: rgba(255,255,255,0.22); color: #fff; }
-.dev-banner a { color: #fff; text-decoration: underline; text-underline-offset: 2px; font-weight: 600; }
-.dev-banner a:hover { text-decoration-color: transparent; }
-
-@media (max-width: 620px) {
-  .dev-banner .container { font-size: 0.88rem; }
-}
-
 /* ---------------------------- hero ---------------------------- */
 
 .hero {
