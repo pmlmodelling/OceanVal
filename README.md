@@ -1,19 +1,10 @@
-<p align="center">
-  <img src="docs-site/assets/img/oceanval_wordmark.svg" alt="OceanVal" width="380">
-</p>
+# OceanVal <a href="https://pmlmodelling.github.io/OceanVal/"><img src="docs-site/assets/img/oceanval_wordmark.svg" align="right" width="240" alt="OceanVal logo" /></a>
 
-> [!TIP]
-> 📖 **New here?** The full documentation — installing, quickstart, recipes, the API reference, and more — lives at **[pmlmodelling.github.io/OceanVal](https://pmlmodelling.github.io/OceanVal/)**.
-
+<!-- badges: start -->
 [![Documentation Status](https://readthedocs.org/projects/oceanval/badge/?version=latest)](https://oceanval.readthedocs.io/en/latest/?badge=latest)
 [![Conda Badge](https://anaconda.org/conda-forge/oceanval/badges/version.svg)](https://anaconda.org/channels/conda-forge/packages/oceanval/overview)
 ![GitHub Testing](https://github.com/pmlmodelling/oceanVal/actions/workflows/python-app.yml/badge.svg)
-
-
-
-
-
-# OceanVal 
+<!-- badges: end -->
 
 Ocean model validation made easy in Python.
 
