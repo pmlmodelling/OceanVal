@@ -1069,6 +1069,29 @@ def _check_region_file(region_file):
     return len(contents)
 
 
+def _check_matchups(data_dir):
+    """
+    Check that data_dir holds the output of a finished matchup run.
+
+    validate builds the report from these files, so without this check it
+    fails part way through with a missing-file error from fix_toc.
+    """
+    matchup_dir = os.path.join(data_dir, "oceanval_matchups")
+    point_paths = glob.glob(f"{matchup_dir}/point/**/**/**/**.csv")
+    gridded_paths = glob.glob(f"{matchup_dir}/gridded/**/**.nc")
+    if len(point_paths) == 0 and len(gridded_paths) == 0:
+        raise ValueError(
+            f"No matchups found in {matchup_dir}. Run oceanval.matchup() first, "
+            "or set data_dir to the directory you ran it from"
+        )
+    for ff in ["short_titles.pkl", "variables_matched.pkl"]:
+        if not os.path.exists(os.path.join(matchup_dir, ff)):
+            raise ValueError(
+                f"{matchup_dir} is missing {ff}, so oceanval.matchup() did not finish. "
+                "Run it again before calling validate"
+            )
+
+
 def validate(
     lon_lim=None,
     lat_lim=None,
@@ -1149,6 +1172,8 @@ def validate(
             raise ValueError("subregions must be 'nwes', 'global' or a path to a .nc file")
         region_file = os.path.abspath(os.path.expanduser(subregions))
         n_regions = _check_region_file(region_file)
+    # check before removing any previous report or results
+    _check_matchups(data_dir)
     # ensure proper handling of ~
     out_dir = os.path.expanduser(out_dir)
     out_dir = os.path.abspath(out_dir)
