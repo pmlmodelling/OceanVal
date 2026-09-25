@@ -152,10 +152,15 @@ if time_name is not None:
 
 
 # %% tags=["remove-cell"]
-def plot_seasonal_months(months):
-    """Draw the model, observation and difference maps of these months with panel_plot"""
+def plot_seasonal_months(months, divider = False):
+    """Draw the model, observation and difference maps of these months with panel_plot
+
+    divider draws a line under the difference maps, to separate them from the next months
+    """
     import matplotlib.pyplot as plt
+    from matplotlib.cm import ScalarMappable
     from matplotlib.colors import LinearSegmentedColormap, Normalize
+    from matplotlib.lines import Line2D
 
     months = [int(month) for month in months if month in set(df_model.month)]
     if len(months) == 0:
@@ -200,23 +205,14 @@ def plot_seasonal_months(months):
         end = 0.5 + hi / (2 * largest)
         return LinearSegmentedColormap.from_list("difference", blue_white_red(np.linspace(start, end, 256)))
 
-    def month_panels(ds):
-        panels = dict()
-        for month in months:
-            ds_month = ds.copy()
-            ds_month.subset(months = month)
-            ds_month.run()
-            panels[calendar.month_abbr[month]] = ds_month
-        return panels
-
     ds_diff = ds_model.copy()
     ds_diff - ds_obs
     ds_diff.run()
     diff_range = colour_range(df_diff, "diff", *diff_caps)
     rows = [
-        ("Model", ds_model, "viridis", colour_range(df_model, "model", *model_caps)),
-        ("Observation", ds_obs, "viridis", colour_range(df_obs, "observation", *obs_caps)),
-        ("Model - Observation", ds_diff, diff_colours(*diff_range), diff_range),
+        ("Model", ds_model, "viridis", colour_range(df_model, "model", *model_caps), df_model, "model"),
+        ("Observation", ds_obs, "viridis", colour_range(df_obs, "observation", *obs_caps), df_obs, "observation"),
+        ("Model - Observation", ds_diff, diff_colours(*diff_range), diff_range, df_diff, "diff"),
     ]
 
     # the colour bar is labelled with the unit only, as in R, with mathtext instead of html
@@ -224,49 +220,142 @@ def plot_seasonal_months(months):
     unit_text = re.sub(r"<sup>(.*?)</sup>", r"$^{\1}$", unit_text)
     unit_text = re.sub(r"<sub>(.*?)</sub>", r"$_{\1}$", unit_text)
 
-    # one row of months, at most 12 inches wide: the height follows from the shape of the maps
+    # one row of maps per dataset, at most 12 inches wide: the height follows from the shape of
+    # the maps, plus room for the titles above each row
     if global_grid:
         aspect = 2.0
     else:
         aspect = (xlim[1] - xlim[0]) * np.cos(np.radians(np.mean(ylim))) / (ylim[1] - ylim[0])
         aspect = min(max(aspect, 0.6), 2.5)
     width = min(12, len(months) * (3 * aspect + 0.2) + 1.4)
-    height = (width - 1.4) / len(months) / aspect + 0.9
+    map_height = (width - 1.4) / len(months) / aspect
+    height = 3 * map_height + 1.6
 
-    for title, ds, colours, (lo, hi) in rows:
-        nc.panel_plot(
-            month_panels(ds),
-            ncol = len(months),
-            nrow = 1,
-            size = [width, height],
-            colours = colours,
-            norm = Normalize(vmin = lo, vmax = hi),
-            legend = unit_text,
-            extent = None if global_grid else [xlim[0], xlim[1], ylim[0], ylim[1]],
-            land = "#bebebe",
-            grid_labels = False,
+    # all three rows are one figure, so the lines marking out these months join up.
+    # Panel keys must be unique, and are only placeholders for the titles set below
+    panels = dict()
+    colours = []
+    norms = []
+    for title, ds, row_colours, (lo, hi), df, column in rows:
+        for month in months:
+            ds_month = ds.copy()
+            ds_month.subset(months = month)
+            ds_month.run()
+            panels[f"{title} {month}"] = ds_month
+            colours.append(row_colours)
+            norms.append(Normalize(vmin = lo, vmax = hi))
+    nc.panel_plot(
+        panels,
+        ncol = len(months),
+        nrow = 3,
+        size = [width, height],
+        shared_colourbar = False,
+        colours = colours,
+        norm = norms,
+        legend_position = None,
+        extent = None if global_grid else [xlim[0], xlim[1], ylim[0], ylim[1]],
+        land = "#bebebe",
+        grid_labels = False,
+    )
+    fig = plt.gcf()
+    axes = fig.axes[:3 * len(months)]
+
+    for i, (title, ds, row_colours, (lo, hi), df, column) in enumerate(rows):
+        row_axes = axes[i * len(months):(i + 1) * len(months)]
+        for ax in row_axes:
+            ax.set_title("")
+        # the full month names are only given once, above the model maps
+        if i == 0:
+            for ax, month in zip(row_axes, months):
+                ax.set_title(calendar.month_name[month])
+        # each row is labelled on its left, rotated to run up the side of the maps
+        row_axes[0].text(
+            -0.04, 0.5, title.replace(" - ", " -\n"), transform = row_axes[0].transAxes,
+            rotation = 90, ha = "right", va = "center", multialignment = "center", fontsize = 12,
         )
-        plt.gcf().suptitle(title, x = 0.01, ha = "left", fontsize = 13)
+
+        # arrows on the colour bar show values beyond its limits in the months shown
+        shown = df.loc[df.month.isin(months), column]
+        below = shown.min() < lo
+        above = shown.max() > hi
+        extend = "both" if below and above else "min" if below else "max" if above else "neither"
+        cb = fig.colorbar(
+            ScalarMappable(norm = Normalize(vmin = lo, vmax = hi), cmap = row_colours),
+            ax = row_axes,
+            location = "right",
+            extend = extend,
+            shrink = 0.8,
+            pad = 0.05,
+        )
+        cb.ax.set_ylabel(unit_text)
+
+    # the maps keep their shape, so when the width limits them there are gaps between the rows.
+    # The height without them comes from two layouts, taking the height of the rows to follow
+    # the figure's in a straight line. The layout is then kept fixed so the lines below stay put
+    def row_height():
+        return axes[0].get_position(original = True).height * fig.get_size_inches()[1]
+
+    fig.canvas.draw()
+    maps_high = axes[0].get_position().height * height
+    gap = row_height() - maps_high
+    if gap > 0.01:
+        trial = height - 3 * gap
+        fig.set_size_inches(width, trial)
+        fig.canvas.draw()
+        slope = (gap + maps_high - row_height()) / (height - trial)
+        fig.set_size_inches(width, height - gap / slope + 0.02 if slope > 0 else height)
+        fig.canvas.draw()
+    fig.set_layout_engine("none")
+    renderer = fig.canvas.get_renderer()
+    inverse = fig.transFigure.inverted()
+    fig_width, fig_height = fig.get_size_inches()
+
+    def figure_box(ax):
+        # x0, y0, x1, y1 of everything an axes draws, including its titles and labels
+        return inverse.transform(ax.get_tightbbox(renderer)).flatten()
+
+    bottom = min(ax.get_position().y0 for ax in fig.axes) - 0.15 / fig_height
+    # left of the row labels, and level with the top of the month names
+    left = min(figure_box(ax)[0] for ax in axes[::len(months)]) - 0.08 / fig_width
+    top = max(figure_box(ax)[3] for ax in axes[:len(months)])
+    line = dict(transform = fig.transFigure, color = "#c8c8c8", linewidth = 1)
+    # a thin line down the left of the maps of these months
+    fig.add_artist(Line2D([left, left], [bottom, top], **line))
+    if divider:
+        # and one under them, across the whole figure, separating them from the next months
+        fig.add_artist(Line2D([left, 0.99], [bottom, bottom], **line))
     return True
 
 
 # %% tags=["remove-input"]
-seasonal_panel_1 = False
+# global maps are twice as wide as they are tall, so show them four months at a time, not six
+if global_grid:
+    seasonal_periods = [range(1, 5), range(5, 9), range(9, 13)]
+else:
+    seasonal_periods = [range(1, 7), range(7, 13)]
+
+seasonal_panel = False
 if use_panel_plot and not concise:
     try:
-        seasonal_panel_1 = plot_seasonal_months(range(1, 7))
+        # a line separates each group of months from the next, but none follows the last group
+        seasonal_periods = [x for x in seasonal_periods if set(x) & set(df_model.month)]
+        seasonal_panel = any([
+            plot_seasonal_months(months, divider = i < len(seasonal_periods) - 1)
+            for i, months in enumerate(seasonal_periods)
+        ])
     except:
-        # fall back to the R version of the figures below
+        # fall back to the R version of all of the figures below
         import matplotlib.pyplot as plt
         plt.close("all")
+        seasonal_panel = False
 
 
 # %% tags=["remove-input"]
 # %%capture --no-display
-# %%R -i model_unit  -w 1000 -h 900 -i variable  -i concise -i seasonal_panel_1 -r 100
+# %%R -i model_unit  -w 1000 -h 900 -i variable  -i concise -i seasonal_panel -r 100
 
 
-if(concise == FALSE & !seasonal_panel_1){
+if(concise == FALSE & !seasonal_panel){
 
 fixed_scale = "fixed_scale_value"
 
@@ -520,21 +609,10 @@ cowplot::plot_grid(gg1, gg2, gg3, ncol = 1)
 
 
 # %% tags=["remove-input"]
-seasonal_panel_2 = False
-if use_panel_plot and not concise:
-    try:
-        seasonal_panel_2 = plot_seasonal_months(range(7, 13))
-    except:
-        # fall back to the R version of the figures below
-        import matplotlib.pyplot as plt
-        plt.close("all")
-
-
-# %% tags=["remove-input"]
 # %%capture --no-display
-# %%R -i model_unit -w 1000 -h 900 -i variable  -i concise -i seasonal_panel_2 -r 100
+# %%R -i model_unit -w 1000 -h 900 -i variable  -i concise -i seasonal_panel -r 100
 
-if (concise == FALSE & !seasonal_panel_2){
+if (concise == FALSE & !seasonal_panel){
 
     fixed_scale = "fixed_scale_value"   
     if (fixed_scale == "False")
@@ -792,7 +870,7 @@ cowplot::plot_grid(gg1, gg2, gg3, ncol = 1)
 # %% tags=["remove-input"]
 if not concise:
     fixed_scale = "fixed_scale_value"
-    arrows = " Arrows on the colorbars indicate values beyond the colorbar limits." if seasonal_panel_1 or seasonal_panel_2 else ""
+    arrows = " Arrows on the colorbars indicate values beyond the colorbar limits." if seasonal_panel else ""
     if fixed_scale == "False":
         md(f"**Figure {i_figure}**: Monthly mean {layer} {vv_name} for the model, observation and the difference between model and observations. For clarity, the maximum values are capped to the 98th percentiles.{arrows}") 
     else:
