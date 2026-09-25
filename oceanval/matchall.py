@@ -170,23 +170,15 @@ def mm_match(ff, model_variable, df, df_times, ds_depths, variable, df_all, laye
                     if session_info["invert"]:
                         ds.invert_levels()
 
-            if (
-                "year" in df_locs.columns
-                or "month" in df_locs.columns
-                or "day" in df_locs.columns
-            ):
-                ff_indices = df_times.query("path == @ff")
+            # df_times only has the times in the years asked for
+            ff_times = df_times.query("path == @ff")
+            if valid_times:
+                ff_times = ff_times.merge(df_locs)
+            ff_indices = sorted(set(int(x) for x in ff_times.time_index))
 
-                ff_indices = ff_indices.reset_index(drop=True).reset_index()
-                ff_indices = ff_indices
-                ff_indices = ff_indices.merge(df_locs)
-                ff_indices = ff_indices["index"].values
-                ff_indices = [int(x) for x in ff_indices]
-                ff_indices = list(set(ff_indices))
-
-                if len(ff_indices) == 0:
-                    return None
-                ds.subset(time=ff_indices)
+            if len(ff_indices) == 0:
+                return None
+            ds.subset(time=ff_indices)
             if session_info["as_missing"] is not None:
                 ds.as_missing(session_info["as_missing"])
             ds.run()
@@ -853,8 +845,7 @@ def matchup(
     var_chosen = list(set(var_chosen))
 
     # create oceanval_matchups directory
-    if not os.path.exists("oceanval_matchups"):
-        os.makedirs(session_info["out_dir"] + "/oceanval_matchups", exist_ok=True)
+    os.makedirs(session_info["out_dir"] + "/oceanval_matchups", exist_ok=True)
 
     invert_thickness = False
     point_all = point["all"] + point["surface"]
@@ -1284,19 +1275,6 @@ def matchup(
                             # ensure year is int
                             if "year" in df.columns:
                                 df = df.assign(year=lambda x: x.year.astype(int))
-                            # month and day
-                            try:
-                                df = df.assign(
-                                    month=lambda x: x.month.astype(int) if "month" in x.columns else None,
-                                )
-                            except:
-                                pass
-                            try:
-                                df = df.assign(
-                                    day=lambda x: x.day.astype(int) if "day" in x.columns else None,
-                                )
-                            except:
-                                pass
                             if "year" in df.columns:
                                 # find point_start
                                 point_start = comparison["start"]
@@ -1332,6 +1310,18 @@ def matchup(
                             ]:
                                 if x in df.columns:
                                     df = df.drop(columns=x)
+
+                            # observations without a year would otherwise be
+                            # matched with every year of the simulation, so only
+                            # keep model times in the years asked for. Each
+                            # time's position in its file is kept for subsetting
+                            year_start = max(session_info["min_year"], comparison["start"])
+                            year_end = min(session_info["max_year"], comparison["end"])
+                            df_times = df_times.reset_index(drop=True)
+                            df_times["time_index"] = df_times.groupby("path").cumcount()
+                            df_times = df_times.query(
+                                "year >= @year_start and year <= @year_end"
+                            ).reset_index(drop=True)
 
                             sel_these = point_time_res
                             sel_these = [x for x in df.columns if x in sel_these]

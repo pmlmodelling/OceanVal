@@ -269,9 +269,10 @@ oceanval.<a href="api.html#add_gridded_comparison"><span class="tok-fn">add_grid
         <li>Year, month and day → matched against model output for the exact date.</li>
         <li>Year and month only → matched against the monthly average from the simulation.</li>
         <li>Year only → matched against the annual average from the simulation.</li>
-        <li>No time information → matched against the simulation's multi-year average.</li>
+        <li>Month (and optionally day), but no year → matched against the simulation's average for that month (or day) over the years from <code>start</code> to <code>end</code>.</li>
+        <li>No time information → matched against the simulation's average over the years from <code>start</code> to <code>end</code>.</li>
       </ul>
-      <p>To ignore year information (e.g. comparing a 1-year simulation against multiple years of observations), set <code>point_time_res=["month", "day"]</code> in <a href="api.html#matchup"><code>oceanval.matchup</code></a>.</p>
+      <p>To ignore year information and compare observations with the simulation's average for their month and day, set <code>point_time_res=["month", "day"]</code> in <a href="api.html#matchup"><code>oceanval.matchup</code></a>. Only observations from the years between <code>start</code> and <code>end</code> are used.</p>
     </div>
     <div class="callout">
       <div class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Where does OceanVal save matchup files?</div>

@@ -212,12 +212,14 @@ You can do this by setting something like "var1+var2+var3" as the `model_variabl
 
     If you only provide year, OceanVal will look for model output for the whole year of the observation, and use the annual average from the simulation.
 
-    If no time information is provided, OceanVal will use the multi-year average from the simulation output for comparison with the observation.
+    If you provide month (and optionally day), but not year, OceanVal will use the average for that month (or day) over the simulation years from `start` to `end`.
 
-    In some cases, you may want to ignore the year information in the observational data.
-    For example, you may have only a 1-year simulation and you want to validate based on all available years of observations, only using month and day information in the observational data.
+    If no time information is provided, OceanVal will use the average over the simulation years from `start` to `end` for comparison with the observation.
+
+    In some cases, you may want to ignore the year information in the observational data, and compare observations with the simulation's average for their month and day instead.
     In this case, you can set the `point_time_res` parameter in the `oceanval.matchup` function to specify which time information to use when matching up in-situ observations with the simulation output.
     Set this to `["month", "day"]` to ignore year information when matching up observations with the simulation output.
+    Only observations from the years between `start` and `end` are used.
 
 
 .. admonition:: Where does OceanVal save matchup files?
