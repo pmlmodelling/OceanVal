@@ -151,12 +151,122 @@ if time_name is not None:
 
 
 
+# %% tags=["remove-cell"]
+def plot_seasonal_months(months):
+    """Draw the model, observation and difference maps of these months with panel_plot"""
+    import matplotlib.pyplot as plt
+    from matplotlib.colors import LinearSegmentedColormap, Normalize
+
+    months = [int(month) for month in months if month in set(df_model.month)]
+    if len(months) == 0:
+        return False
+
+    # colour limits are the mean over the year of each month's quantile, as in the R version
+    def cap(df, column, prob):
+        return df.groupby("month")[column].quantile(prob).mean()
+
+    def colour_range(df, column, low = None, high = None):
+        # range of the values in the months shown, once capped
+        values = df.loc[df.month.isin(months), column]
+        lo, hi = values.min(), values.max()
+        if low is not None:
+            lo = max(lo, low)
+        if high is not None:
+            hi = min(hi, high)
+        return float(lo), float(hi)
+
+    model_high = cap(df_model, "model", 0.98)
+    obs_high = cap(df_obs, "observation", 0.98)
+    if "fixed_scale_value" == "True":
+        # model and observation share one range
+        shared_caps = (
+            min(cap(df_model, "model", 0.02), cap(df_obs, "observation", 0.02)),
+            max(model_high, obs_high),
+        )
+        model_caps = obs_caps = shared_caps
+    else:
+        model_caps = (None, model_high)
+        obs_caps = (None, obs_high)
+    diff_caps = (cap(df_diff, "diff", 0.02), cap(df_diff, "diff", 0.98))
+
+    def diff_colours(lo, hi):
+        # ggplot2's scale_fill_gradient2(low = "blue", high = "red"): white at zero, and the
+        # same colours for the same size of difference on either side of it
+        blue_white_red = LinearSegmentedColormap.from_list("blue_white_red", ["blue", "white", "red"])
+        largest = max(abs(lo), abs(hi))
+        if largest == 0:
+            return blue_white_red
+        start = 0.5 + lo / (2 * largest)
+        end = 0.5 + hi / (2 * largest)
+        return LinearSegmentedColormap.from_list("difference", blue_white_red(np.linspace(start, end, 256)))
+
+    def month_panels(ds):
+        panels = dict()
+        for month in months:
+            ds_month = ds.copy()
+            ds_month.subset(months = month)
+            ds_month.run()
+            panels[calendar.month_abbr[month]] = ds_month
+        return panels
+
+    ds_diff = ds_model.copy()
+    ds_diff - ds_obs
+    ds_diff.run()
+    diff_range = colour_range(df_diff, "diff", *diff_caps)
+    rows = [
+        ("Model", ds_model, "viridis", colour_range(df_model, "model", *model_caps)),
+        ("Observation", ds_obs, "viridis", colour_range(df_obs, "observation", *obs_caps)),
+        ("Model - Observation", ds_diff, diff_colours(*diff_range), diff_range),
+    ]
+
+    # the colour bar is labelled with the unit only, as in R, with mathtext instead of html
+    unit_text = "°C" if variable == "temperature" else model_unit
+    unit_text = re.sub(r"<sup>(.*?)</sup>", r"$^{\1}$", unit_text)
+    unit_text = re.sub(r"<sub>(.*?)</sub>", r"$_{\1}$", unit_text)
+
+    # one row of months, at most 12 inches wide: the height follows from the shape of the maps
+    if global_grid:
+        aspect = 2.0
+    else:
+        aspect = (xlim[1] - xlim[0]) * np.cos(np.radians(np.mean(ylim))) / (ylim[1] - ylim[0])
+        aspect = min(max(aspect, 0.6), 2.5)
+    width = min(12, len(months) * (3 * aspect + 0.2) + 1.4)
+    height = (width - 1.4) / len(months) / aspect + 0.9
+
+    for title, ds, colours, (lo, hi) in rows:
+        nc.panel_plot(
+            month_panels(ds),
+            ncol = len(months),
+            nrow = 1,
+            size = [width, height],
+            colours = colours,
+            norm = Normalize(vmin = lo, vmax = hi),
+            legend = unit_text,
+            extent = None if global_grid else [xlim[0], xlim[1], ylim[0], ylim[1]],
+            land = "#bebebe",
+            grid_labels = False,
+        )
+        plt.gcf().suptitle(title, x = 0.01, ha = "left", fontsize = 13)
+    return True
+
+
+# %% tags=["remove-input"]
+seasonal_panel_1 = False
+if use_panel_plot and not concise:
+    try:
+        seasonal_panel_1 = plot_seasonal_months(range(1, 7))
+    except:
+        # fall back to the R version of the figures below
+        import matplotlib.pyplot as plt
+        plt.close("all")
+
+
 # %% tags=["remove-input"]
 # %%capture --no-display
-# %%R -i model_unit  -w 1000 -h 900 -i variable  -i concise -r 100
+# %%R -i model_unit  -w 1000 -h 900 -i variable  -i concise -i seasonal_panel_1 -r 100
 
 
-if(concise == FALSE){
+if(concise == FALSE & !seasonal_panel_1){
 
 fixed_scale = "fixed_scale_value"
 
@@ -410,10 +520,21 @@ cowplot::plot_grid(gg1, gg2, gg3, ncol = 1)
 
 
 # %% tags=["remove-input"]
-# %%capture --no-display
-# %%R -i model_unit -w 1000 -h 900 -i variable  -i concise -r 100
+seasonal_panel_2 = False
+if use_panel_plot and not concise:
+    try:
+        seasonal_panel_2 = plot_seasonal_months(range(7, 13))
+    except:
+        # fall back to the R version of the figures below
+        import matplotlib.pyplot as plt
+        plt.close("all")
 
-if (concise == FALSE){
+
+# %% tags=["remove-input"]
+# %%capture --no-display
+# %%R -i model_unit -w 1000 -h 900 -i variable  -i concise -i seasonal_panel_2 -r 100
+
+if (concise == FALSE & !seasonal_panel_2){
 
     fixed_scale = "fixed_scale_value"   
     if (fixed_scale == "False")
@@ -671,8 +792,9 @@ cowplot::plot_grid(gg1, gg2, gg3, ncol = 1)
 # %% tags=["remove-input"]
 if not concise:
     fixed_scale = "fixed_scale_value"
+    arrows = " Arrows on the colorbars indicate values beyond the colorbar limits." if seasonal_panel_1 or seasonal_panel_2 else ""
     if fixed_scale == "False":
-        md(f"**Figure {i_figure}**: Monthly mean {layer} {vv_name} for the model, observation and the difference between model and observations. For clarity, the maximum values are capped to the 98th percentiles") 
+        md(f"**Figure {i_figure}**: Monthly mean {layer} {vv_name} for the model, observation and the difference between model and observations. For clarity, the maximum values are capped to the 98th percentiles.{arrows}") 
     else:
-        md(f"**Figure {i_figure}**: Monthly mean {layer} {vv_name} for the model, observation and the difference between model and observations. For clarity, the maximum and minimum values are capped to cover the 98th and 2nd percentiles of both model and observations.")
+        md(f"**Figure {i_figure}**: Monthly mean {layer} {vv_name} for the model, observation and the difference between model and observations. For clarity, the maximum and minimum values are capped to cover the 98th and 2nd percentiles of both model and observations.{arrows}")
     i_figure += 1
