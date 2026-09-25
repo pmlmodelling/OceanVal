@@ -1282,7 +1282,8 @@ def matchup(
 
                             df = pd.concat([read_csv_simyears(x, layer) for x in paths])
                             # ensure year is int
-                            df = df.assign(year=lambda x: x.year.astype(int))
+                            if "year" in df.columns:
+                                df = df.assign(year=lambda x: x.year.astype(int))
                             # month and day
                             try:
                                 df = df.assign(
