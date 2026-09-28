@@ -55,6 +55,18 @@ An example is shown below:
         obs_path="/path/to/obs_data/",
     )
 
+Instead of `obs_path`, you can use a built-in point recipe, which downloads the observations for you when `oceanval.matchup` runs. Ten variables from the ICES Oceanographic database are available this way. The observations are downloaded for the years being matched and the `lon_lim`/`lat_lim` area given to `matchup` (or the model's own extent, if these are not given). The name, source and labels all come from the recipe:
+
+.. code:: ipython3
+
+    oceanval.add_point_comparison(
+        model_variable="votemper",
+        recipe={"temperature": "ices"},
+        vertical=True,
+    )
+
+See :doc:`recipes` for details.
+
 .. admonition:: How does OceanVal handle variable names?
 
     You can use whatever you want for the `name` parameter when registering observational datasets. This is only used internally by OceanVal to keep track of things, to name files etc.

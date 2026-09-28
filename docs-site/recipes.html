@@ -67,7 +67,7 @@
 
 <div class="section section-tight">
   <div class="container">
-    <p>OceanVal provides built-in recipes for popular observational datasets. Downloading and wrangling metadata is tedious — recipes take care of it for you. Use the <code>recipe</code> argument with <a href="api.html#add_gridded_comparison"><code>oceanval.add_gridded_comparison</code></a>, click any row for the exact call to use.</p>
+    <p>OceanVal provides built-in recipes for popular observational datasets. Downloading and wrangling metadata is tedious — recipes take care of it for you. Use the <code>recipe</code> argument with <a href="api.html#add_gridded_comparison"><code>oceanval.add_gridded_comparison</code></a>, click any row for the exact call to use. There is also a <a href="#point-recipes">point data recipe</a>.</p>
     <div class="code-block" style="max-width:760px;">
       <div class="code-card__bar"><div class="code-card__dots"><span></span><span></span><span></span></div><span class="code-card__label">python</span></div>
       <pre>oceanval.<a href="api.html#add_gridded_comparison"><span class="tok-fn">add_gridded_comparison</span></a>(
@@ -363,6 +363,68 @@
         </tbody>
       </table>
     </div>
+
+    <h2 id="point-recipes" style="margin-top:2.4rem;">Point data recipes</h2>
+    <div class="callout warn">
+      <div class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Not yet released</div>
+      <p>Point recipes are on the <code>main</code> branch but not yet in a tagged release (see <a href="version-history.html">version history</a>). Install from GitHub to use them: <code>pip install git+https://github.com/pmlmodelling/oceanval.git</code>.</p>
+    </div>
+    <p style="max-width:70ch;">Point recipes are used with <a href="api.html#add_point_comparison"><code>oceanval.add_point_comparison</code></a> in place of <code>obs_path</code>. Instead of reading csv files from disk, OceanVal downloads the observations when <a href="api.html#matchup"><code>oceanval.matchup</code></a> runs, for the years being matched and the <code>lon_lim</code>/<code>lat_lim</code> area given to <code>matchup</code>. If no <code>lon_lim</code> and <code>lat_lim</code> are given, the model's own longitude/latitude extent is used.</p>
+    <div class="code-block" style="max-width:760px;">
+      <div class="code-card__bar"><div class="code-card__dots"><span></span><span></span><span></span></div><span class="code-card__label">python</span></div>
+      <pre>oceanval.<a href="api.html#add_point_comparison"><span class="tok-fn">add_point_comparison</span></a>(
+    model_variable=<span class="tok-str">"votemper"</span>,         <span class="tok-com"># model NetCDF variable</span>
+    recipe={<span class="tok-str">"temperature"</span>: <span class="tok-str">"ices"</span>},    <span class="tok-com"># observation recipe</span>
+    vertical=<span class="tok-kw">True</span>,                     <span class="tok-com"># also validate below the surface</span>
+)</pre>
+    </div>
+    <div class="table-wrap" style="margin-top:1.6rem; overflow-x:auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>Region</th>
+            <th>Variable</th>
+            <th>Recipe</th>
+            <th>Dataset</th>
+            <th>Units</th>
+            <th>Water-column</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Northeast Atlantic</td><td>Temperature</td><td><code>ices</code></td><td><a href="https://ocean.ices.dk">ICES Oceanographic database</a>, high resolution CTD profiles</td><td>&deg;C</td><td><span class="badge badge-yes">Yes</span></td>
+          </tr>
+          <tr>
+            <td>Northeast Atlantic</td><td>Salinity</td><td><code>ices</code></td><td><a href="https://ocean.ices.dk">ICES Oceanographic database</a>, high resolution CTD profiles</td><td>dimensionless</td><td><span class="badge badge-yes">Yes</span></td>
+          </tr>
+          <tr>
+            <td>Northeast Atlantic</td><td>Total Alkalinity</td><td><code>ices</code></td><td><a href="https://ocean.ices.dk">ICES Oceanographic database</a>, bottle and low resolution CTD data</td><td>mEq/l</td><td><span class="badge badge-yes">Yes</span></td>
+          </tr>
+          <tr>
+            <td>Northeast Atlantic</td><td>Ammonium</td><td><code>ices</code></td><td><a href="https://ocean.ices.dk">ICES Oceanographic database</a>, bottle and low resolution CTD data</td><td>&micro;mol/l</td><td><span class="badge badge-yes">Yes</span></td>
+          </tr>
+          <tr>
+            <td>Northeast Atlantic</td><td>Chlorophyll</td><td><code>ices</code></td><td><a href="https://ocean.ices.dk">ICES Oceanographic database</a>, bottle and low resolution CTD data</td><td>&micro;g/l</td><td><span class="badge badge-yes">Yes</span></td>
+          </tr>
+          <tr>
+            <td>Northeast Atlantic</td><td>Nitrate</td><td><code>ices</code></td><td><a href="https://ocean.ices.dk">ICES Oceanographic database</a>, bottle and low resolution CTD data</td><td>&micro;mol/l</td><td><span class="badge badge-yes">Yes</span></td>
+          </tr>
+          <tr>
+            <td>Northeast Atlantic</td><td>Oxygen</td><td><code>ices</code></td><td><a href="https://ocean.ices.dk">ICES Oceanographic database</a>, bottle and low resolution CTD data</td><td>ml/l</td><td><span class="badge badge-yes">Yes</span></td>
+          </tr>
+          <tr>
+            <td>Northeast Atlantic</td><td>pH</td><td><code>ices</code></td><td><a href="https://ocean.ices.dk">ICES Oceanographic database</a>, bottle and low resolution CTD data</td><td>pH units</td><td><span class="badge badge-yes">Yes</span></td>
+          </tr>
+          <tr>
+            <td>Northeast Atlantic</td><td>Phosphate</td><td><code>ices</code></td><td><a href="https://ocean.ices.dk">ICES Oceanographic database</a>, bottle and low resolution CTD data</td><td>&micro;mol/l</td><td><span class="badge badge-yes">Yes</span></td>
+          </tr>
+          <tr>
+            <td>Northeast Atlantic</td><td>Silicate</td><td><code>ices</code></td><td><a href="https://ocean.ices.dk">ICES Oceanographic database</a>, bottle and low resolution CTD data</td><td>&micro;mol/l</td><td><span class="badge badge-yes">Yes</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="max-width:70ch; margin-top:1.2rem;">The <code>ices</code> recipe only keeps observations whose observation and depth quality flags are both 0 (good). The download covers every profile in the area and years being matched, so large areas or long periods make for a large download.</p>
 
     <div class="callout" style="margin-top:2rem;">
       <div class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>Key info about World Ocean Atlas 2023 recipes</div>

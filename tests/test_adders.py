@@ -715,3 +715,84 @@ class TestMultipleSources:
         assert list(variable.gridded_comparisons) == ["SourceA"]
         assert list(variable.point_comparisons) == ["SourceB"]
         assert list(variable.sources) == ["SourceA", "SourceB"]
+
+
+class TestPointRecipes:
+    """Point recipes download their observations during matchup, so
+    registering one needs no files and no network access."""
+
+    def test_ices_recipe_registers_without_files(self):
+        oceanval.reset()
+        oceanval.add_point_comparison(
+            recipe={"temperature": "ices"},
+            model_variable="votemper",
+            vertical=True,
+        )
+
+        variable = oceanval.definitions["temperature"]
+        assert variable.model_variable == "votemper"
+        assert variable.short_title == "Temperature"
+        assert variable.long_name == "sea water temperature"
+        assert "In-situ observations from the ICES" in variable.sources["ICES"]
+        comparison = variable.point_comparisons["ICES"]
+        assert comparison["recipe"] == {"parameter": "TEMPPR01", "dataset": "CTD"}
+        assert comparison["obs_path"] is None
+        assert comparison["vertical"] is True
+
+    @pytest.mark.parametrize(
+        "name, parameter, dataset",
+        [
+            ("nitrate", "NTRAZZXX", "ICE"),
+            ("salinity", "PSALPR01", "CTD"),
+            ("ph", "PHXXZZXX", "ICE"),
+        ],
+    )
+    def test_ices_recipes_register_for_other_variables(self, name, parameter, dataset):
+        oceanval.reset()
+        oceanval.add_point_comparison(
+            recipe={name: "ices"},
+            model_variable="model_var",
+        )
+
+        variable = oceanval.definitions[name]
+        assert variable.model_variable == "model_var"
+        assert "ICES Oceanographic database" in variable.sources["ICES"]
+        comparison = variable.point_comparisons["ICES"]
+        assert comparison["recipe"] == {"parameter": parameter, "dataset": dataset}
+        assert comparison["obs_path"] is None
+
+    def test_on_disk_comparisons_have_no_recipe(self, tmp_path):
+        oceanval.reset()
+        pd.DataFrame({"lon": [1.0], "lat": [50.0], "observation": [10.0]}).to_csv(
+            tmp_path / "obs.csv", index=False
+        )
+        oceanval.add_point_comparison(
+            name="temperature", source="Mine", model_variable="votemper", obs_path=str(tmp_path)
+        )
+
+        assert oceanval.definitions["temperature"].point_comparisons["Mine"]["recipe"] is None
+
+    def test_recipe_and_obs_path_together_raise(self, tmp_path):
+        oceanval.reset()
+        with pytest.raises(ValueError, match="obs_path cannot be supplied with a recipe"):
+            oceanval.add_point_comparison(
+                recipe={"temperature": "ices"},
+                model_variable="votemper",
+                obs_path=str(tmp_path),
+            )
+
+    def test_gridded_recipe_in_add_point_comparison_raises(self):
+        oceanval.reset()
+        with pytest.raises(ValueError, match="use add_gridded_comparison"):
+            oceanval.add_point_comparison(
+                recipe={"temperature": "cobe2"},
+                model_variable="votemper",
+            )
+
+    def test_point_recipe_in_add_gridded_comparison_raises(self):
+        oceanval.reset()
+        with pytest.raises(ValueError, match="use add_point_comparison"):
+            oceanval.add_gridded_comparison(
+                recipe={"temperature": "ices"},
+                model_variable="votemper",
+            )

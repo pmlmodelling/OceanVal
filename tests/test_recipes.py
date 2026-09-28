@@ -169,3 +169,48 @@ def test_recipe_name_and_source_are_case_insensitive():
 def test_invalid_recipe_definitions_raise(recipe, message):
     with pytest.raises(ValueError, match=message):
         find_recipe(recipe)
+
+
+ICES_RECIPE_CASES = [
+    ("temperature", "TEMPPR01", "CTD", "Temperature"),
+    ("salinity", "PSALPR01", "CTD", "Salinity"),
+    ("alkalinity", "ALKYZZXX", "ICE", "Total Alkalinity"),
+    ("ammonium", "AMONZZXX", "ICE", "Ammonium"),
+    ("chlorophyll", "CPHLZZXX", "ICE", "Chlorophyll"),
+    ("nitrate", "NTRAZZXX", "ICE", "Nitrate"),
+    ("oxygen", "DOXYZZXX", "ICE", "Oxygen"),
+    ("ph", "PHXXZZXX", "ICE", "pH"),
+    ("phosphate", "PHOSZZXX", "ICE", "Phosphate"),
+    ("silicate", "SLCAZZXX", "ICE", "Silicate"),
+]
+
+
+@pytest.mark.parametrize("name, parameter, dataset, short_title", ICES_RECIPE_CASES)
+def test_ices_recipe_metadata(name, parameter, dataset, short_title):
+    result = find_recipe({name: "ices"})
+
+    assert result["point"] is True
+    assert result["name"] == name
+    assert result["source"] == "ICES"
+    assert result["ices_parameter"] == parameter
+    assert result["ices_dataset"] == dataset
+    assert result["short_title"] == short_title
+
+
+def test_ices_recipe_parameter_codes_are_unique():
+    codes = [parameter for _, parameter, _, _ in ICES_RECIPE_CASES]
+
+    assert len(codes) == len(set(codes))
+
+
+def test_ices_has_no_recipe_for_variables_outside_its_10():
+    with pytest.raises(ValueError, match="not valid"):
+        find_recipe({"kd490": "ices"})
+
+
+@pytest.mark.parametrize("name, source", RECIPE_CASES)
+def test_gridded_recipes_are_not_point_recipes(name, source):
+    start = 2005 if source == "woa23" and name in {"temperature", "salinity"} else None
+    end = 2014 if start is not None else None
+
+    assert find_recipe({name: source}, start=start, end=end)["point"] is False

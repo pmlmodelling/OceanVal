@@ -26,7 +26,8 @@ from oceanval.parsers import Validator, definitions
 from tqdm import tqdm
 from oceanval.utils import extension_of_directory
 from oceanval.parsers import generate_mapping
-from oceanval.gridded import gridded_matchup, retry_failed_gridded
+from oceanval.gridded import gridded_matchup, retry_failed_gridded, _lonlat_bounds
+from oceanval import ices
 
 
 def read_point(ff, nrows = None):
@@ -1242,36 +1243,56 @@ def matchup(
                             )[0]
 
                             comparison = definitions[variable].point_comparisons[source]
-                            paths = glob.glob(
-                                f"{comparison['obs_path']}/**.csv"
-                            )
 
                             out = f"{session_info['out_dir']}/oceanval_matchups/point/{layer}/{variable}/{source}/{source}_{layer}_{variable}.csv"
 
-                            for exc in exclude:
-                                paths = [
-                                    x
-                                    for x in paths
-                                    if f"{exc}" not in os.path.basename(x)
-                                ]
-                            
-                            def read_csv_simyears(ff, layer = None):
-                                df = read_point(ff)
-                                min_year = session_info["min_year"]
-                                max_year = session_info["max_year"]
-                                if "year" in df.columns:
-                                    df = df.query(
-                                        "year >= @min_year and year <= @max_year"
-                                    ).reset_index(drop=True)
-                                if layer == "surface":
-                                    if "depth" in df.columns:
-                                        df = df.query("depth <= 5").reset_index(
-                                            drop=True
-                                        )
-                                        # drop depth
-                                return df
+                            if comparison["recipe"] is not None:
+                                # recipes download the observations for the
+                                # years and area being matched, instead of
+                                # reading csvs from obs_path
+                                if lon_lim is not None:
+                                    recipe_lon, recipe_lat = lon_lim, lat_lim
+                                else:
+                                    lon_min, lon_max, lat_min, lat_max = _lonlat_bounds(
+                                        nc.open_data(sim_paths[0], checks=False)
+                                    )
+                                    recipe_lon, recipe_lat = [lon_min, lon_max], [lat_min, lat_max]
+                                df = ices.download_point_data(
+                                    comparison["recipe"],
+                                    max(session_info["min_year"], comparison["start"]),
+                                    min(session_info["max_year"], comparison["end"]),
+                                    recipe_lon,
+                                    recipe_lat,
+                                )
+                            else:
+                                paths = glob.glob(
+                                    f"{comparison['obs_path']}/**.csv"
+                                )
 
-                            df = pd.concat([read_csv_simyears(x, layer) for x in paths])
+                                for exc in exclude:
+                                    paths = [
+                                        x
+                                        for x in paths
+                                        if f"{exc}" not in os.path.basename(x)
+                                    ]
+
+                                def read_csv_simyears(ff, layer = None):
+                                    df = read_point(ff)
+                                    min_year = session_info["min_year"]
+                                    max_year = session_info["max_year"]
+                                    if "year" in df.columns:
+                                        df = df.query(
+                                            "year >= @min_year and year <= @max_year"
+                                        ).reset_index(drop=True)
+                                    if layer == "surface":
+                                        if "depth" in df.columns:
+                                            df = df.query("depth <= 5").reset_index(
+                                                drop=True
+                                            )
+                                            # drop depth
+                                    return df
+
+                                df = pd.concat([read_csv_simyears(x, layer) for x in paths])
                             # ensure year is int
                             if "year" in df.columns:
                                 df = df.assign(year=lambda x: x.year.astype(int))

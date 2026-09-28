@@ -16,5 +16,7 @@ fiona
 multiprocess
 weasyprint
 python-docx
+rpy2
+requests
 
 

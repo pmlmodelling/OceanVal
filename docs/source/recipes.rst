@@ -7,7 +7,8 @@ care of it for you.
 
 Recipes are available for gridded data. Use the ``recipe`` argument with
 :func:`oceanval.add_gridded_comparison` and provide the model variable that
-should be compared with the observation.
+should be compared with the observation. There is also a point data recipe,
+see `Point data recipes`_.
 
 We can illustrate how they work with an example.  
 The following call asks OceanVal to compare the model's ``thetao`` variable with the COBE2 temperature dataset. The recipe dictionary
@@ -114,6 +115,49 @@ chlorophyll, nitrate, phosphate, silicate, oxygen, temperature, and salinity.
    "Northwest European Shelf", "Temperature", "``nsbc``", "North Sea Biogeochemical Climatology", "Yes", ":doc:`Full details <recipe_examples/temperature_nsbc>`"
 
 Each Example link opens a separate page containing the corresponding call.
+
+Point data recipes
+~~~~~~~~~~~~~~~~~~
+
+.. warning::
+
+   Point recipes are on the ``main`` branch but not yet in a tagged
+   release (see the `version history <https://pmlmodelling.github.io/OceanVal/version-history.html>`_).
+   Install from GitHub to use them: ``pip install git+https://github.com/pmlmodelling/oceanval.git``.
+
+Point recipes are used with :func:`oceanval.add_point_comparison` in place of
+``obs_path``. Instead of reading csv files from disk, OceanVal downloads the
+observations when :func:`oceanval.matchup` runs, for the years being matched
+and the ``lon_lim``/``lat_lim`` area given to ``matchup``. If no ``lon_lim`` and
+``lat_lim`` are given, the model's own longitude/latitude extent is used.
+
+.. code-block:: text
+
+   oceanval.add_point_comparison(
+       model_variable="votemper",         # <--- model NetCDF variable
+       recipe={"temperature": "ices"},    # <--- observation recipe
+       vertical=True,                     # <--- also validate below the surface
+   )
+
+.. csv-table:: Point data built-in recipes
+   :header: "Region", "Variable", "Recipe", "Dataset", "Units", "Water-column"
+   :widths: 18, 14, 12, 28, 10, 12
+
+   "Northeast Atlantic", "Temperature", "``ices``", "`ICES Oceanographic database <https://ocean.ices.dk>`_, high resolution CTD profiles", "°C", "Yes"
+   "Northeast Atlantic", "Salinity", "``ices``", "`ICES Oceanographic database <https://ocean.ices.dk>`_, high resolution CTD profiles", "dimensionless", "Yes"
+   "Northeast Atlantic", "Total Alkalinity", "``ices``", "`ICES Oceanographic database <https://ocean.ices.dk>`_, bottle and low resolution CTD data", "mEq/l", "Yes"
+   "Northeast Atlantic", "Ammonium", "``ices``", "`ICES Oceanographic database <https://ocean.ices.dk>`_, bottle and low resolution CTD data", "µmol/l", "Yes"
+   "Northeast Atlantic", "Chlorophyll", "``ices``", "`ICES Oceanographic database <https://ocean.ices.dk>`_, bottle and low resolution CTD data", "µg/l", "Yes"
+   "Northeast Atlantic", "Nitrate", "``ices``", "`ICES Oceanographic database <https://ocean.ices.dk>`_, bottle and low resolution CTD data", "µmol/l", "Yes"
+   "Northeast Atlantic", "Oxygen", "``ices``", "`ICES Oceanographic database <https://ocean.ices.dk>`_, bottle and low resolution CTD data", "ml/l", "Yes"
+   "Northeast Atlantic", "pH", "``ices``", "`ICES Oceanographic database <https://ocean.ices.dk>`_, bottle and low resolution CTD data", "pH units", "Yes"
+   "Northeast Atlantic", "Phosphate", "``ices``", "`ICES Oceanographic database <https://ocean.ices.dk>`_, bottle and low resolution CTD data", "µmol/l", "Yes"
+   "Northeast Atlantic", "Silicate", "``ices``", "`ICES Oceanographic database <https://ocean.ices.dk>`_, bottle and low resolution CTD data", "µmol/l", "Yes"
+
+The ``ices`` recipe only keeps observations whose observation and depth
+quality flags are both 0 (good). The download covers every profile in the
+area and years being matched, so large areas or long periods make for a large
+download.
 
 Dataset notes
 -------------

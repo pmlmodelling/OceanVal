@@ -32,6 +32,23 @@ oceanval.add_gridded_comparison(
 
 This uses the v0.2.0 recipe system for datasets such as WOA23, NSBC, OCCCI and GLODAP.
 
+There are also point (in-situ) recipes — currently on `main`, not yet in a
+tagged release — from the [ICES Oceanographic database](https://ocean.ices.dk)
+covering temperature, salinity, alkalinity, ammonium, chlorophyll, nitrate,
+oxygen, pH, phosphate and silicate. Rather than reading csv files, they
+download the observations during `matchup`, for the years being matched and
+the `lon_lim`/`lat_lim` area (or the model's own extent); see the
+[recipes page](https://pmlmodelling.github.io/OceanVal/recipes.html#point-recipes)
+for the full list with units:
+
+```python
+oceanval.add_point_comparison(
+    model_variable="votemper",
+    recipe={"temperature": "ices"},
+    vertical=True,
+)
+```
+
 ### Generating a matchup script
 
 `create_recipes` writes the script for you. It scans your model output,

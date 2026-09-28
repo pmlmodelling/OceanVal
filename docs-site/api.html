@@ -88,7 +88,7 @@
     <span class="kicker">Configuration and matching</span>
 
     <div class="api-card" id="add_point_comparison">
-      <div class="api-card__head"><div class="sig">oceanval.add_point_comparison(name=None, source=None, model_variable=None, obs_path=None, source_info=None, short_name=None, long_name=None, short_title=None, vertical=False, start=-1000, end=3000, obs_multiplier=1, obs_adder=0, binning=None)</div></div>
+      <div class="api-card__head"><div class="sig">oceanval.add_point_comparison(name=None, source=None, model_variable=None, obs_path=None, source_info=None, short_name=None, long_name=None, short_title=None, vertical=False, start=-1000, end=3000, obs_multiplier=1, obs_adder=0, binning=None, recipe=None)</div></div>
       <div class="api-card__body">
         <p>Register an in-situ (point) observational dataset for validation, e.g. cruise or mooring data supplied as CSV.</p>
         <details class="param-details">
@@ -111,6 +111,7 @@
             <li><code class="param-name">obs_multiplier</code><p>Multiplier applied to observational data, e.g. for unit conversion. Default <code>1</code>.</p></li>
             <li><code class="param-name">obs_adder</code><p>Value added to observational data, e.g. 273.15 to convert Kelvin to Celsius. Default <code>0</code>.</p></li>
             <li><code class="param-name">binning</code><p>Spatially bin data to a <code>[lon_bin_size, lat_bin_size]</code> resolution in degrees. Off by default.</p></li>
+            <li><code class="param-name">recipe</code><p>A built-in <a href="recipes.html#point-recipes">point recipe</a> to use instead of <code>obs_path</code>, e.g. <code>{"temperature": "ices"}</code>. The observations are downloaded during <code>matchup</code> for the years and <code>lon_lim</code>/<code>lat_lim</code> area being matched (or the model's own extent), and <code>name</code>, <code>source</code> and the labels default to the recipe's.</p></li>
           </ul>
         </details>
       </div>

@@ -58,6 +58,7 @@ def find_recipe(x, start=None, end=None):
         raise ValueError(f"Recipe value for {name} is not valid")
 
     output["vertical"] = None
+    output["point"] = False
 
     if name.lower() == "chlorophyll":
         output["short_name"] = "chlorophyll concentration"
@@ -260,6 +261,52 @@ def find_recipe(x, start=None, end=None):
             ]
             return output
 
+    if value == "ices":
+        output["source"] = "ICES"
+        output["source_info"] = "In-situ observations from the ICES Oceanographic database (https://ocean.ices.dk), International Council for the Exploration of the Sea, Copenhagen. Licensed under CC BY 4.0."
+        output["name"] = name.lower()
+        output["point"] = True
+        if name.lower() == "temperature":
+            output["ices_parameter"] = "TEMPPR01"
+            output["ices_dataset"] = "CTD"
+            return output
+        if name.lower() == "salinity":
+            output["ices_parameter"] = "PSALPR01"
+            output["ices_dataset"] = "CTD"
+            return output
+        if name.lower() == "alkalinity":
+            output["ices_parameter"] = "ALKYZZXX"
+            output["ices_dataset"] = "ICE"
+            return output
+        if name.lower() == "ammonium":
+            output["ices_parameter"] = "AMONZZXX"
+            output["ices_dataset"] = "ICE"
+            return output
+        if name.lower() == "chlorophyll":
+            output["ices_parameter"] = "CPHLZZXX"
+            output["ices_dataset"] = "ICE"
+            return output
+        if name.lower() == "nitrate":
+            output["ices_parameter"] = "NTRAZZXX"
+            output["ices_dataset"] = "ICE"
+            return output
+        if name.lower() == "oxygen":
+            output["ices_parameter"] = "DOXYZZXX"
+            output["ices_dataset"] = "ICE"
+            return output
+        if name.lower() == "ph":
+            output["ices_parameter"] = "PHXXZZXX"
+            output["ices_dataset"] = "ICE"
+            return output
+        if name.lower() == "phosphate":
+            output["ices_parameter"] = "PHOSZZXX"
+            output["ices_dataset"] = "ICE"
+            return output
+        if name.lower() == "silicate":
+            output["ices_parameter"] = "SLCAZZXX"
+            output["ices_dataset"] = "ICE"
+            return output
+
     raise ValueError(f"Recipe value {value} is not valid for recipe name {name}")
 
 
@@ -418,6 +465,8 @@ class Validator:
 
         if recipe is not None:
             recipe_info = find_recipe(recipe, start=start, end=end)
+            if recipe_info["point"]:
+                raise ValueError(f"Recipe {recipe} is for point data, so use add_point_comparison")
             if obs_path is None:
                 obs_path = recipe_info["obs_path"]
             if source is None:
@@ -644,9 +693,10 @@ class Validator:
                              start = -1000, 
                              end = 3000, 
                              obs_path = None, 
-                             obs_multiplier = 1, 
+                             obs_multiplier = 1,
                              obs_adder = 0,
-                             binning = None  ):
+                             binning = None,
+                             recipe = None  ):
         """
 
         Add a point comparison variable to the Validator
@@ -679,7 +729,34 @@ class Validator:
 
         binning (list): Binning information [lon_resolution, lat_resolution]
 
+        recipe (dict): Built-in point recipe, e.g. {"temperature": "ices"}. The
+        observations are downloaded during matchup for the years and lon/lat
+        range being matched, so obs_path is not used.
+
         """
+        if recipe is not None:
+            recipe_info = find_recipe(recipe)
+            if not recipe_info["point"]:
+                raise ValueError(f"Recipe {recipe} is for gridded data, so use add_gridded_comparison")
+            if obs_path is not None:
+                raise ValueError("obs_path cannot be supplied with a recipe, as the recipe downloads its own data")
+            if name is None:
+                name = recipe_info["name"]
+            if source is None:
+                source = recipe_info["source"]
+            if source_info is None:
+                source_info = recipe_info["source_info"]
+            if long_name is None:
+                long_name = recipe_info["long_name"]
+            if short_name is None:
+                short_name = recipe_info["short_name"]
+            if short_title is None:
+                short_title = recipe_info["short_title"]
+            recipe = dict(
+                parameter = recipe_info["ices_parameter"],
+                dataset = recipe_info["ices_dataset"],
+            )
+
         if name is None:
             raise ValueError("Name must be supplied")
 
@@ -743,32 +820,34 @@ class Validator:
             if short_title != session_info["short_title"][name]:
                 raise ValueError(f"Short title for {name} already exists as {session_info['short_title'][name]}, cannot change to {short_title}")
         
-        # check obs path exists
-        if os.path.exists(obs_path) is False:
-            raise ValueError(f"Observation path {obs_path} does not exist")
+        # recipes download their data during matchup, so there are no files to check
+        if recipe is None:
+            # check obs path exists
+            if obs_path is None or os.path.exists(obs_path) is False:
+                raise ValueError(f"Observation path {obs_path} does not exist")
 
-        point_files = [f for f in glob.glob(os.path.join(obs_path, "*.csv"))] 
-        # if no files exists, raise error
-        if len(point_files) == 0:
-            raise ValueError(f"No csv files found in point directory {obs_path}")
-        valid_vars = ["lon", "lat", "year", "month", "day", "depth", "observation", "source"]
-        vertical_option = False
-        for vv in point_files:
-            # read in the first row
-            df = read_point(vv, nrows=1)
-            # throw error something else is in there
-            bad_cols = [col for col in df.columns if col not in valid_vars]
-            if len(bad_cols) > 0:
-                raise ValueError(f"Invalid columns {bad_cols} found in point data file {vv}")
-            if "depth" in df.columns:
-                vertical_option = True
-            # lon/lat/observation *must* be in df
-            for req_col in ["lon", "lat", "observation"]:
-                if req_col not in df.columns:
-                    raise ValueError(f"Required column {req_col} not found in point data file {vv}")
-        if vertical_option is False:
-            if vertical:
-                raise ValueError("vertical is set to True but no depth column found in point data files. You cannot vertically validate this data.")
+            point_files = [f for f in glob.glob(os.path.join(obs_path, "*.csv"))]
+            # if no files exists, raise error
+            if len(point_files) == 0:
+                raise ValueError(f"No csv files found in point directory {obs_path}")
+            valid_vars = ["lon", "lat", "year", "month", "day", "depth", "observation", "source"]
+            vertical_option = False
+            for vv in point_files:
+                # read in the first row
+                df = read_point(vv, nrows=1)
+                # throw error something else is in there
+                bad_cols = [col for col in df.columns if col not in valid_vars]
+                if len(bad_cols) > 0:
+                    raise ValueError(f"Invalid columns {bad_cols} found in point data file {vv}")
+                if "depth" in df.columns:
+                    vertical_option = True
+                # lon/lat/observation *must* be in df
+                for req_col in ["lon", "lat", "observation"]:
+                    if req_col not in df.columns:
+                        raise ValueError(f"Required column {req_col} not found in point data file {vv}")
+            if vertical_option is False:
+                if vertical:
+                    raise ValueError("vertical is set to True but no depth column found in point data files. You cannot vertically validate this data.")
         # if binning is supplied, ensure it is a 2 variable list
         if binning is not None:
             if not isinstance(binning, list) or len(binning) != 2:
@@ -779,12 +858,6 @@ class Validator:
                     float(res)
                 except:
                     raise ValueError("Each element of binning must be a number")
-        # check this exists
-        point_dir = obs_path
-        if point_dir != "auto":
-            if not os.path.exists(point_dir):
-                raise ValueError(f"Point directory {point_dir} does not exist")
-
         # figure out if self[name] exists already
         if getattr(self, name, None) is None:
             # add it
@@ -817,6 +890,7 @@ class Validator:
             obs_multiplier = obs_multiplier,
             obs_adder = obs_adder,
             binning = binning,
+            recipe = recipe,
         )
         self[name].sources[source_name] = source_info
         self[name].n_levels = 1

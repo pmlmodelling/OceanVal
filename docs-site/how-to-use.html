@@ -196,8 +196,19 @@
         <li><code class="param-name">obs_multiplier</code><p>Multiplier applied to observational data, e.g. for unit conversion. Defaults to 1.0.</p></li>
         <li><code class="param-name">obs_adder</code><p>Value added to observational data, e.g. 273.15 to convert Kelvin to Celsius. Defaults to 0.0.</p></li>
         <li><code class="param-name">binning</code><p>Spatially bin data to a <code>[lon_bin_size, lat_bin_size]</code> resolution in degrees. Off by default.</p></li>
+        <li><code class="param-name">recipe</code><p>A built-in point recipe to use instead of <code>obs_path</code>, e.g. <code>{"temperature": "ices"}</code>. See below.</p></li>
       </ul>
     </details>
+    <p>Instead of <code>obs_path</code>, you can use a built-in point recipe, which downloads the observations for you when <a href="api.html#matchup"><code>oceanval.matchup</code></a> runs. Ten variables from the ICES Oceanographic database are available this way — see the <a href="recipes.html#point-recipes">point data recipes</a> table for the full list and units. The observations are downloaded for the years being matched and the <code>lon_lim</code>/<code>lat_lim</code> area given to <code>matchup</code> (or the model's own extent, if these are not given). The name, source and labels all come from the recipe:</p>
+    <div class="code-block">
+      <div class="code-card__bar"><div class="code-card__dots"><span></span><span></span><span></span></div><span class="code-card__label">python</span></div>
+      <pre>oceanval.<a href="api.html#add_point_comparison"><span class="tok-fn">add_point_comparison</span></a>(
+    model_variable=<span class="tok-str">"votemper"</span>,
+    recipe={<span class="tok-str">"temperature"</span>: <span class="tok-str">"ices"</span>},
+    vertical=<span class="tok-kw">True</span>,
+)</pre>
+    </div>
+    <p>See <a href="recipes.html#point-recipes">point data recipes</a> for details.</p>
     <div class="callout">
       <div class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>How does OceanVal handle variable names?</div>
       <p><code>name</code> can be anything — it's only used internally to keep track of things and name files. Reports and plots use <code>short_name</code>, <code>long_name</code> and <code>short_title</code> for labelling, so set these for a better-looking report. A variable can be validated against several gridded and point datasets at once — see below.</p>
