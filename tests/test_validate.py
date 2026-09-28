@@ -95,6 +95,30 @@ class TestValidate:
 
 
 
+class TestMissingMatchups:
+    """Test suite for running validate without finished matchups"""
+
+    def test_no_matchups(self, tmp_path):
+        """Test that ValueError is raised when data_dir has no matchups"""
+        with pytest.raises(ValueError, match="No matchups found"):
+            oceanval.validate(data_dir=str(tmp_path), out_dir=str(tmp_path), test=True)
+
+    def test_unfinished_matchups(self, tmp_path):
+        """Test that ValueError is raised when matchup did not write its summary files"""
+        os.makedirs(tmp_path / "oceanval_matchups" / "gridded" / "temperature")
+        (tmp_path / "oceanval_matchups" / "gridded" / "temperature" / "cobe2_temperature_surface.nc").touch()
+        with pytest.raises(ValueError, match="is missing short_titles.pkl"):
+            oceanval.validate(data_dir=str(tmp_path), out_dir=str(tmp_path), test=True)
+
+    def test_existing_report_kept(self, tmp_path):
+        """Test that an existing report is not removed when there are no matchups"""
+        os.makedirs(tmp_path / "oceanval_report")
+        (tmp_path / "oceanval_report" / "keep.txt").touch()
+        with pytest.raises(ValueError, match="No matchups found"):
+            oceanval.validate(data_dir=str(tmp_path), out_dir=str(tmp_path), test=True)
+        assert (tmp_path / "oceanval_report" / "keep.txt").exists()
+
+
 def _write_region_file(path, values):
     """Write a small regions netCDF with a single region variable."""
     import numpy as np
