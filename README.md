@@ -54,12 +54,15 @@ oceanval.add_point_comparison(
 `create_recipes` writes the script for you. It scans your model output,
 works out which model variable holds each observational variable — matching
 on the netCDF `long_name` attributes, so your variables need not be named
-after the observations — and writes out every built-in recipe. Recipes it
-found a model variable for are live, with that variable filled in; the rest
-are commented out for you to complete by hand. Where a variable has a
-recipe in more than one region (e.g. temperature), `domain` picks which one
-is left live — `"global"` or `"nwes"` (Northwest European Shelf) — and a
-variable with a recipe only outside that domain still gets that one.
+after the observations — and writes out every built-in gridded recipe.
+Recipes it found a model variable for are live, with that variable filled
+in; the rest are commented out for you to complete by hand. Where a
+variable has a recipe in more than one region (e.g. temperature), `domain`
+picks which one is left live — `"global"` or `"nwes"` (Northwest European
+Shelf) — and a variable with a recipe only outside that domain still gets
+that one. `domain="nwes"` also adds the ICES point recipes (see above) —
+they have no global equivalent, so they're left out entirely for
+`domain="global"` rather than written out commented.
 
 ```python
 import oceanval

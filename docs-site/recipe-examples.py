@@ -228,6 +228,121 @@ oceanval.add_gridded_comparison(
 
 
 # ==========================================================================
+# Northwest European Shelf - ICES point observations
+# ==========================================================================
+
+# Temperature - ICES Oceanographic database (https://ocean.ices.dk)
+# recipe: 'ices'
+# High resolution CTD profiles, reported in degrees Celsius.
+# Only observations with good (quality flag 0) flags are kept.
+oceanval.add_point_comparison(
+    name="temperature",
+    model_variable="temperature",
+    recipe={"temperature": "ices"},
+    vertical=False,  # set True to validate the full water column
+)
+
+# Salinity - ICES Oceanographic database (https://ocean.ices.dk)
+# recipe: 'ices'
+# High resolution CTD profiles, reported in practical salinity units.
+# Only observations with good (quality flag 0) flags are kept.
+oceanval.add_point_comparison(
+    name="salinity",
+    model_variable="salinity",
+    recipe={"salinity": "ices"},
+    vertical=False,  # set True to validate the full water column
+)
+
+# Total Alkalinity - ICES Oceanographic database (https://ocean.ices.dk)
+# recipe: 'ices'
+# Bottle and low resolution CTD data, reported in milliequivalents per litre.
+# Only observations with good (quality flag 0) flags are kept.
+oceanval.add_point_comparison(
+    name="alkalinity",
+    model_variable="alkalinity",
+    recipe={"alkalinity": "ices"},
+    vertical=False,  # set True to validate the full water column
+)
+
+# Ammonium - ICES Oceanographic database (https://ocean.ices.dk)
+# recipe: 'ices'
+# Bottle and low resolution CTD data, reported in micromoles per litre.
+# Only observations with good (quality flag 0) flags are kept.
+oceanval.add_point_comparison(
+    name="ammonium",
+    model_variable="ammonium",
+    recipe={"ammonium": "ices"},
+    vertical=False,  # set True to validate the full water column
+)
+
+# Chlorophyll - ICES Oceanographic database (https://ocean.ices.dk)
+# recipe: 'ices'
+# Bottle and low resolution CTD data, reported in micrograms per litre.
+# Only observations with good (quality flag 0) flags are kept.
+oceanval.add_point_comparison(
+    name="chlorophyll",
+    model_variable="chlorophyll",
+    recipe={"chlorophyll": "ices"},
+    vertical=False,  # set True to validate the full water column
+)
+
+# Nitrate - ICES Oceanographic database (https://ocean.ices.dk)
+# recipe: 'ices'
+# Bottle and low resolution CTD data, reported in micromoles per litre.
+# Only observations with good (quality flag 0) flags are kept.
+oceanval.add_point_comparison(
+    name="nitrate",
+    model_variable="nitrate",
+    recipe={"nitrate": "ices"},
+    vertical=False,  # set True to validate the full water column
+)
+
+# Oxygen - ICES Oceanographic database (https://ocean.ices.dk)
+# recipe: 'ices'
+# Bottle and low resolution CTD data, reported in millilitres per litre.
+# Only observations with good (quality flag 0) flags are kept.
+oceanval.add_point_comparison(
+    name="oxygen",
+    model_variable="oxygen",
+    recipe={"oxygen": "ices"},
+    vertical=False,  # set True to validate the full water column
+)
+
+# pH - ICES Oceanographic database (https://ocean.ices.dk)
+# recipe: 'ices'
+# Bottle and low resolution CTD data, reported in pH units.
+# Only observations with good (quality flag 0) flags are kept.
+oceanval.add_point_comparison(
+    name="ph",
+    model_variable="ph",
+    recipe={"ph": "ices"},
+    vertical=False,  # set True to validate the full water column
+)
+
+# Phosphate - ICES Oceanographic database (https://ocean.ices.dk)
+# recipe: 'ices'
+# Bottle and low resolution CTD data, reported in micromoles per litre.
+# Only observations with good (quality flag 0) flags are kept.
+oceanval.add_point_comparison(
+    name="phosphate",
+    model_variable="phosphate",
+    recipe={"phosphate": "ices"},
+    vertical=False,  # set True to validate the full water column
+)
+
+# Silicate - ICES Oceanographic database (https://ocean.ices.dk)
+# recipe: 'ices'
+# Bottle and low resolution CTD data, reported in micromoles per litre.
+# Only observations with good (quality flag 0) flags are kept.
+oceanval.add_point_comparison(
+    name="silicate",
+    model_variable="silicate",
+    recipe={"silicate": "ices"},
+    vertical=False,  # set True to validate the full water column
+)
+
+
+# ==========================================================================
 # Matchup and report
 # ==========================================================================
 

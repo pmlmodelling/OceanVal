@@ -202,6 +202,8 @@ oceanval.<a href="api.html#create_recipes"><span class="tok-fn">create_recipes</
     </div>
     <p>So a shelf model run with <code>domain="nwes"</code> still gets pH, alkalinity and KD490 from the global datasets, and a global model run with <code>domain="global"</code> still gets ammonium from NSBC. The recipe that loses out is written into the script as a commented alternative, so you can swap back by uncommenting it and commenting out the other.</p>
 
+    <p><code>domain="nwes"</code> also adds a further section to the script: the ten <a href="recipes.html#point-recipes">ICES point (in-situ) recipes</a>, registered with <a href="api.html#add_point_comparison"><code>add_point_comparison</code></a> rather than <code>add_gridded_comparison</code>. Unlike the gridded recipes above, these have no global counterpart, so <code>domain="global"</code> leaves them out of the script entirely rather than writing them in commented out.</p>
+
     <h2 id="inside">Inside the generated script</h2>
     <p>Every recipe OceanVal ships with appears in the script, in one of three states. The first is live — a model variable was found, and this is the recipe for your domain:</p>
     <div class="code-block">

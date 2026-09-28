@@ -7,6 +7,7 @@ import xarray as xr
 
 import oceanval
 from oceanval.create_recipes import (
+    POINT_RECIPE_CATALOGUE,
     RECIPE_CATALOGUE,
     RECIPE_VARIABLES,
     build_recipe_script,
@@ -430,10 +431,15 @@ class TestGeneratedScript:
             "The Northwest European Shelf recipe for temperature is registered "
             "instead." in script
         )
-        # only one live block for the variable, same as with domain="global"
+        # only one live *gridded* block for the variable, same as with
+        # domain="global" - the ICES point block for temperature is also
+        # live at the same time, which is fine, since add_point_comparison
+        # and add_gridded_comparison register separately, so it's excluded
+        # from this check by only looking at the script before that section
+        gridded_script = script.split("ICES point observations")[0]
         live = [
             line
-            for line in script.splitlines()
+            for line in gridded_script.splitlines()
             if line.startswith("    name=") and not line.startswith("#")
         ]
         assert len(live) == len(set(live))
@@ -516,6 +522,51 @@ class TestGeneratedScript:
         assert simulation_years("/sim", paths) == (2003, 2003)
 
 
+class TestPointRecipes:
+    def test_ices_recipes_are_included_when_domain_is_nwes(self, simulation, tmp_path):
+        out = str(tmp_path / "matchup.py")
+        oceanval.create_recipes(
+            simdir=simulation, ndown=2, out=out, domain="nwes", start=2011, end=2012,
+        )
+        script = open(out).read()
+
+        assert script.count("add_point_comparison(") == len(POINT_RECIPE_CATALOGUE)
+        assert 'recipe={"temperature": "ices"}' in script
+        # the simulation fixture holds a model variable for every ICES
+        # variable, so every point block should be live, not commented
+        assert '\noceanval.add_point_comparison(\n    name="temperature",' in script
+        assert "No temperature variable was found" not in script
+
+    def test_ices_recipes_are_excluded_when_domain_is_global(self, simulation, tmp_path):
+        out = str(tmp_path / "matchup.py")
+        oceanval.create_recipes(
+            simdir=simulation, ndown=2, out=out, domain="global", start=2011, end=2012,
+        )
+        script = open(out).read()
+
+        assert "add_point_comparison(" not in script
+        assert '"ices"' not in script
+
+    def test_unmatched_ices_recipes_are_commented_out(self, tmp_path):
+        write_netcdf(str(tmp_path / "sim" / "empty.nc"), {"uo": "eastward velocity"})
+        out = str(tmp_path / "matchup.py")
+        with pytest.warns(UserWarning, match="No model variables could be identified"):
+            oceanval.create_recipes(
+                simdir=str(tmp_path / "sim"),
+                ndown=0,
+                out=out,
+                domain="nwes",
+                start=2011,
+                end=2012,
+            )
+        script = open(out).read()
+
+        # every point recipe is still there, so nothing is silently dropped
+        assert script.count("add_point_comparison(") == len(POINT_RECIPE_CATALOGUE)
+        assert '\noceanval.add_point_comparison(' not in script
+        assert "# No temperature variable was found in the model output." in script
+
+
 def test_the_catalogue_matches_the_published_example():
     """The generated script offers the same recipes as the website's."""
     example = os.path.join(
@@ -536,10 +587,19 @@ def test_the_catalogue_matches_the_published_example():
         recipe = keywords["recipe"]
         published.append((recipe.keys[0].value, recipe.values[0].value))
 
-    catalogue = [(entry["variable"], entry["recipe"]) for entry in RECIPE_CATALOGUE]
+    catalogue = [
+        (entry["variable"], entry["recipe"])
+        for entry in RECIPE_CATALOGUE + POINT_RECIPE_CATALOGUE
+    ]
     assert catalogue == published
 
 
 def test_every_catalogue_variable_can_be_identified():
     """Nothing in the catalogue is a recipe the generator can never match."""
     assert set(RECIPE_VARIABLES) == {entry["variable"] for entry in RECIPE_CATALOGUE}
+
+
+def test_every_point_catalogue_variable_can_be_identified():
+    """Nothing in the ICES catalogue is a recipe the generator can never match."""
+    point_variables = {entry["variable"] for entry in POINT_RECIPE_CATALOGUE}
+    assert point_variables <= set(RECIPE_VARIABLES)

@@ -230,8 +230,46 @@ RECIPE_CATALOGUE = RECIPE_CATALOGUE + tuple(
     for variable, title in _SHELF_RECIPES
 )
 
-# the observational variables the catalogue can match a model variable to
-RECIPE_VARIABLES = tuple(dict.fromkeys(entry["variable"] for entry in RECIPE_CATALOGUE))
+# ICES point (in-situ) recipes. Unlike the gridded catalogue above, these are
+# only written into the generated script for domain="nwes" (see
+# build_recipe_script) rather than for every domain commented-out - ICES has
+# no global equivalent, so there is nothing useful to show a global-domain
+# user.
+_ICES_RECIPES = (
+    ("temperature", "Temperature", "High resolution CTD profiles", "degrees Celsius"),
+    ("salinity", "Salinity", "High resolution CTD profiles", "practical salinity units"),
+    ("alkalinity", "Total Alkalinity", "Bottle and low resolution CTD data", "milliequivalents per litre"),
+    ("ammonium", "Ammonium", "Bottle and low resolution CTD data", "micromoles per litre"),
+    ("chlorophyll", "Chlorophyll", "Bottle and low resolution CTD data", "micrograms per litre"),
+    ("nitrate", "Nitrate", "Bottle and low resolution CTD data", "micromoles per litre"),
+    ("oxygen", "Oxygen", "Bottle and low resolution CTD data", "millilitres per litre"),
+    ("ph", "pH", "Bottle and low resolution CTD data", "pH units"),
+    ("phosphate", "Phosphate", "Bottle and low resolution CTD data", "micromoles per litre"),
+    ("silicate", "Silicate", "Bottle and low resolution CTD data", "micromoles per litre"),
+)
+
+POINT_RECIPE_CATALOGUE = tuple(
+    {
+        "variable": variable,
+        "recipe": "ices",
+        "example_variable": variable,
+        "notes": (
+            f"{title} - ICES Oceanographic database (https://ocean.ices.dk)",
+            "recipe: 'ices'",
+            f"{dataset}, reported in {units}.",
+            "Only observations with good (quality flag 0) flags are kept.",
+        ),
+        "arguments": ("vertical=False,  # set True to validate the full water column",),
+    }
+    for variable, title, dataset, units in _ICES_RECIPES
+)
+
+# the observational variables the catalogues can match a model variable to
+RECIPE_VARIABLES = tuple(
+    dict.fromkeys(
+        entry["variable"] for entry in RECIPE_CATALOGUE + POINT_RECIPE_CATALOGUE
+    )
+)
 
 # the decadal periods WOA23 publishes temperature and salinity for, as
 # find_recipe() understands them
@@ -561,6 +599,41 @@ def _recipe_block(entry, model_variable, period, years=None, live_region=None):
     return lines
 
 
+def _point_recipe_block(entry, model_variable):
+    """The source lines for one ICES point recipe.
+
+    Simpler than _recipe_block: a point comparison never competes with
+    another region's recipe for the same variable (add_point_comparison and
+    add_gridded_comparison keep separate registrations per name), so there is
+    no "superseded" state - only live or missing-model-variable.
+    """
+    lines = list(_comment(entry["notes"]))
+
+    call = [
+        "oceanval.add_point_comparison(",
+        f'    name="{entry["variable"]}",',
+        f'    model_variable="{model_variable or entry["example_variable"]}",',
+        f'    recipe={{"{entry["variable"]}": "{entry["recipe"]}"}},',
+        *[f"    {argument}" for argument in entry["arguments"]],
+        ")",
+    ]
+
+    if model_variable is None:
+        lines.extend(
+            _comment(
+                [
+                    f"No {entry['variable']} variable was found in the model output.",
+                    "Set model_variable to the name your model uses, then uncomment",
+                    "this block.",
+                ]
+            )
+        )
+        lines.extend(_comment(call))
+    else:
+        lines.extend(call)
+    return lines
+
+
 def _header(simdir, ndown, mapping, years, domain):
     found = ", ".join(sorted(mapping)) if mapping else "none"
     lines = [
@@ -673,6 +746,13 @@ def build_recipe_script(simdir, ndown, mapping, years=None, domain="global"):
         )
         lines.append("")
 
+    if domain == "nwes":
+        lines.extend(_section("Northwest European Shelf - ICES point observations"))
+        for entry in POINT_RECIPE_CATALOGUE:
+            model_variable = mapping.get(entry["variable"])
+            lines.extend(_point_recipe_block(entry, model_variable))
+            lines.append("")
+
     lines.extend(_section("Matchup and report"))
     lines.extend(_footer(simdir, ndown, years))
     return "\n".join(lines).rstrip("\n") + "\n"
@@ -700,6 +780,9 @@ def create_recipes(simdir=None, ndown=None, out=None, domain=None, start=None, e
         regions (e.g. temperature), the recipe for this domain is left
         live and the other is commented out as an alternative; a variable
         with a recipe only outside this domain still gets that one.
+        "nwes" also adds the ICES in-situ point recipes (temperature,
+        salinity and eight other variables), which have no global
+        equivalent and so are not included at all when domain="global".
         Required.
     start : int
         First year of the simulation to validate. Passed straight through
