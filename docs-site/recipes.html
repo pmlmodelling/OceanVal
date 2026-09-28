@@ -65,9 +65,20 @@
   </div>
 </div>
 
-<div class="section section-tight">
-  <div class="container">
-    <p>OceanVal provides built-in recipes for popular observational datasets. Downloading and wrangling metadata is tedious — recipes take care of it for you. Use the <code>recipe</code> argument with <a href="api.html#add_gridded_comparison"><code>oceanval.add_gridded_comparison</code></a>, click any row for the exact call to use. There is also a <a href="#point-recipes">point data recipe</a>.</p>
+<div class="container docs-layout">
+  <aside class="docs-toc">
+    <div class="docs-toc-title">On this page</div>
+    <ul>
+      <li><a href="#gridded-recipes">Gridded data recipes</a></li>
+      <li><a href="#point-recipes">Point data recipes</a></li>
+    </ul>
+  </aside>
+
+  <div class="docs-content">
+    <p>OceanVal provides built-in recipes for popular observational datasets. These work for both gridded and point datasets, and cover variables including temperature, salinity, oxygen, nitrate, and chlorophyll.</p>
+
+    <h2 id="gridded-recipes">Gridded data recipes</h2>
+    <p>Downloading and wrangling metadata is tedious — recipes take care of it for you. Use the <code>recipe</code> argument with <a href="api.html#add_gridded_comparison"><code>oceanval.add_gridded_comparison</code></a>, click any row for the exact call to use. There is also a <a href="#point-recipes">point data recipe</a>.</p>
     <div class="code-block" style="max-width:760px;">
       <div class="code-card__bar"><div class="code-card__dots"><span></span><span></span><span></span></div><span class="code-card__label">python</span></div>
       <pre>oceanval.<a href="api.html#add_gridded_comparison"><span class="tok-fn">add_gridded_comparison</span></a>(
