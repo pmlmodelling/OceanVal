@@ -117,10 +117,12 @@ def _lonlat_bounds(ds):
     return float(lons.min()), float(lons.max()), float(lats.min()), float(lats.max())
 
 
-def _obs_resolution(comparison):
+def _obs_resolution(comparison, downloaded=None):
     """[lon, lat] grid spacing of a gridded observational source, in degrees.
 
-    Only the coordinates of the first file are read.
+    Only the coordinates of the first file are read. downloaded is the
+    DataSet of an observational file already fetched over http, which is read
+    in place of downloading it again.
     """
     obs_path = comparison["obs_path"]
     if isinstance(obs_path, (list, tuple)):
@@ -128,8 +130,12 @@ def _obs_resolution(comparison):
     if not comparison["thredds"] and not obs_path.endswith(".nc"):
         obs_path = nc.create_ensemble(obs_path)[0]
     if not comparison["thredds"] and _is_url(obs_path):
-        # xarray cannot read a plain file over http, so download it first
-        obs_path = _open_obs(obs_path, False)[0]
+        # xarray cannot read a plain file over http, so it has to be
+        # downloaded. nctoolkit deletes a download once no DataSet holds it,
+        # so the DataSet must outlive the read below
+        if downloaded is None:
+            downloaded = _open_obs(obs_path, False)
+        obs_path = downloaded[0]
     with xr.open_dataset(obs_path, decode_times=False) as ds:
         names = list(ds.coords) + [x for x in ds.variables if x not in ds.coords]
         lon_name = [x for x in names if "lon" in x][0]
@@ -357,9 +363,15 @@ def gridded_matchup(
                 paths = list(set(new_paths))
                 paths.sort()
 
+                obs_download = None
                 if session_info.get("fvcom", False):
                     # regrid FVCOM output at twice the resolution of the observations
-                    fvcom_res = [x / 2 for x in _obs_resolution(comparison)]
+                    if _is_url(dir_var) and dir_var.endswith(".nc") and not comparison["thredds"]:
+                        # downloaded once, for the resolution and the matchup
+                        obs_download = _open_obs(dir_var, False)
+                    fvcom_res = [
+                        x / 2 for x in _obs_resolution(comparison, obs_download)
+                    ]
                     fvcom_paths = fvcom_matchup_files(
                         paths,
                         selection,
@@ -445,7 +457,10 @@ def gridded_matchup(
                     extracted = False
 
                     if not extracted:
-                        ds_obs = _open_obs(vv_file, thredds)
+                        if obs_download is not None:
+                            ds_obs = obs_download.copy()
+                        else:
+                            ds_obs = _open_obs(vv_file, thredds)
                     bad_clim = False
 
                     # use ncks to spatially subset to lon_lim and lat_lim
