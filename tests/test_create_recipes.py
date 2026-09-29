@@ -118,6 +118,7 @@ class TestArguments:
                 domain="global",
                 start=2011,
                 end=2012,
+                ask=False,
             )
 
     def test_ndown_must_not_be_negative(self, tmp_path):
@@ -129,6 +130,7 @@ class TestArguments:
                 domain="global",
                 start=2011,
                 end=2012,
+                ask=False,
             )
 
     def test_simdir_must_exist(self, tmp_path):
@@ -141,6 +143,7 @@ class TestArguments:
                 domain="global",
                 start=2011,
                 end=2012,
+                ask=False,
             )
 
     def test_a_simulation_with_no_files_says_which_argument_to_check(self, tmp_path):
@@ -152,6 +155,7 @@ class TestArguments:
                 domain="global",
                 start=2011,
                 end=2012,
+                ask=False,
             )
 
     def test_domain_must_be_a_string(self, tmp_path):
@@ -163,6 +167,7 @@ class TestArguments:
                 domain=1,
                 start=2011,
                 end=2012,
+                ask=False,
             )
 
     @pytest.mark.parametrize("domain", ["europe", "local", "", "GLOBALLY"])
@@ -177,6 +182,7 @@ class TestArguments:
                 domain=domain,
                 start=2011,
                 end=2012,
+                ask=False,
             )
 
     def test_domain_is_case_insensitive(self, tmp_path):
@@ -189,6 +195,7 @@ class TestArguments:
         oceanval.create_recipes(
             simdir=str(tmp_path / "sim"), ndown=0, out=out, domain="NWES",
             start=2011, end=2012,
+            ask=False,
         )
 
         assert 'recipe={"temperature": "nsbc"}' in open(out).read()
@@ -202,6 +209,7 @@ class TestArguments:
                 domain="global",
                 start="2011",
                 end=2012,
+                ask=False,
             )
 
     def test_end_must_be_an_integer(self, tmp_path):
@@ -213,6 +221,7 @@ class TestArguments:
                 domain="global",
                 start=2011,
                 end="2012",
+                ask=False,
             )
 
     def test_end_must_not_be_before_start(self, tmp_path):
@@ -224,6 +233,7 @@ class TestArguments:
                 domain="global",
                 start=2012,
                 end=2011,
+                ask=False,
             )
 
     def test_a_single_year_simulation_is_allowed(self, tmp_path):
@@ -236,6 +246,7 @@ class TestArguments:
         oceanval.create_recipes(
             simdir=str(tmp_path / "sim"), ndown=0, out=out, domain="global",
             start=2011, end=2011,
+            ask=False,
         )
 
         assert "start=2011," in open(out).read()
@@ -359,6 +370,7 @@ class TestGeneratedScript:
         out = str(tmp_path / "matchup.py")
         oceanval.create_recipes(
             simdir=simulation, ndown=2, out=out, domain="global", start=2011, end=2012,
+            ask=False,
         )
 
         ast.parse(open(out).read())
@@ -367,6 +379,7 @@ class TestGeneratedScript:
         out = str(tmp_path / "matchup.py")
         oceanval.create_recipes(
             simdir=simulation, ndown=2, out=out, domain="global", start=2011, end=2012,
+            ask=False,
         )
         script = open(out).read()
 
@@ -387,6 +400,7 @@ class TestGeneratedScript:
                 domain="global",
                 start=2011,
                 end=2012,
+                ask=False,
             )
         script = open(out).read()
 
@@ -403,6 +417,7 @@ class TestGeneratedScript:
         out = str(tmp_path / "matchup.py")
         oceanval.create_recipes(
             simdir=simulation, ndown=2, out=out, domain="global", start=2011, end=2012,
+            ask=False,
         )
         script = open(out).read()
 
@@ -420,6 +435,7 @@ class TestGeneratedScript:
         out = str(tmp_path / "matchup.py")
         oceanval.create_recipes(
             simdir=simulation, ndown=2, out=out, domain="nwes", start=2011, end=2012,
+            ask=False,
         )
         script = open(out).read()
 
@@ -452,6 +468,7 @@ class TestGeneratedScript:
         # own to prefer, so the global woa23 one stays live either way
         oceanval.create_recipes(
             simdir=simulation, ndown=2, out=out, domain="nwes", start=2011, end=2012,
+            ask=False,
         )
         script = open(out).read()
 
@@ -465,6 +482,7 @@ class TestGeneratedScript:
         out = str(tmp_path / "matchup.py")
         oceanval.create_recipes(
             simdir=simulation, ndown=2, out=out, domain="global", start=2009, end=2013,
+            ask=False,
         )
         script = open(out).read()
 
@@ -482,6 +500,7 @@ class TestGeneratedScript:
         out = str(tmp_path / "matchup.py")
         oceanval.create_recipes(
             simdir=simulation, ndown=2, out=out, domain="global", start=2011, end=2012,
+            ask=False,
         )
         script = open(out).read()
 
@@ -527,6 +546,7 @@ class TestPointRecipes:
         out = str(tmp_path / "matchup.py")
         oceanval.create_recipes(
             simdir=simulation, ndown=2, out=out, domain="nwes", start=2011, end=2012,
+            ask=False,
         )
         script = open(out).read()
 
@@ -541,6 +561,7 @@ class TestPointRecipes:
         out = str(tmp_path / "matchup.py")
         oceanval.create_recipes(
             simdir=simulation, ndown=2, out=out, domain="global", start=2011, end=2012,
+            ask=False,
         )
         script = open(out).read()
 
@@ -558,6 +579,7 @@ class TestPointRecipes:
                 domain="nwes",
                 start=2011,
                 end=2012,
+                ask=False,
             )
         script = open(out).read()
 
