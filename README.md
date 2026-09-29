@@ -58,7 +58,10 @@ after the observations — and writes out every built-in gridded recipe.
 Recipes it found a model variable for are live, with that variable filled
 in. For any it could not identify, it tells you and asks which model
 variable to use (press Enter to skip, or pass `ask=False`); skipped ones
-are commented out for you to complete by hand. Where a
+are commented out for you to complete by hand. If your output looks like
+raw FVCOM output (an unstructured mesh), it first asks you to confirm
+that, then writes `fvcom=True` into the script's `matchup()` call — pass
+`fvcom=True` or `fvcom=False` to skip the question. Where a
 variable has a recipe in more than one region (e.g. temperature), `domain`
 picks which one is left live — `"global"` or `"nwes"` (Northwest European
 Shelf) — and a variable with a recipe only outside that domain still gets

@@ -183,7 +183,7 @@
     </div>
 
     <div class="api-card" id="create_recipes">
-      <div class="api-card__head"><div class="sig">oceanval.create_recipes(simdir=None, ndown=None, out=None, domain=None, start=None, end=None)</div></div>
+      <div class="api-card__head"><div class="sig">oceanval.create_recipes(simdir=None, ndown=None, out=None, domain=None, start=None, end=None, ask=True, fvcom=None)</div></div>
       <div class="api-card__body">
         <p>Scan a simulation directory and write out a ready-to-run matchup script. Every built-in recipe is included: the ones OceanVal could identify a model variable for are live, with that variable filled in, and the rest are commented out for you to complete by hand. The model variables are identified from the <code>long_name</code> attributes in the netCDF files, so they need not be named after the observational dataset.</p>
         <details class="param-details">
@@ -194,6 +194,8 @@
             <li><code class="param-name">out</code><p>Path of the Python file to write. Required.</p></li>
             <li><code class="param-name">domain</code><p>Either <code>"global"</code> or <code>"nwes"</code>. Where a variable has a recipe in both regions (e.g. temperature), the one for this domain is left live and the other is commented out as an alternative; a variable with a recipe only outside this domain still gets that one. Required.</p></li>
             <li><code class="param-name">start</code> / <code class="param-name">end</code><p>First / last year of the simulation to validate. Passed straight through to the generated script's <code>matchup()</code> call, and used to pick the WOA23 decadal period for the temperature and salinity recipes. Required.</p></li>
+            <li><code class="param-name">ask</code><p>Whether to ask you to confirm output that looks like FVCOM, and for the model variable of anything that could not be identified (press Enter to skip). Only asks when run from an interactive terminal. Default <code>True</code>.</p></li>
+            <li><code class="param-name">fvcom</code><p>Whether <code>simdir</code> holds raw FVCOM output. If <code>True</code>, the variables are read with xarray, as CDO cannot read FVCOM's, and the script calls <a href="#matchup"><code>matchup</code></a> with <code>fvcom=True</code>. Default <code>None</code>: the files are checked for FVCOM's unstructured mesh and, if they have one, you are asked to confirm &mdash; or, when OceanVal cannot ask, they are assumed to be FVCOM output and it says so.</p></li>
           </ul>
         </details>
       </div>

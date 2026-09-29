@@ -41,6 +41,32 @@ def write_netcdf(path, variables, nz=5):
     dataset.to_netcdf(path)
 
 
+def write_fvcom(path, variables):
+    """A raw FVCOM output file, with one long_name per variable.
+
+    Every variable is on the sigma layers of an unstructured mesh of four
+    nodes and two triangles.
+    """
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    dataset = xr.Dataset(
+        {
+            "nv": (("three", "nele"), np.array([[1, 1], [2, 4], [4, 3]], dtype="i4")),
+            "lon": ("node", np.array([-5.0, -4.9, -5.0, -4.9], dtype="f4")),
+            "lat": ("node", np.array([50.0, 50.0, 50.1, 50.1], dtype="f4")),
+            "h": ("node", np.full(4, 20.0, dtype="f4")),
+        }
+    )
+    for name, long_name in variables.items():
+        dataset[name] = xr.DataArray(
+            np.random.rand(1, 5, 4).astype("f4"),
+            dims=("time", "siglay", "node"),
+            attrs={"long_name": long_name, "units": "1"},
+        )
+    dataset["time"] = ("time", np.array([55927.0]))
+    dataset.time.attrs = {"units": "days since 1858-11-17 00:00:00"}
+    dataset.to_netcdf(path)
+
+
 GRID_VARIABLES = {
     "thetao": "sea water potential temperature",
     "tair": "SURF:air temperature at 2m",
@@ -66,6 +92,12 @@ TRACER_VARIABLES = {
     "R1_n": "river nitrate nitrogen",
 }
 
+FVCOM_VARIABLES = {
+    "temp": "temperature",
+    "salinity": "salinity",
+    "N3_n": "nitrate nitrogen",
+}
+
 
 @pytest.fixture
 def simulation(tmp_path):
@@ -75,6 +107,14 @@ def simulation(tmp_path):
         stem = f"nemo_1m_{year}{month}01_{year}{month}28"
         write_netcdf(str(root / year / month / f"{stem}_grid_T.nc"), GRID_VARIABLES)
         write_netcdf(str(root / year / month / f"{stem}_ptrc_T.nc"), TRACER_VARIABLES)
+    return str(root)
+
+
+@pytest.fixture
+def fvcom_simulation(tmp_path):
+    """A month of FVCOM output, filed as fvcom/<year>/<month>/<file>."""
+    root = tmp_path / "fvcom"
+    write_fvcom(str(root / "2012" / "01" / "run_avg_0001.nc"), FVCOM_VARIABLES)
     return str(root)
 
 
@@ -664,3 +704,92 @@ class TestAskingForMissingVariables:
     def test_not_asked_without_a_terminal(self, tmp_path, monkeypatch):
         _, asked = self._run(tmp_path, monkeypatch, iter([]), tty=False)
         assert asked == []
+
+
+def _from_a_terminal(monkeypatch, answers):
+    """Run as if from a terminal, answering each question from answers.
+
+    Once the answers run out, input fails as it does when stdin is closed.
+    """
+    monkeypatch.setattr("sys.stdin.isatty", lambda: True, raising=False)
+    asked = []
+
+    def fake_input(prompt=""):
+        asked.append(prompt)
+        try:
+            return next(answers)
+        except StopIteration:
+            raise EOFError
+
+    monkeypatch.setattr("builtins.input", fake_input)
+    return asked
+
+
+class TestFvcom:
+    QUESTION = "Is this FVCOM output? (y/n) "
+
+    def _create(self, simdir, tmp_path, **kwargs):
+        out = str(tmp_path / "matchup.py")
+        oceanval.create_recipes(
+            simdir=simdir, ndown=2, out=out,
+            domain="global", start=2012, end=2012, **kwargs,
+        )
+        return open(out).read()
+
+    def test_variables_on_the_mesh_are_identified(self, fvcom_simulation):
+        path = simulation_files(fvcom_simulation, 2)[0]
+        mapping = generate_recipe_mapping(path, fvcom=True)
+        assert mapping["temperature"] == "temp"
+        assert mapping["salinity"] == "salinity"
+        assert mapping["nitrate"] == "N3_n"
+
+    def test_fvcom_is_assumed_when_it_cannot_ask(
+        self, fvcom_simulation, tmp_path, capsys
+    ):
+        script = self._create(fvcom_simulation, tmp_path, ask=False)
+        assert "looks like raw FVCOM output" in capsys.readouterr().out
+        assert "    fvcom=True,\n" in script
+        assert 'model_variable="temp"' in script
+        ast.parse(script)
+
+    def test_other_output_is_not_taken_for_fvcom(self, simulation, tmp_path, capsys):
+        script = self._create(simulation, tmp_path, ask=False)
+        assert "fvcom=True" not in script
+        assert "FVCOM" not in capsys.readouterr().out
+
+    def test_confirmed_fvcom(self, fvcom_simulation, tmp_path, monkeypatch):
+        asked = _from_a_terminal(monkeypatch, iter(["y"]))
+        script = self._create(fvcom_simulation, tmp_path)
+        assert asked[0] == self.QUESTION
+        assert "    fvcom=True,\n" in script
+
+    def test_declined_fvcom(self, fvcom_simulation, tmp_path, monkeypatch):
+        asked = _from_a_terminal(monkeypatch, iter(["n"]))
+        script = self._create(fvcom_simulation, tmp_path)
+        assert asked[0] == self.QUESTION
+        assert "fvcom=True" not in script
+
+    def test_anything_but_yes_or_no_is_asked_again(
+        self, fvcom_simulation, tmp_path, monkeypatch, capsys
+    ):
+        asked = _from_a_terminal(monkeypatch, iter(["maybe", "y"]))
+        script = self._create(fvcom_simulation, tmp_path)
+        assert asked[:2] == [self.QUESTION, self.QUESTION]
+        assert "Provide y or n" in capsys.readouterr().out
+        assert "    fvcom=True,\n" in script
+
+    def test_the_fvcom_argument_skips_the_question(
+        self, fvcom_simulation, tmp_path, monkeypatch
+    ):
+        asked = _from_a_terminal(monkeypatch, iter([]))
+        script = self._create(fvcom_simulation, tmp_path, fvcom=False)
+        assert self.QUESTION not in asked
+        assert "fvcom=True" not in script
+
+    def test_fvcom_true_is_not_second_guessed(self, simulation, tmp_path):
+        script = self._create(simulation, tmp_path, ask=False, fvcom=True)
+        assert "    fvcom=True,\n" in script
+
+    def test_fvcom_must_be_a_boolean(self, fvcom_simulation, tmp_path):
+        with pytest.raises(TypeError, match="fvcom"):
+            self._create(fvcom_simulation, tmp_path, ask=False, fvcom="yes")

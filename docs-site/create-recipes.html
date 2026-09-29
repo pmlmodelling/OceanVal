@@ -123,6 +123,11 @@ oceanval.<a href="api.html#create_recipes"><span class="tok-fn">create_recipes</
     <p>Only one file per output stream is read, not every file in the simulation, so this takes seconds rather than minutes even for a long run.</p>
 
     <div class="callout">
+      <div class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>FVCOM output</div>
+      <p>If your output looks like raw FVCOM output &mdash; an unstructured mesh, with <code>node</code> and <code>nele</code> dimensions and an <code>nv</code> variable &mdash; <code>create_recipes</code> asks you to confirm that it is. It then reads the variables with xarray, as CDO cannot read FVCOM's, and writes <code>fvcom=True</code> into the script's <a href="api.html#matchup"><code>matchup()</code></a> call, which regrids the output before matching. Pass <code>fvcom=True</code> or <code>fvcom=False</code> to skip the question.</p>
+    </div>
+
+    <div class="callout">
       <div class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>How does create_recipes identify variables?</div>
       <p>From the <code>long_name</code> attribute in your NetCDF files, not the variable name. A variable called <code>N3_n</code> with a long name of <code>nitrate nitrogen</code> is recognised as nitrate; <code>votemper</code> described as <code>temperature</code> is recognised as temperature. You don't have to rename anything or write a mapping table. Where a model splits a quantity across several variables — chlorophyll across phytoplankton functional types, say — they are summed.</p>
       <p><strong>Note:</strong> variable identification is an automated process and is not 100% guaranteed to identify variables correctly, so double check the output variables.</p>
