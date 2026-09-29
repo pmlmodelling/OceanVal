@@ -924,8 +924,13 @@ def generate_mapping(ds):
     model_dict = {}
     try:
         candidate_variables = definitions.keys
-        ds1 = nc.open_data(ds[0], checks=False)
-        ds_contents = ds1.contents
+        if session_info.get("fvcom", False):
+            from oceanval.fvcom import fvcom_contents
+
+            ds_contents = fvcom_contents(ds[0])
+        else:
+            ds1 = nc.open_data(ds[0], checks=False)
+            ds_contents = ds1.contents
 
         ds_contents["long_name"] = [str(x) for x in ds_contents["long_name"]]
 

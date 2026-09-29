@@ -13,7 +13,7 @@ OceanVal is designed to validate ocean model output that is in NetCDF format.
 Files should be CF-compliant as far as possible. Most ocean model output files are CF-compliant, so there should be no compatibility issues.
 
 
-**Unstructured grids**: OceanVal will not be compatible out-of-the-box with unstructured grid model output. However, if the unstructured grid data can be regridded onto a regular grid and saved as a CF-compliant NetCDF file, then OceanVal will be able to use it.
+**Unstructured grids**: OceanVal will not be compatible out-of-the-box with unstructured grid model output. However, if the unstructured grid data can be regridded onto a regular grid and saved as a CF-compliant NetCDF file, then OceanVal will be able to use it. FVCOM output is supported via ``oceanval.fvcom_preprocess``, or directly with ``matchup(fvcom=True)``, which regrids the files for you.
 
 **Vertical grids**: OceanVal can handle both z-level files and files where the vertical grid varies, provided that the cell thickness is stored in the simulation output.
 

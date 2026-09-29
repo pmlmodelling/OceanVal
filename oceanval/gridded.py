@@ -12,6 +12,7 @@ import nctoolkit as nc
 import xarray as xr
 
 from oceanval.fixers import tidy_warnings
+from oceanval.fvcom import fvcom_matchup_files
 from oceanval.utils import extension_of_directory, loud_warning
 from oceanval.session import session_info
 from oceanval.parsers import Validator, definitions
@@ -100,6 +101,28 @@ def _lonlat_bounds(ds):
     # handle lon > 180 properly, same convention used elsewhere in this module
     lons = ((lons + 180) % 360) - 180
     return float(lons.min()), float(lons.max()), float(lats.min()), float(lats.max())
+
+
+def _obs_resolution(comparison):
+    """[lon, lat] grid spacing of a gridded observational source, in degrees.
+
+    Only the coordinates of the first file are read.
+    """
+    obs_path = comparison["obs_path"]
+    if isinstance(obs_path, (list, tuple)):
+        obs_path = obs_path[0]
+    if not comparison["thredds"] and not obs_path.endswith(".nc"):
+        obs_path = nc.create_ensemble(obs_path)[0]
+    with xr.open_dataset(obs_path, decode_times=False) as ds:
+        names = list(ds.coords) + [x for x in ds.variables if x not in ds.coords]
+        lon_name = [x for x in names if "lon" in x][0]
+        lat_name = [x for x in names if "lat" in x][0]
+        lons = ds[lon_name].values
+        lats = ds[lat_name].values
+    # works for 1D coordinates and 2D (lat, lon) ones
+    lon_res = float(np.nanmedian(np.abs(np.diff(lons, axis=-1))))
+    lat_res = float(np.nanmedian(np.abs(np.diff(lats, axis=0))))
+    return [lon_res, lat_res]
 
 
 def _regrid_onto_common_grid(ds_model, ds_obs):
@@ -316,6 +339,21 @@ def gridded_matchup(
 
                 paths = list(set(new_paths))
                 paths.sort()
+
+                if session_info.get("fvcom", False):
+                    # regrid FVCOM output at twice the resolution of the observations
+                    fvcom_res = [x / 2 for x in _obs_resolution(comparison)]
+                    fvcom_paths = fvcom_matchup_files(
+                        paths,
+                        selection,
+                        session_info["fvcom_dir"],
+                        vertical=vertical_gridded,
+                        res=fvcom_res,
+                        lon_lim=lon_lim,
+                        lat_lim=lat_lim,
+                        cores=session_info["cores"],
+                    )
+                    paths = [fvcom_paths[x] for x in paths]
 
                 # handle 
 

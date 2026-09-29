@@ -151,7 +151,7 @@
     </div>
 
     <div class="api-card" id="matchup">
-      <div class="api-card__head"><div class="sig">oceanval.matchup(sim_dir=None, start=None, end=None, thickness=None, cores=6, lon_lim=None, lat_lim=None, n_dirs_down=2, overwrite=True, ask=True, cache=False, exclude=[], require=None, out_dir="", point_time_res=["year", "month", "day"], n_check=None, as_missing=None, strict_names=True)</div></div>
+      <div class="api-card__head"><div class="sig">oceanval.matchup(sim_dir=None, start=None, end=None, thickness=None, cores=6, lon_lim=None, lat_lim=None, n_dirs_down=2, overwrite=True, ask=True, cache=False, exclude=[], require=None, out_dir="", point_time_res=["year", "month", "day"], n_check=None, as_missing=None, strict_names=True, fvcom=False)</div></div>
       <div class="api-card__body">
         <p>Pair registered observations with model output.</p>
         <details class="param-details">
@@ -176,6 +176,7 @@
             <li><code class="param-name">n_check</code><p>Number of files checked when identifying the file naming convention.</p></li>
             <li><code class="param-name">as_missing</code><p>A float or <code>[min, max]</code> range of values to treat as missing in the model output.</p></li>
             <li><code class="param-name">strict_names</code><p>Whether to strictly enforce variable naming conventions. Default <code>True</code>.</p></li>
+            <li><code class="param-name">fvcom</code><p>Set to <code>True</code> if <code>sim_dir</code> contains raw FVCOM output. Each file is regridded with <code>fvcom_preprocess</code> before matching: surface values for comparisons with <code>vertical=False</code>, and 0&ndash;150&nbsp;m every 5&nbsp;m for <code>vertical=True</code>. Point comparisons use a 0.05&deg; grid; gridded comparisons use twice the resolution of the observations. <code>thickness</code> is not needed, <code>lon_lim</code> / <code>lat_lim</code> default to the mesh extent, and the regridded files are deleted afterwards. Default <code>False</code>.</p></li>
           </ul>
         </details>
       </div>
@@ -271,9 +272,9 @@
     <span class="kicker">Model support</span>
 
     <div class="api-card" id="fvcom_preprocess">
-      <div class="api-card__head"><div class="sig">oceanval.fvcom_preprocess(variables=None, paths=None, lon_lim=None, lat_lim=None, res=0.05, out_dir=None, model_res=None, missing=None)</div></div>
+      <div class="api-card__head"><div class="sig">oceanval.fvcom_preprocess(variables=None, paths=None, lon_lim=None, lat_lim=None, res=0.05, out_dir=None, model_res=None, missing=None, z_level=False, levels=None)</div></div>
       <div class="api-card__body">
-        <p>Preprocess unstructured FVCOM output onto a regular grid so it can be used with the rest of OceanVal.</p>
+        <p>Preprocess unstructured FVCOM output onto a regular grid so it can be used with the rest of OceanVal. By default only the surface sigma layer is kept; set <code>z_level=True</code> to interpolate onto fixed depth levels instead, then run <code>matchup</code> with <code>thickness="z_level"</code>.</p>
         <details class="param-details">
           <summary>Parameters</summary>
           <p>Required:</p>
@@ -286,8 +287,10 @@
             <li><code class="param-name">paths</code><p>List of file paths to the FVCOM data files.</p></li>
             <li><code class="param-name">lon_lim</code> / <code class="param-name">lat_lim</code><p>Minimum and maximum longitude / latitude for regridding.</p></li>
             <li><code class="param-name">res</code><p>Regridding resolution in degrees. Default <code>0.05</code>, suitable for point matchups.</p></li>
-            <li><code class="param-name">model_res</code><p>Native resolution of the FVCOM model grid, in degrees.</p></li>
+            <li><code class="param-name">model_res</code><p>Approximate native resolution of the FVCOM mesh in degrees, used to build the land/sea mask by binning node positions. If <code>None</code> (default), the mask is built from the mesh triangles instead: a grid cell is sea if its centre lies inside the mesh.</p></li>
             <li><code class="param-name">missing</code><p>Value used to represent missing data in the FVCOM output.</p></li>
+            <li><code class="param-name">z_level</code><p>If <code>True</code>, variables on sigma layers are interpolated onto fixed depth levels below the free surface before regridding. Depths above the top layer centre take the top layer value, depths between the bottom layer centre and the seabed take the bottom layer value, and depths below the seabed are missing. Default <code>False</code> (surface only).</p></li>
+            <li><code class="param-name">levels</code><p>Depth levels in metres (positive down) to interpolate to. Supplying levels implies <code>z_level=True</code>. Defaults to the WOA23 standard depths, down to the maximum model depth.</p></li>
           </ul>
         </details>
       </div>

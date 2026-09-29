@@ -1,4 +1,5 @@
 import copy
+import gc
 import time
 import nctoolkit as nc
 import re
@@ -7,7 +8,7 @@ import glob
 import subprocess
 import platform
 if platform.system() == "Linux":
-    import multiprocessing as mp
+    import multiprocessing as me
     from multiprocessing import Manager
 else:
     import multiprocess as mp
@@ -19,6 +20,7 @@ import string
 import random
 import warnings
 import pickle
+import shutil
 import xarray as xr
 import oceanval.parsers as parsers
 from oceanval.session import session_info
@@ -27,6 +29,7 @@ from tqdm import tqdm
 from oceanval.utils import extension_of_directory
 from oceanval.parsers import generate_mapping
 from oceanval.gridded import gridded_matchup, retry_failed_gridded, _lonlat_bounds
+from oceanval.fvcom import fvcom_matchup_files, fvcom_extent, fvcom_times
 from oceanval import ices
 
 
@@ -88,6 +91,31 @@ def is_z_up(ff, variable=None):
         raise ValueError(
             "Could not determine if z-axis is down from the provided file."
         )
+
+
+def _remove_fvcom_dir(fvcom_dir):
+    """
+    Remove the regridded FVCOM files
+
+    nctoolkit's contents leaves netCDF files open until garbage collection, and on NFS
+    a directory cannot be removed while a file in it is open ("Device or resource busy").
+    """
+    if "fvcom_tmp" not in fvcom_dir:
+        raise ValueError("Refusing to remove fvcom_dir because it does not contain 'fvcom_tmp'")
+    error = None
+    for attempt in range(3):
+        if not os.path.exists(fvcom_dir):
+            return
+        gc.collect()
+        try:
+            shutil.rmtree(fvcom_dir)
+            return
+        except OSError as e:
+            error = e
+            time.sleep(1)
+    warnings.warn(
+        f"Unable to remove the temporary FVCOM files in {fvcom_dir} ({error}). They can be deleted manually."
+    )
 
 
 # a list of valid variables for validation
@@ -301,17 +329,20 @@ def get_time_res(x, folder=None):
         path = str(path)
         break
 
-    ds = nc.open_data(path, checks=False)
-    ds_times = ds.times
-    try:
-        months = [x.month for x in ds_times]
-        days = [x.day for x in ds_times]
-        years = [x.year for x in ds_times]
-    except:
-        years = [int(str(x).split("T")[0].split("-")[0]) for x in ds.times]
-        months = [int(str(x).split("T")[0].split("-")[1]) for x in ds.times]
-        days = [int(str(x).split("T")[0].split("-")[2]) for x in ds.times]
-    df_times = pd.DataFrame({"month": months, "day": days, "year": years})
+    if session_info.get("fvcom", False):
+        df_times = fvcom_times(path)
+    else:
+        ds = nc.open_data(path, checks=False)
+        ds_times = ds.times
+        try:
+            months = [x.month for x in ds_times]
+            days = [x.day for x in ds_times]
+            years = [x.year for x in ds_times]
+        except:
+            years = [int(str(x).split("T")[0].split("-")[0]) for x in ds.times]
+            months = [int(str(x).split("T")[0].split("-")[1]) for x in ds.times]
+            days = [int(str(x).split("T")[0].split("-")[2]) for x in ds.times]
+        df_times = pd.DataFrame({"month": months, "day": days, "year": years})
 
     n1 = len(
         df_times.loc[:, ["month", "year"]].drop_duplicates().reset_index(drop=True)
@@ -497,7 +528,8 @@ def matchup(
     cache=False,
     n_check=None,
     as_missing=None,
-    strict_names = True
+    strict_names = True,
+    fvcom = False,
 ):
     """
     Match up model with observational data
@@ -548,6 +580,14 @@ def matchup(
         Value(s) to treat as missing in the model data. Default is None.
     strict_names : bool
         If True, variable names must match exactly those in the definitions. Default is True.
+    fvcom : bool
+        Set to True if sim_dir contains raw FVCOM output. Default is False.
+        Each model file is then regridded with ``fvcom_preprocess`` before matching:
+        surface values for comparisons with vertical=False, and depths of 0-150 m every 5 m
+        for comparisons with vertical=True. Point comparisons use a 0.05 degree grid, and
+        gridded comparisons use a grid at twice the resolution of the observations.
+        thickness is not needed, and lon_lim and lat_lim default to the extent of the mesh.
+        The regridded files are deleted once the matchups are done.
 
     Returns
     -------------
@@ -595,6 +635,16 @@ def matchup(
     nc.options(cores=cores)
     session_info["cores"] = cores
 
+    if not isinstance(fvcom, bool):
+        raise TypeError("fvcom must be a boolean")
+    session_info["fvcom"] = fvcom
+    session_info["fvcom_files"] = dict()
+    if fvcom:
+        # regridded FVCOM output is on z-levels, so no thickness is needed
+        if thickness is not None and thickness not in ["z_level", "z-level", "z level"]:
+            warnings.warn("thickness is ignored when fvcom=True")
+        thickness = "z_level"
+
     if thickness is not None:
         if isinstance(thickness, str):
             # if it ends with .nc check it exists
@@ -639,6 +689,12 @@ def matchup(
     out_dir = os.path.abspath(out_dir)
     # add out_dir to session_info
     session_info["out_dir"] = out_dir + "/"
+
+    # regridded FVCOM files only live for the duration of the matchup
+    session_info["fvcom_dir"] = session_info["out_dir"] + "oceanval_matchups/fvcom_tmp"
+    if fvcom:
+        # left behind by a matchup that did not finish
+        _remove_fvcom_dir(session_info["fvcom_dir"])
 
     # check if exclude is a list or str
     if not isinstance(exclude, list):
@@ -784,6 +840,12 @@ def matchup(
     if len(missing) > 0:
         error = f"The model variables specified do not appear to be in the simulation output for the following: {missing}. Please check the model_variable names and try again."
         raise ValueError(error)
+
+    if fvcom and lon_lim is None:
+        # FVCOM output has to be regridded onto a lon/lat box
+        lon_lim, lat_lim = fvcom_extent(all_df.example_file.iloc[0])
+        session_info["lon_lim"] = lon_lim
+        session_info["lat_lim"] = lat_lim
 
     # add in anything that is missing
 
@@ -1104,17 +1166,22 @@ def matchup(
             len_example = len(os.path.basename(example_files[pattern]))
             ensemble = [x for x in ensemble if len(os.path.basename(x)) == len_example]
 
-        try:
-            ds = xr.open_dataset(ensemble[0])
-            time_name = [x for x in list(ds.dims) if "time" in x][0]
-        except:
-            ds = xr.open_dataset(ensemble[0], decode_times=False)
-            time_name = [x for x in list(ds.dims) if "time" in x][0]
+        if not fvcom:
+            try:
+                ds = xr.open_dataset(ensemble[0])
+                time_name = [x for x in list(ds.dims) if "time" in x][0]
+            except:
+                ds = xr.open_dataset(ensemble[0], decode_times=False)
+                time_name = [x for x in list(ds.dims) if "time" in x][0]
 
         for ff in tqdm(ensemble):
             if ff in times_dict:
                 continue
             if "restart" in ff:
+                continue
+
+            if fvcom:
+                times_dict[ff] = fvcom_times(ff)
                 continue
 
             try:
@@ -1364,6 +1431,24 @@ def matchup(
                             manager = Manager()
 
                             df_times_new = copy.deepcopy(df_times)
+
+                            if fvcom:
+                                # match against regridded copies of the FVCOM files.
+                                # They keep the same times, so time_index still applies
+                                fvcom_paths = fvcom_matchup_files(
+                                    paths,
+                                    model_variable.split("+"),
+                                    session_info["fvcom_dir"],
+                                    vertical=(layer == "all"),
+                                    res=0.05,
+                                    lon_lim=lon_lim,
+                                    lat_lim=lat_lim,
+                                    cores=cores,
+                                )
+                                paths = [fvcom_paths[x] for x in paths]
+                                df_times_new["path"] = [
+                                    fvcom_paths.get(x, x) for x in df_times_new.path
+                                ]
 
 
                             valid_cols = [
@@ -1691,5 +1776,10 @@ def matchup(
             variables_matched.append(vv)
     with open(ff, "wb") as f:
         pickle.dump(variables_matched, f)
+
+    if fvcom:
+        _remove_fvcom_dir(session_info["fvcom_dir"])
+        session_info["fvcom_files"] = dict()
+        session_info["fvcom"] = False
 
 
