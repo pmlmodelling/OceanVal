@@ -8,7 +8,7 @@ import glob
 import subprocess
 import platform
 if platform.system() == "Linux":
-    import multiprocessing as me
+    import multiprocessing as mp
     from multiprocessing import Manager
 else:
     import multiprocess as mp
