@@ -4,7 +4,8 @@
 variable holds each observational variable OceanVal has a recipe for, and
 writes out the script in ``docs-site/recipe-examples.py`` with those names
 filled in. Recipes it could not find a model variable for are still written
-out, but commented, so nothing is silently dropped.
+out, but commented, so nothing is silently dropped. When run interactively,
+it first asks you for the model variable of each one it could not identify.
 
 The identification follows the approach ecoval takes in its ``matchup``:
 model output rarely names its variables the way an observational dataset
@@ -15,9 +16,11 @@ rather than on their names.
 import glob
 import os
 import re
+import sys
 import warnings
 
 import nctoolkit as nc
+import xarray as xr
 
 
 # The region argument on create_recipes, keyed by the catalogue's own
@@ -487,6 +490,52 @@ def extract_recipe_variable_mapping(simdir, ndown):
     return mapping
 
 
+def _available_variables(simdir, ndown):
+    """The names of every variable in the simulation's example files."""
+    names = set()
+    for path in simulation_files(simdir, ndown):
+        # xarray rather than nctoolkit: CDO skips variables on grids it does
+        # not support (e.g. raw FVCOM salinity), which would then be refused
+        try:
+            with xr.open_dataset(path, decode_times=False, decode_cf=False) as ds:
+                names.update(ds.variables)
+        except Exception:
+            try:
+                names.update(nc.open_data(path, checks=False).contents.variable)
+            except Exception:
+                continue
+    return names
+
+
+def _ask_for_missing_variables(mapping, missing, available):
+    """Offer the user the chance to name the model variable for each gap.
+
+    Blank input skips a variable, leaving its recipes commented out. Several
+    model variables can be given joined with "+", as the automatic
+    identification does.
+    """
+    mapping = dict(mapping)
+    for variable in missing:
+        print(f"{variable} could not be identified in the model output.")
+        while True:
+            try:
+                answer = input(
+                    f"What is the model variable for {variable}? (press Enter to skip): "
+                ).strip()
+            except EOFError:
+                return mapping
+            if not answer:
+                break
+            names = [name.strip() for name in answer.split("+")]
+            unknown = [name for name in names if name not in available]
+            if unknown:
+                print(f"{', '.join(unknown)} not found in the model output")
+                continue
+            mapping[variable] = "+".join(names)
+            break
+    return mapping
+
+
 def _years_in(text):
     """The years named in one path, whether on their own or inside a date."""
     for match in re.findall(r"(?<!\d)(\d{4})(?!\d)", text):
@@ -758,14 +807,18 @@ def build_recipe_script(simdir, ndown, mapping, years=None, domain="global"):
     return "\n".join(lines).rstrip("\n") + "\n"
 
 
-def create_recipes(simdir=None, ndown=None, out=None, domain=None, start=None, end=None):
+def create_recipes(
+    simdir=None, ndown=None, out=None, domain=None, start=None, end=None, ask=True
+):
     """Write a matchup script for a simulation, with its variables filled in.
 
     Scans the netCDF files in simdir, identifies which model variable holds
     each observational variable OceanVal has a recipe for, and writes out a
-    script registering those recipes. Recipes with no matching model
-    variable are written out commented, so you can see what was missed and
-    fill the variable in by hand.
+    script registering those recipes. For each variable that could not be
+    identified you are told so and asked for the model variable to use
+    (press Enter to skip). Recipes still without a model variable are
+    written out commented, so you can see what was missed and fill the
+    variable in by hand.
 
     Parameters
     -------------
@@ -791,6 +844,10 @@ def create_recipes(simdir=None, ndown=None, out=None, domain=None, start=None, e
     end : int
         Last year of the simulation to validate, passed through the same
         way as start. Required.
+    ask : bool
+        Whether to ask for the model variable of anything that could not
+        be identified. Only asks when run from an interactive terminal.
+        Defaults to True.
 
     Returns
     -------------
@@ -843,6 +900,13 @@ def create_recipes(simdir=None, ndown=None, out=None, domain=None, start=None, e
     missing = [
         variable for variable in RECIPE_VARIABLES if mapping.get(variable) is None
     ]
+    if missing and ask and sys.stdin is not None and sys.stdin.isatty():
+        mapping = _ask_for_missing_variables(
+            mapping, missing, _available_variables(simdir, ndown)
+        )
+        missing = [
+            variable for variable in RECIPE_VARIABLES if mapping.get(variable) is None
+        ]
     if not mapping:
         warnings.warn(
             "No model variables could be identified, so every recipe in "

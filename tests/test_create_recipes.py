@@ -603,3 +603,42 @@ def test_every_point_catalogue_variable_can_be_identified():
     """Nothing in the ICES catalogue is a recipe the generator can never match."""
     point_variables = {entry["variable"] for entry in POINT_RECIPE_CATALOGUE}
     assert point_variables <= set(RECIPE_VARIABLES)
+
+
+class TestAskingForMissingVariables:
+    def _run(self, tmp_path, monkeypatch, answers, tty=True):
+        write_netcdf(
+            str(tmp_path / "sim" / "a.nc"),
+            {"thetao": "sea water potential temperature", "mystery": "unknown thing"},
+        )
+        monkeypatch.setattr("sys.stdin.isatty", lambda: tty, raising=False)
+        asked = []
+
+        def fake_input(prompt=""):
+            asked.append(prompt)
+            return next(answers, "")
+
+        monkeypatch.setattr("builtins.input", fake_input)
+        out = str(tmp_path / "matchup.py")
+        oceanval.create_recipes(
+            simdir=str(tmp_path / "sim"), ndown=0, out=out,
+            domain="global", start=2011, end=2012,
+        )
+        return open(out).read(), asked
+
+    def test_valid_name_is_used(self, tmp_path, monkeypatch, capsys):
+        answers = iter(["mystery"])
+        script, asked = self._run(tmp_path, monkeypatch, answers)
+        assert "mystery" in script
+        assert "could not be identified in the model output" in capsys.readouterr().out
+        assert asked
+
+    def test_unknown_name_is_asked_again(self, tmp_path, monkeypatch, capsys):
+        answers = iter(["nonsense", ""])
+        _, asked = self._run(tmp_path, monkeypatch, answers)
+        assert "nonsense not found" in capsys.readouterr().out
+        assert len(asked) > 1
+
+    def test_not_asked_without_a_terminal(self, tmp_path, monkeypatch):
+        _, asked = self._run(tmp_path, monkeypatch, iter([]), tty=False)
+        assert asked == []
