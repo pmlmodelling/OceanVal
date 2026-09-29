@@ -368,3 +368,44 @@ class TestThreddsRegistration:
 
         # registering while a server is down, to match up once it is back
         assert getattr(oceanval.definitions, "nitrate", None) is not None
+
+
+class TestOpeningObservations:
+    """Where observations come from decides how nctoolkit opens them"""
+
+    URL = "https://www.ncei.noaa.gov/data/oceans/archive/GLODAPv2.2016b.TAlk.nc"
+
+    @pytest.fixture
+    def opened(self, monkeypatch):
+        calls = []
+        for name in ["open_thredds", "open_url", "open_data"]:
+            monkeypatch.setattr(
+                nc, name, lambda x, *args, name=name, **kwargs: calls.append((name, x))
+            )
+        return calls
+
+    def test_a_thredds_source_is_opened_over_thredds(self, opened):
+        gridded._open_obs(self.URL, True)
+        assert opened == [("open_thredds", self.URL)]
+
+    def test_a_url_that_is_not_thredds_is_downloaded(self, opened):
+        gridded._open_obs(self.URL, False)
+        assert opened == [("open_url", self.URL)]
+
+    def test_a_local_file_is_opened_as_data(self, opened):
+        gridded._open_obs("data/example/foo.nc", False)
+        assert opened == [("open_data", "data/example/foo.nc")]
+
+    @pytest.mark.parametrize("variable", ["ph", "alkalinity"])
+    def test_glodap_is_downloaded_rather_than_opened_over_thredds(self, variable):
+        oceanval.add_gridded_comparison(
+            name=variable,
+            model_variable="votemper",
+            recipe={variable: "glodap"},
+            file_check=False,
+        )
+        comparison = oceanval.definitions[variable].gridded_comparisons["GLODAPv2.2016b"]
+
+        assert comparison["thredds"] is False
+        assert gridded._is_url(comparison["obs_path"])
+        assert gridded.remote_gridded_source(variable, "GLODAPv2.2016b") is True

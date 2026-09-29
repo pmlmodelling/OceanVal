@@ -23,6 +23,20 @@ def _failure_log():
     return session_info.get("out_dir", "") + "oceanval_matchups/matchup_failures.log"
 
 
+def _is_url(path):
+    return isinstance(path, str) and path.startswith(("http://", "https://", "ftp://"))
+
+
+def _open_obs(path, thredds):
+    """Open observational data: over thredds, downloaded from a url, or local."""
+    if thredds:
+        return nc.open_thredds(path, checks=False)
+    if _is_url(path):
+        # a plain file served over http, e.g. GLODAP: downloaded to a temp file
+        return nc.open_url(path)
+    return nc.open_data(path, checks=False)
+
+
 def remote_gridded_source(vv, source):
     """Whether a variable's observational data from source is read over the network.
 
@@ -113,6 +127,9 @@ def _obs_resolution(comparison):
         obs_path = obs_path[0]
     if not comparison["thredds"] and not obs_path.endswith(".nc"):
         obs_path = nc.create_ensemble(obs_path)[0]
+    if not comparison["thredds"] and _is_url(obs_path):
+        # xarray cannot read a plain file over http, so download it first
+        obs_path = _open_obs(obs_path, False)[0]
     with xr.open_dataset(obs_path, decode_times=False) as ds:
         names = list(ds.coords) + [x for x in ds.variables if x not in ds.coords]
         lon_name = [x for x in names if "lon" in x][0]
@@ -428,13 +445,7 @@ def gridded_matchup(
                     extracted = False
 
                     if not extracted:
-                        if thredds:
-                            ds_obs = nc.open_thredds(vv_file, checks=False)
-                        else:
-                            ds_obs = nc.open_data(
-                                vv_file,
-                                checks=False,
-                            )
+                        ds_obs = _open_obs(vv_file, thredds)
                     bad_clim = False
 
                     # use ncks to spatially subset to lon_lim and lat_lim
@@ -447,6 +458,9 @@ def gridded_matchup(
                     if vertical_gridded is False:
                         if thredds:
                             ds_zz = nc.open_thredds(ds_obs[0], checks = False)
+                        elif _is_url(vv_file):
+                            # already downloaded for ds_obs
+                            ds_zz = nc.open_data(ds_obs[0], checks = False)
                         else:
                             ds_zz = nc.open_data(vv_file, checks =False)
                         variable = comparison["obs_variable"]
