@@ -2,7 +2,7 @@ import importlib.resources
 import os
 import re
 import shutil
-from unittest.mock import call, patch
+from unittest.mock import patch
 
 import nbformat
 import pytest
@@ -10,33 +10,37 @@ import pytest
 import oceanval
 
 
-def _mock_ok(run):
-    """Give a mocked subprocess.run a plausible successful CompletedProcess-like
-    return value, since _run_filtered (unlike a bare subprocess.run(check=True))
-    actually inspects .returncode/.stdout/.stderr itself."""
-    run.return_value.returncode = 0
-    run.return_value.stdout = ""
-    run.return_value.stderr = ""
+def _mock_popen(popen, lines=(), returncode=0):
+    """Give a mocked subprocess.Popen the streamed output and exit code that
+    _run_filtered reads from the process it starts."""
+    popen.return_value.stdout = iter(lines)
+    popen.return_value.returncode = returncode
 
 
 def test_run_filtered_drops_the_tcp_kernel_warning(capsys):
-    with patch("oceanval.subprocess.run") as run:
-        run.return_value.returncode = 0
-        run.return_value.stdout = (
-            "reading sources... [100%] notebooks/test\n"
-            "WARNING | Kernel is running over TCP without encryption. All "
-            "communication (including code and outputs) is sent in plain text "
-            "and is susceptible to eavesdropping. Use IPC transport or launch "
-            "with kernel manager-provisioned CurveZMQ keys to enable transport "
-            "encryption.\n"
-            "build succeeded.\n"
+    with patch("oceanval.subprocess.Popen") as popen:
+        _mock_popen(
+            popen,
+            [
+                "reading sources... [100%] notebooks/test\n",
+                "WARNING | Kernel is running over TCP without encryption. All "
+                "communication (including code and outputs) is sent in plain text "
+                "and is susceptible to eavesdropping. Use IPC transport or launch "
+                "with kernel manager-provisioned CurveZMQ keys to enable transport "
+                "encryption.\n",
+                "build succeeded.\n",
+            ],
         )
-        run.return_value.stderr = ""
 
         oceanval._run_filtered(["jupyter-book", "build", "report"], check=True)
 
-    run.assert_called_once_with(
-        ["jupyter-book", "build", "report"], capture_output=True, text=True
+    # output is streamed line by line, so stderr is merged into stdout
+    popen.assert_called_once_with(
+        ["jupyter-book", "build", "report"],
+        stdout=oceanval.subprocess.PIPE,
+        stderr=oceanval.subprocess.STDOUT,
+        text=True,
+        bufsize=1,
     )
     out = capsys.readouterr().out
     assert "Kernel is running over TCP" not in out
@@ -45,24 +49,29 @@ def test_run_filtered_drops_the_tcp_kernel_warning(capsys):
 
 
 def test_run_filtered_raises_on_nonzero_exit():
-    with patch("oceanval.subprocess.run") as run:
-        run.return_value.returncode = 1
-        run.return_value.stdout = ""
-        run.return_value.stderr = "boom"
+    with patch("oceanval.subprocess.Popen") as popen:
+        _mock_popen(popen, ["boom\n"], returncode=1)
 
-        with pytest.raises(oceanval.subprocess.CalledProcessError):
+        with pytest.raises(oceanval.subprocess.CalledProcessError) as error:
             oceanval._run_filtered(["jupyter-book", "build", "report"], check=True)
+
+    assert error.value.returncode == 1
+    assert error.value.output == "boom\n"
 
 
 def test_build_book_uses_legacy_command_for_jupyter_book_1():
     with patch.object(oceanval, "_version", return_value="1.0.4"), patch(
-        "oceanval.subprocess.run"
-    ) as run:
-        _mock_ok(run)
+        "oceanval.subprocess.Popen"
+    ) as popen:
+        _mock_popen(popen)
         oceanval._build_book("report")
 
-    run.assert_called_once_with(
-        ["jupyter-book", "build", "report"], capture_output=True, text=True
+    popen.assert_called_once_with(
+        ["jupyter-book", "build", "report"],
+        stdout=oceanval.subprocess.PIPE,
+        stderr=oceanval.subprocess.STDOUT,
+        text=True,
+        bufsize=1,
     )
 
 
@@ -77,17 +86,15 @@ def test_build_book_uses_offline_html_for_jupyter_book_2():
         "oceanval._remove_diagnostic_outputs"
     ) as remove_diagnostics, patch(
         "oceanval._write_offline_report_pages"
-    ) as write_pages, patch("oceanval.subprocess.run") as run:
-        _mock_ok(run)
+    ) as write_pages, patch(
+        "oceanval.subprocess.Popen"
+    ) as popen, patch("oceanval.subprocess.run") as run:
+        _mock_popen(popen)
         oceanval._build_book("report")
 
-    assert len(run.call_args_list) == 2
-    execute_call, html_call = run.call_args_list
-
-    # the kernel-launching --execute call goes through _run_filtered, so it's
-    # captured (no `check` kwarg reaching the real subprocess.run) rather than
-    # streamed with check=True directly
-    assert execute_call == call(
+    # the kernel-launching --execute call goes through _run_filtered, which
+    # streams it with Popen so the kernel warning can be dropped
+    popen.assert_called_once_with(
         [
             "jupyter",
             "nbconvert",
@@ -100,13 +107,15 @@ def test_build_book_uses_offline_html_for_jupyter_book_2():
             "report/notebooks/example.ipynb",
             "report/notebooks/summary.ipynb",
         ],
-        capture_output=True,
+        stdout=oceanval.subprocess.PIPE,
+        stderr=oceanval.subprocess.STDOUT,
         text=True,
+        bufsize=1,
     )
 
     # the --to html conversion afterwards never starts a kernel, so it's left
     # as a plain streamed subprocess.run call, unfiltered
-    assert html_call == call(
+    run.assert_called_once_with(
         [
             "jupyter",
             "nbconvert",
