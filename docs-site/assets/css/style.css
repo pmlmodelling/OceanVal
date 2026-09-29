@@ -857,6 +857,16 @@ tbody tr.hidden-row { display: none; }
 .param-optional[open] > summary::after, .param-details[open] > summary::after { transform: rotate(-135deg); }
 .param-optional .param-list, .param-details .param-list { margin: 0.7em 0 0; }
 
+.docs-figure { margin: 1.6em 0; }
+.docs-figure img {
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+}
+.docs-figure figcaption { margin-top: 0.8em; color: var(--muted); font-size: 0.88rem; text-align: center; }
+
 .callout {
   border: 1px solid var(--line);
   border-left: 4px solid var(--teal-500);

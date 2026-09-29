@@ -1,0 +1,1390 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Create recipes · OceanVal</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%230f8f96'/%3E%3Cstop offset='1' stop-color='%23075c68'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='16' fill='url(%23g)'/%3E%3Cpath d='M10 40c6-8 12-8 18 0s12 8 18 0s8-8 8-8' fill='none' stroke='%23fff' stroke-width='4.5' stroke-linecap='round' opacity='.55'/%3E%3Cpath d='M8 30c6-9 13-9 19 0s13 9 19 0s10-9 10-9' fill='none' stroke='%23fff' stroke-width='5' stroke-linecap='round'/%3E%3C/svg%3E">
+<style>
+  /* OceanVal design tokens, as on pmlmodelling.github.io/OceanVal */
+  :root {
+    --ink: #0b2530;
+    --ink-soft: #123044;
+    --muted: #56717d;
+    --muted-light: #7c94a0;
+    --teal-50: #eafbfb;
+    --teal-100: #d7f0f0;
+    --teal-200: #a9dede;
+    --teal-400: #14a3ac;
+    --teal-500: #0f8f96;
+    --teal-600: #087f8c;
+    --teal-700: #075c68;
+    --teal-900: #0a2f38;
+    --coral: #d76b45;
+    --coral-dark: #b8532f;
+    --red: #c0392b;
+    --line: #dde8ea;
+    --line-soft: #ecf3f4;
+    --bg: #ffffff;
+    --bg-alt: #f4fafa;
+    --shadow-sm: 0 1px 2px rgba(10, 40, 48, 0.06);
+    --shadow-md: 0 8px 24px rgba(10, 40, 48, 0.08);
+    --shadow-lg: 0 20px 48px rgba(9, 41, 49, 0.16);
+    --radius-sm: 8px;
+    --radius-md: 14px;
+    --font-head: "Poppins", "Inter", "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Roboto, "Noto Sans", "Liberation Sans", Arial, sans-serif;
+    --font-body: "Inter", "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Roboto, "Noto Sans", "Liberation Sans", Arial, sans-serif;
+    --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, Consolas, "DejaVu Sans Mono", monospace;
+    --focus: 0 0 0 3px rgba(15, 143, 150, 0.28);
+  }
+
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  /* keeps whatever gets focus clear of the sticky action bar */
+  html { -webkit-text-size-adjust: 100%; scroll-padding-bottom: 96px; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-alt);
+    color: var(--ink);
+    font: 400 15px/1.5 var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  code { font-family: var(--font-mono); }
+  .wrap { width: 100%; max-width: 1320px; margin: 0 auto; padding: 0 32px; }
+
+  /* ---- header ---- */
+  .masthead {
+    position: relative;
+    overflow: hidden;
+    color: #fff;
+    background: linear-gradient(160deg, #08222a 0%, #0a3f49 45%, #0e6b74 100%);
+  }
+  .masthead__waves {
+    position: absolute;
+    right: -40px;
+    bottom: -30px;
+    width: 560px;
+    height: 220px;
+    opacity: 0.16;
+    pointer-events: none;
+  }
+  .masthead .wrap { position: relative; padding-top: 26px; padding-bottom: 28px; }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand__word {
+    font: 600 40px/1 var(--font-head);
+    letter-spacing: -0.6px;
+    color: #fff;
+  }
+  .brand__word span { color: #7fd6db; }
+  h1 {
+    margin: 18px 0 16px;
+    font: 600 30px/1.15 var(--font-head);
+    letter-spacing: -0.4px;
+  }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+  .meta li {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
+    max-width: 100%;
+    padding: 6px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.07);
+    font-size: 13px;
+  }
+  .meta li.is-flag { border-color: rgba(240, 160, 125, 0.55); background: rgba(215, 107, 69, 0.2); }
+  .meta__k {
+    color: rgba(255, 255, 255, 0.62);
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+  }
+  .meta__v { color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .meta__v.is-mono { font-family: var(--font-mono); font-size: 12.5px; }
+
+  /* ---- main ---- */
+  /* main.wrap, as .wrap's own padding would otherwise win */
+  main.wrap { flex: 1; padding-top: 28px; padding-bottom: 32px; }
+  .lede { max-width: 86ch; margin: 0 0 20px; color: var(--muted); text-wrap: pretty; }
+  .lede strong { color: var(--ink); font-weight: 600; }
+  .card {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
+  }
+  table { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; }
+  col.c-obs { width: 156px; }
+  col.c-model { width: 26.5%; }
+  col.c-point { width: 220px; }
+  thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    padding: 13px 16px;
+    background: #fbfdfd;
+    border-bottom: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-align: left;
+    text-transform: uppercase;
+  }
+  thead th:first-child { border-top-left-radius: var(--radius-md); }
+  thead th:last-child { border-top-right-radius: var(--radius-md); }
+  tbody td { padding: 14px 16px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+  tbody tr:last-child td { border-bottom: 0; }
+  tbody tr { transition: background-color 0.15s; }
+  tbody tr:hover { background: #fbfefe; }
+  tbody tr.is-empty { background: #fffcfa; }
+
+  .obs__title { display: block; padding-top: 8px; font-weight: 600; line-height: 1.25; }
+  .obs__key { display: block; margin-top: 3px; color: var(--muted-light); font-size: 12px; }
+
+  /* model variable */
+  /* sized by line-height and padding rather than a fixed height: with a fixed
+     height, Chromium clips DejaVu Sans Mono's underscores inside inputs */
+  .field__input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: var(--bg);
+    color: var(--ink);
+    font: 500 13.5px/20px var(--font-mono);
+    transition: border-color 0.15s, box-shadow 0.15s, background-color 0.15s;
+  }
+  .field__input::placeholder { color: var(--coral-dark); opacity: 0.75; font: italic 400 13.5px/20px var(--font-body); }
+  .field__input:hover { border-color: #c5d7da; }
+  .field__input:focus { outline: none; border-color: var(--teal-500); box-shadow: var(--focus); }
+  .is-empty .field__input { border-style: dashed; border-color: #e9b39c; background: #fffaf6; }
+  .is-invalid .field__input { border-color: var(--red); box-shadow: 0 0 0 3px rgba(192, 57, 43, 0.12); }
+  .field__input:disabled { background: var(--bg-alt); color: var(--muted); }
+  .field__msg { display: flex; gap: 6px; align-items: flex-start; margin: 6px 0 0; color: var(--muted); font-size: 12.5px; line-height: 1.4; }
+  .field__msg:empty { display: none; }
+  .is-empty .field__msg { color: var(--coral-dark); }
+  .is-invalid .field__msg { color: var(--red); }
+  .icon { display: inline-flex; flex: none; width: 15px; height: 15px; margin-top: 1px; }
+  .icon svg { width: 100%; height: 100%; }
+  .link {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--teal-700);
+    font: inherit;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+  }
+  .link:hover { color: var(--teal-900); }
+
+  /* datasets */
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 38px;
+    padding: 0 10px 0 9px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--bg);
+    color: var(--ink-soft);
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s;
+  }
+  .chip:hover { border-color: var(--teal-200); background: #f8fdfd; }
+  .chip.is-on { border-color: var(--teal-400); background: var(--teal-50); color: var(--teal-900); }
+  .chip.is-disabled { cursor: not-allowed; opacity: 0.42; background: var(--bg); border-color: var(--line); }
+  .chip input, input.tick {
+    -webkit-appearance: none;
+    appearance: none;
+    display: grid;
+    place-content: center;
+    flex: none;
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    border: 1.5px solid #9db4bb;
+    border-radius: 5px;
+    background: var(--bg);
+    cursor: inherit;
+    transition: background-color 0.12s, border-color 0.12s;
+  }
+  .chip input::after, input.tick::after {
+    content: "";
+    width: 10px;
+    height: 10px;
+    background: #fff;
+    clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+    transform: scale(0);
+    transition: transform 0.12s ease-in-out;
+  }
+  .chip input:checked, input.tick:checked { border-color: var(--teal-600); background: var(--teal-600); }
+  .chip input:checked::after, input.tick:checked::after { transform: scale(1); }
+  .chip input:focus-visible, input.tick:focus-visible { outline: none; box-shadow: var(--focus); }
+  input.tick { cursor: pointer; }
+  .chip__name { font-size: 13.5px; font-weight: 600; letter-spacing: 0.01em; }
+  .chip__region {
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: var(--line-soft);
+    color: var(--muted);
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+  }
+  .chip__region.is-domain { background: rgba(15, 143, 150, 0.13); color: var(--teal-700); }
+  .none { display: inline-block; padding-top: 8px; color: var(--muted-light); }
+
+  /* ---- global settings ---- */
+  .section-title { margin: 30px 0 6px; font: 600 18px/1.3 var(--font-head); letter-spacing: -0.2px; }
+  .settings > details > summary { list-style: none; }
+  .settings > details > summary::-webkit-details-marker { display: none; }
+  .settings__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 14px;
+    padding: 16px 22px;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    user-select: none;
+  }
+  .settings__head:focus-visible { outline: none; box-shadow: var(--focus); }
+  details[open] > .settings__head { border-bottom: 1px solid var(--line); border-radius: var(--radius-md) var(--radius-md) 0 0; }
+  .settings__title { font: 600 18px/1.3 var(--font-head); letter-spacing: -0.2px; }
+  .settings__sub { color: var(--muted); font-size: 13.5px; }
+  .settings__sub code { color: var(--ink-soft); font-size: 12.5px; }
+  .settings__changed {
+    align-self: center;
+    padding: 2px 9px;
+    border-radius: 999px;
+    background: rgba(15, 143, 150, 0.13);
+    color: var(--teal-700);
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .settings__chevron {
+    align-self: center;
+    width: 9px;
+    height: 9px;
+    margin-left: auto;
+    border-right: 2px solid var(--muted-light);
+    border-bottom: 2px solid var(--muted-light);
+    transform: rotate(45deg);
+    transition: transform 0.15s;
+  }
+  details[open] .settings__chevron { transform: rotate(-135deg); }
+  .settings__grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 26px 30px;
+    padding: 20px 22px 24px;
+  }
+  .group { min-width: 0; margin: 0; padding: 0; border: 0; }
+  .group legend {
+    margin-bottom: 10px;
+    padding: 0;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+  }
+  .settings__ticks { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px 24px; padding: 0 22px 20px; }
+  .g-row { display: block; }
+  .g-row + .g-row { margin-top: 10px; }
+  .g-note { color: var(--muted); font-weight: 400; }
+  .g-label { display: block; margin-bottom: 4px; color: var(--ink-soft); font-size: 12.5px; font-weight: 500; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .span-row { display: flex; align-items: center; gap: 6px; }
+  .span-row__label { flex: none; width: 30px; color: var(--ink-soft); font-size: 12.5px; font-weight: 500; }
+  .dash { flex: none; color: var(--muted-light); }
+  .ticks { display: flex; flex-wrap: wrap; gap: 8px 20px; }
+  .tick-label { display: flex; align-items: center; gap: 8px; color: var(--ink-soft); font-size: 13.5px; cursor: pointer; }
+  /* sized by line-height and padding, like the model variable boxes */
+  .s-input, .s-select {
+    width: 100%;
+    min-width: 0;
+    padding: 6px 10px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background-color: var(--bg);
+    color: var(--ink);
+    font: 400 13.5px/20px var(--font-body);
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .s-input.is-mono { font: 500 13px/20px var(--font-mono); }
+  .s-input.is-num { font-variant-numeric: tabular-nums; }
+  .s-input::placeholder { color: var(--muted-light); opacity: 1; font-family: var(--font-body); }
+  .s-select {
+    padding-right: 26px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: var(--bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%237c94a0' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 9px center / 10px 6px;
+    cursor: pointer;
+    text-overflow: ellipsis;
+  }
+  .s-input:hover, .s-select:hover { border-color: #c5d7da; }
+  .s-input:focus, .s-select:focus { outline: none; border-color: var(--teal-500); box-shadow: var(--focus); }
+  .s-input.is-invalid, .s-select.is-invalid { border-color: var(--red); box-shadow: 0 0 0 3px rgba(192, 57, 43, 0.12); }
+  .s-input:disabled, .s-select:disabled { background-color: var(--bg-alt); color: var(--muted); cursor: not-allowed; }
+  .s-select.is-default { color: var(--muted); }
+  .group__msg { display: grid; gap: 4px; margin: 10px 0 0; color: var(--muted); font-size: 12.5px; line-height: 1.4; }
+  .group__line { display: flex; gap: 6px; align-items: flex-start; }
+  .group__line.is-warn { color: var(--coral-dark); }
+  .group__msg:empty { display: none; }
+  .group__msg.is-error { color: var(--red); }
+  .group__msg.is-warn { color: var(--coral-dark); }
+
+  /* a point dataset's own options, under its tick-box */
+  .point { display: grid; gap: 8px; justify-items: start; }
+  .opts { display: grid; gap: 6px; width: 100%; }
+  .opts__row { display: grid; grid-template-columns: 50px minmax(0, 1fr); align-items: center; gap: 6px; }
+  .opts__label { color: var(--muted); font-size: 11.5px; font-weight: 500; }
+  .opts__years { display: flex; align-items: center; gap: 4px; }
+  .s-input.is-small, .s-select.is-small { padding-top: 4px; padding-bottom: 4px; font-size: 12.5px; }
+  .s-select.is-small { padding-right: 22px; background-position: right 7px center; }
+  .opts__vertical { font-size: 12.5px; }
+  .opts__msg { margin: 0; color: var(--red); font-size: 12px; line-height: 1.35; }
+  .opts__msg:empty { display: none; }
+
+  /* ---- action bar ---- */
+  .bar {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    border-top: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow: 0 -8px 24px rgba(10, 40, 48, 0.06);
+    -webkit-backdrop-filter: saturate(1.4) blur(10px);
+    backdrop-filter: saturate(1.4) blur(10px);
+  }
+  .bar .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 14px; padding-bottom: 14px; }
+  .summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 0; color: var(--muted); font-size: 14px; }
+  .summary b { color: var(--ink); font-weight: 700; }
+  .summary__dot { color: var(--line); }
+  .summary__warn { color: var(--red); font-weight: 600; }
+  .summary__warn.is-soft { color: var(--coral-dark); }
+  .actions { display: flex; flex: none; align-items: center; gap: 10px; }
+  .btn {
+    height: 40px;
+    padding: 0 18px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    font: 600 14px/1 var(--font-body);
+    cursor: pointer;
+    transition: background-color 0.15s, border-color 0.15s, box-shadow 0.15s, color 0.15s;
+  }
+  .btn:focus-visible { outline: none; box-shadow: var(--focus); }
+  .btn--primary {
+    min-width: 132px;
+    background: var(--teal-600);
+    color: #fff;
+    box-shadow: 0 1px 2px rgba(8, 127, 140, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  }
+  .btn--primary:hover { background: var(--teal-700); }
+  .btn--primary:disabled { background: #a9c5c9; box-shadow: none; cursor: not-allowed; }
+  .btn--ghost { border-color: var(--line); background: var(--bg); color: var(--ink-soft); }
+  .btn--ghost:hover { border-color: #c5d7da; background: var(--bg-alt); }
+  .btn--text { padding: 0 10px; background: none; color: var(--teal-700); }
+  .btn--text:hover { color: var(--teal-900); background: var(--teal-50); }
+  .btn:disabled { cursor: not-allowed; }
+
+  /* ---- finished ---- */
+  .done {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: rgba(236, 245, 246, 0.82);
+    -webkit-backdrop-filter: blur(5px);
+    backdrop-filter: blur(5px);
+  }
+  .done__card {
+    width: 100%;
+    max-width: 580px;
+    padding: 36px 36px 32px;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: var(--bg);
+    box-shadow: var(--shadow-lg);
+    text-align: center;
+  }
+  .done__icon {
+    display: grid;
+    place-items: center;
+    width: 58px;
+    height: 58px;
+    margin: 0 auto 16px;
+    border-radius: 50%;
+    background: var(--teal-50);
+    color: var(--teal-600);
+  }
+  .done__icon svg { width: 28px; height: 28px; }
+  .done__icon.is-off { background: var(--line-soft); color: var(--muted); }
+  .done__icon.is-warn { background: #fdf1ec; color: var(--coral-dark); }
+  .done h2 { margin: 0 0 8px; font: 600 22px/1.3 var(--font-head); }
+  .done p { margin: 0; color: var(--muted); text-wrap: balance; }
+  .done__label { margin-top: 20px !important; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+  .done code {
+    display: block;
+    margin-top: 6px;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--bg-alt);
+    color: var(--ink);
+    font-size: 13px;
+    text-align: left;
+    word-break: break-all;
+  }
+
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: 88px;
+    z-index: 30;
+    max-width: min(640px, calc(100% - 32px));
+    padding: 12px 16px;
+    border-radius: 10px;
+    background: var(--ink);
+    color: #fff;
+    box-shadow: var(--shadow-lg);
+    font-size: 14px;
+    transform: translateX(-50%);
+  }
+
+  @media (max-width: 1000px) {
+    .settings__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    col.c-obs { width: 150px; }
+    col.c-model { width: 28%; }
+    thead th, tbody td { padding-left: 14px; padding-right: 14px; }
+  }
+  @media (max-width: 760px) {
+    .wrap { padding: 0 16px; }
+    h1 { font-size: 25px; }
+    .meta__v { max-width: 58vw; }
+    table, tbody, tr, td { display: block; width: 100%; }
+    thead, colgroup { display: none; }
+    tbody tr { padding: 14px 16px 10px; border-bottom: 1px solid var(--line-soft); }
+    tbody tr:last-child { border-bottom: 0; }
+    tbody td { padding: 0 0 10px; border: 0; }
+    td[data-label]::before {
+      content: attr(data-label);
+      display: block;
+      margin-bottom: 6px;
+      color: var(--muted-light);
+      font-size: 10.5px;
+      font-weight: 600;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+    }
+    .settings__grid { grid-template-columns: 1fr; padding: 18px 16px 20px; }
+    .settings__head { padding: 14px 16px; }
+    .obs__title { padding-top: 0; }
+    .obs__key { display: inline; margin-left: 8px; }
+    .none { padding-top: 0; }
+    .bar .wrap { flex-direction: column; align-items: stretch; }
+    .actions { justify-content: flex-end; }
+  }
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <svg class="masthead__waves" viewBox="0 0 560 220" aria-hidden="true">
+    <path d="M0 150c47-40 93-40 140 0s93 40 140 0 93-40 140 0 93 40 140 0" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round"/>
+    <path d="M0 100c47-40 93-40 140 0s93 40 140 0 93-40 140 0 93 40 140 0" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round" opacity=".55"/>
+    <path d="M0 50c47-40 93-40 140 0s93 40 140 0 93-40 140 0 93 40 140 0" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round" opacity=".3"/>
+  </svg>
+  <div class="wrap">
+    <div class="brand">
+      <span class="brand__word">Ocean<span>Val</span></span>
+    </div>
+    <h1>Create recipes</h1>
+    <ul class="meta" id="meta" aria-label="Simulation"></ul>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="settings card" aria-labelledby="settings-title">
+    <details id="settings" open>
+      <summary class="settings__head">
+        <span class="settings__title" id="settings-title">Global settings</span>
+        <span class="settings__sub">Written into the script's <code>matchup()</code> and <code>validate()</code> calls</span>
+        <span class="settings__changed" id="settings-changed" hidden></span>
+        <span class="settings__chevron" aria-hidden="true"></span>
+      </summary>
+      <div class="settings__grid">
+        <fieldset class="group">
+          <legend>Years to validate</legend>
+          <div class="g-row pair">
+            <label><span class="g-label">Start</span><input class="s-input is-num" id="s-start" inputmode="numeric" spellcheck="false" autocomplete="off" autocapitalize="off"></label>
+            <label><span class="g-label">End</span><input class="s-input is-num" id="s-end" inputmode="numeric" spellcheck="false" autocomplete="off" autocapitalize="off"></label>
+          </div>
+          <p class="group__msg" id="g-years"></p>
+        </fieldset>
+        <fieldset class="group">
+          <legend>Spatial subset</legend>
+          <div class="g-row span-row">
+            <span class="span-row__label">Lon</span>
+            <input class="s-input is-num" id="s-lon_min" placeholder="min" aria-label="Minimum longitude" spellcheck="false" autocomplete="off" autocapitalize="off">
+            <span class="dash">–</span>
+            <input class="s-input is-num" id="s-lon_max" placeholder="max" aria-label="Maximum longitude" spellcheck="false" autocomplete="off" autocapitalize="off">
+          </div>
+          <div class="g-row span-row">
+            <span class="span-row__label">Lat</span>
+            <input class="s-input is-num" id="s-lat_min" placeholder="min" aria-label="Minimum latitude" spellcheck="false" autocomplete="off" autocapitalize="off">
+            <span class="dash">–</span>
+            <input class="s-input is-num" id="s-lat_max" placeholder="max" aria-label="Maximum latitude" spellcheck="false" autocomplete="off" autocapitalize="off">
+          </div>
+          <p class="group__msg" id="g-subset"></p>
+        </fieldset>
+        <fieldset class="group">
+          <legend>Output</legend>
+          <label class="g-row"><span class="g-label">Directory</span><input class="s-input is-mono" id="s-out_dir" placeholder="Where you run the script" spellcheck="false" autocomplete="off" autocapitalize="off"></label>
+          <p class="group__msg" id="g-output"></p>
+        </fieldset>
+        <fieldset class="group">
+          <legend>Model data</legend>
+          <label class="g-row"><span class="g-label">Thickness</span><input class="s-input is-mono" id="s-thickness" list="thickness-options" spellcheck="false" autocomplete="off" autocapitalize="off"></label>
+          <div class="g-row">
+            <span class="g-label">Treat as missing</span>
+            <div class="span-row">
+              <input class="s-input is-num" id="s-missing_from" placeholder="value" aria-label="Treat as missing: the value, or the start of a range" spellcheck="false" autocomplete="off" autocapitalize="off">
+              <span class="dash">–</span>
+              <input class="s-input is-num" id="s-missing_to" placeholder="to" aria-label="Treat as missing: the end of a range" spellcheck="false" autocomplete="off" autocapitalize="off">
+            </div>
+          </div>
+          <p class="group__msg" id="g-model"></p>
+        </fieldset>
+        <fieldset class="group">
+          <legend>Point data</legend>
+          <label class="g-row"><span class="g-label">Match observations by</span><select class="s-select" id="s-point_time_res"></select></label>
+          <p class="group__msg" id="g-point"></p>
+        </fieldset>
+        <fieldset class="group">
+          <legend>Matchup</legend>
+          <label class="g-row"><span class="g-label">Cores</span><input class="s-input is-num" id="s-cores" inputmode="numeric" spellcheck="false" autocomplete="off" autocapitalize="off"></label>
+          <p class="group__msg" id="g-matchup"></p>
+        </fieldset>
+        <fieldset class="group">
+          <legend>File filters</legend>
+          <label class="g-row"><span class="g-label">Skip file names containing <span class="g-note">(separate words with a space)</span></span><input class="s-input is-mono" id="s-exclude" placeholder="e.g. restart 5d" spellcheck="false" autocomplete="off" autocapitalize="off"></label>
+          <label class="g-row"><span class="g-label">Only file names containing <span class="g-note">(separate words with a space)</span></span><input class="s-input is-mono" id="s-require" placeholder="e.g. grid_T" spellcheck="false" autocomplete="off" autocapitalize="off"></label>
+          <p class="group__msg" id="g-files"></p>
+        </fieldset>
+        <fieldset class="group">
+          <legend>Additional reports</legend>
+          <div class="g-row ticks">
+            <label class="tick-label"><input type="checkbox" class="tick" id="s-pdf">PDF</label>
+            <label class="tick-label"><input type="checkbox" class="tick" id="s-word">Word</label>
+          </div>
+          <label class="g-row"><span class="g-label">Regional summaries</span>
+            <select class="s-select" id="s-subregions">
+              <option value="">None</option>
+              <option value="nwes">Northwest European Shelf</option>
+              <option value="global">Global</option>
+              <option value="file">A .nc file of your own…</option>
+            </select>
+          </label>
+          <label class="g-row" id="row-subregions_file" hidden><span class="g-label">Path to the file</span><input class="s-input is-mono" id="s-subregions_file" placeholder="/path/to/regions.nc" spellcheck="false" autocomplete="off" autocapitalize="off"></label>
+          <p class="group__msg" id="g-report"></p>
+        </fieldset>
+      </div>
+      <div class="settings__ticks">
+        <label class="tick-label"><input type="checkbox" class="tick" id="s-overwrite">Overwrite existing matchups</label>
+        <label class="tick-label"><input type="checkbox" class="tick" id="s-ask">Ask before matching</label>
+      </div>
+    </details>
+  </section>
+
+  <h2 class="section-title">Variables</h2>
+  <p class="lede" id="lede"></p>
+  <div class="card">
+    <table>
+      <colgroup><col class="c-obs"><col class="c-model"><col class="c-gridded"><col class="c-point"></colgroup>
+      <thead>
+        <tr>
+          <th scope="col">Observational variable</th>
+          <th scope="col">Model variable</th>
+          <th scope="col">Gridded datasets</th>
+          <th scope="col">Point datasets</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+</main>
+
+<footer class="bar">
+  <div class="wrap">
+    <p class="summary" id="summary" aria-live="polite"></p>
+    <div class="actions">
+      <button type="button" class="btn btn--text" id="reset" hidden>Reset</button>
+      <button type="button" class="btn btn--ghost" id="cancel">Cancel</button>
+      <button type="button" class="btn btn--primary" id="write">Write script</button>
+    </div>
+  </div>
+</footer>
+
+<div class="done" id="done" hidden>
+  <div class="done__card" role="dialog" aria-modal="true" aria-labelledby="done-title">
+    <div class="done__icon" id="done-icon"></div>
+    <h2 id="done-title" tabindex="-1"></h2>
+    <p id="done-text"></p>
+    <div id="done-extra"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" hidden></div>
+<datalist id="model-variables"></datalist>
+<datalist id="thickness-options"></datalist>
+
+<script type="application/json" id="state">__OCEANVAL_STATE__</script>
+<script>
+(() => {
+  "use strict";
+
+  const state = JSON.parse(document.getElementById("state").textContent);
+  const context = state.context;
+  const available = new Set(state.available);
+
+  const ICONS = {
+    warn: '<svg viewBox="0 0 20 20"><path d="M10 2.6 1.9 16.8h16.2L10 2.6Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M10 8v3.8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="10" cy="14.2" r="1" fill="currentColor"/></svg>',
+    error: '<svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="7.6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="m7.4 7.4 5.2 5.2m0-5.2-5.2 5.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+    check: '<svg viewBox="0 0 24 24"><path d="m5 12.5 4.3 4.3L19 7.2" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    cross: '<svg viewBox="0 0 24 24"><path d="m7 7 10 10M17 7 7 17" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>',
+  };
+
+  const $ = (id) => document.getElementById(id);
+
+  function el(tag, props, ...children) {
+    const node = document.createElement(tag);
+    for (const [key, value] of Object.entries(props || {})) {
+      if (value === null || value === undefined || value === false) continue;
+      if (key === "class") node.className = value;
+      else if (key === "text") node.textContent = value;
+      else if (key === "html") node.innerHTML = value; // only ever one of ICONS
+      else if (key.startsWith("on")) node.addEventListener(key.slice(2), value);
+      else node.setAttribute(key, value === true ? "" : String(value));
+    }
+    for (const child of children) {
+      if (child !== null && child !== undefined && child !== false) node.append(child);
+    }
+    return node;
+  }
+
+  const icon = (name) => el("span", { class: "icon", "aria-hidden": "true", html: ICONS[name] });
+
+  // long paths keep their start and their file name
+  function shorten(text, max = 56) {
+    if (text.length <= max) return text;
+    const head = Math.floor((max - 1) * 0.35);
+    return text.slice(0, head) + "…" + text.slice(text.length - (max - 1 - head));
+  }
+
+  function plural(count, word) {
+    return `${count} ${word}${count === 1 ? "" : "s"}`;
+  }
+
+  // ---- header ----
+  const meta = $("meta");
+  function metaItem(key, value, options = {}) {
+    meta.append(
+      el("li", { class: options.flag ? "is-flag" : null, title: options.title || value },
+        el("span", { class: "meta__k", text: key }),
+        el("span", { class: "meta__v" + (options.mono ? " is-mono" : ""), text: options.mono ? shorten(value) : value }))
+    );
+  }
+  metaItem("Simulation", context.simdir, { mono: true });
+  metaItem("Files", context.ndown === 0 ? "in the directory itself"
+    : `${context.ndown} director${context.ndown === 1 ? "y" : "ies"} down`);
+  metaItem("Domain", context.region);
+  metaItem("Years", context.start === context.end ? String(context.start) : `${context.start}–${context.end}`);
+  if (context.fvcom) {
+    metaItem("Model", "Raw FVCOM", {
+      flag: true,
+      title: "Read with xarray, and the script's matchup call is given fvcom=True",
+    });
+  }
+  metaItem("Output", context.out, { mono: true });
+
+  $("lede").append(
+    "Check the model variable matched to each observational variable, and tick the datasets " +
+    "to validate it against. Each row starts with the datasets OceanVal would use for the ",
+    el("strong", { text: context.region }),
+    " domain ticked. Anything left unticked is still written to the script, commented out, " +
+    "so it can be switched on later."
+  );
+
+  $("model-variables").append(...state.available.map((name) => el("option", { value: name })));
+
+  // ---- global settings ----
+  const form = { ...state.settings };
+  const initialForm = { ...state.settings };
+  // what create_recipes found wrong with the last Write, until the box changes
+  const serverErrors = {};
+  const GROUPS = {
+    years: ["start", "end"],
+    subset: ["lon_min", "lon_max", "lat_min", "lat_max"],
+    output: ["out_dir", "overwrite"],
+    model: ["thickness", "missing_from", "missing_to"],
+    point: ["point_time_res"],
+    matchup: ["cores", "ask"],
+    files: ["exclude", "require"],
+    report: ["pdf", "word", "subregions", "subregions_file"],
+  };
+  const FIELDS = Object.values(GROUPS).flat();
+  // each setting as the boxes it is made of, so changes and problems are
+  // counted per setting rather than per box
+  const SETTINGS = [
+    ["start"], ["end"], GROUPS.subset, ["out_dir"], ["overwrite"], ["thickness"],
+    ["missing_from", "missing_to"], ["point_time_res"], ["cores"], ["ask"],
+    ["exclude"], ["require"], ["pdf"], ["word"], ["subregions", "subregions_file"],
+  ];
+  const BOOLEANS = new Set(["overwrite", "ask", "pdf", "word"]);
+  const timeRes = new Map(state.time_res_options.map((option) => [option.value, option]));
+  const field = (name) => $(`s-${name}`);
+
+  field("point_time_res").append(...state.time_res_options.map((option) =>
+    el("option", { value: option.value, text: option.label })));
+  $("thickness-options").append(
+    el("option", { value: "z_level" }), ...state.available.map((name) => el("option", { value: name })));
+  if (context.fvcom) {
+    // matchup regrids FVCOM output onto z-levels, over the mesh's extent
+    field("thickness").disabled = true;
+    field("thickness").placeholder = "z_level";
+    for (const name of GROUPS.subset) {
+      field(name).placeholder = name.endsWith("min") ? "mesh min" : "mesh max";
+    }
+  }
+
+  function setControl(name) {
+    const control = field(name);
+    if (BOOLEANS.has(name)) control.checked = Boolean(form[name]);
+    else if (control.value !== String(form[name])) control.value = form[name];
+    // a long path can be wider than its box
+    if (control.tagName === "INPUT" && !BOOLEANS.has(name)) control.title = control.value;
+  }
+
+  for (const name of FIELDS) {
+    const control = field(name);
+    setControl(name);
+    const event = BOOLEANS.has(name) || control.tagName === "SELECT" ? "change" : "input";
+    control.addEventListener(event, () => {
+      form[name] = BOOLEANS.has(name) ? control.checked : control.value;
+      setControl(name);
+      delete serverErrors[name];
+      summarise();
+    });
+  }
+
+  const isInteger = (text) => /^[+-]?\d+$/.test(String(text).trim());
+  function toNumber(text) {
+    const trimmed = String(text).trim();
+    if (trimmed === "") return null;
+    const value = Number(trimmed);
+    return Number.isFinite(value) ? value : NaN;
+  }
+  const knownYears = () =>
+    isInteger(form.start) && isInteger(form.end) && +form.start <= +form.end
+      ? [+form.start, +form.end] : null;
+
+  // the same rules create_recipes applies, so most problems show as you type
+  function settingErrors() {
+    const errors = {};
+    for (const name of ["start", "end"]) {
+      if (!isInteger(form[name])) errors[name] = `${name === "start" ? "Start" : "End"} must be a year, e.g. 2011.`;
+    }
+    if (!errors.start && !errors.end && +form.end < +form.start) errors.end = "End must not be before start.";
+
+    const given = GROUPS.subset.filter((name) => String(form[name]).trim());
+    for (const name of given) {
+      if (Number.isNaN(toNumber(form[name]))) errors[name] = "Limits must be numbers.";
+    }
+    if (given.length && given.length < GROUPS.subset.length) {
+      for (const name of GROUPS.subset) {
+        if (!given.includes(name)) errors[name] = "Fill in all four limits, or leave them all empty.";
+      }
+    } else if (given.length && !GROUPS.subset.some((name) => errors[name])) {
+      for (const [axis, low, high, label] of [["lon", -180, 360, "Longitude"], ["lat", -90, 90, "Latitude"]]) {
+        const first = toNumber(form[`${axis}_min`]);
+        const last = toNumber(form[`${axis}_max`]);
+        if (first < low || last > high) errors[`${axis}_min`] = `${label} must be between ${low} and ${high}.`;
+        else if (first >= last) errors[`${axis}_max`] = `The maximum ${label.toLowerCase()} must be more than the minimum.`;
+      }
+    }
+
+    // a path can only be checked by create_recipes, when the script is written
+    const thickness = String(form.thickness).trim();
+    if (thickness && !context.fvcom && !/^z[ _-]level$/.test(thickness)
+        && !available.has(thickness) && !/[\/~.]/.test(thickness)) {
+      errors.thickness = "Not a variable in the model output, or a file that exists.";
+    }
+
+    const low = String(form.missing_from).trim();
+    const high = String(form.missing_to).trim();
+    if (low || high) {
+      const first = toNumber(low);
+      const last = toNumber(high);
+      if (!low) errors.missing_from = "Fill in the value, or the start of a range.";
+      else if (Number.isNaN(first)) errors.missing_from = "This must be a number.";
+      else if (high && Number.isNaN(last)) errors.missing_to = "This must be a number.";
+      else if (high && last < first) errors.missing_to = "The end of the range must not be less than its start.";
+    }
+
+    if (form.subregions === "file") {
+      const path = String(form.subregions_file).trim();
+      if (!path) errors.subregions_file = "Enter the path to a .nc file.";
+      else if (!path.endsWith(".nc")) errors.subregions_file = "This must be a .nc file.";
+    }
+
+    if (!isInteger(form.cores) || +form.cores < 1) errors.cores = "Cores must be a whole number, 1 or more.";
+    return errors;
+  }
+
+  function woa23Hint() {
+    const used = rows.some((row) => row.status === "ok" && ["temperature", "salinity"].includes(row.variable)
+      && row.datasets.some((dataset) => dataset.recipe === "woa23" && dataset.checked));
+    const years = knownYears();
+    if (!used || !years) return null;
+    const period = state.woa23_periods.find(([first, last]) => years[0] >= first && years[1] <= last);
+    if (period) return { text: `WOA23 temperature and salinity use its ${period[0]}–${period[1]} climatology.` };
+    return {
+      text: `No WOA23 decade covers ${years[0]}–${years[1]}, so the script asks you to choose one for temperature and salinity.`,
+      warn: true,
+    };
+  }
+
+  // the lines shown under a group when nothing in it needs fixing
+  function groupHints(group) {
+    switch (group) {
+      case "years": {
+        const hints = [{ text: "This can be overridden for each point observation below." }];
+        const warning = woa23Hint();
+        return warning ? [...hints, warning] : hints;
+      }
+      case "subset":
+        return [{ text: "Optional: only model output and observations inside this box are matched up. "
+          + (context.fvcom ? "Empty: the extent of the FVCOM mesh." : "Empty: the whole domain.") }];
+      case "output":
+        return [{ text: "Empty: the directory you run the script from. The report is built there too." }];
+      case "model": {
+        const hints = [{ text: context.fvcom
+          ? "FVCOM output is regridded onto z-levels, so no thickness is needed. Treat as missing: one value, or everything in a range."
+          : "Thickness: z_level, a cell thickness variable or a file, only used by recipes with vertical=True. Treat as missing: one value, or everything in a range." }];
+        const vertical = rows.some((row) => row.status === "ok" && row.datasets.some(
+          (dataset) => dataset.kind === "point" && dataset.checked && dataset.opts.vertical));
+        if (vertical && !context.fvcom && !String(form.thickness).trim()) {
+          hints.push({ text: "A point dataset is set to Vertical, so matchup needs a thickness.", warn: true });
+        }
+        return hints;
+      }
+      case "point": {
+        const option = timeRes.get(form.point_time_res);
+        return [{ text: `${option ? option.hint + ". " : ""}Each point dataset below can override this.` }];
+      }
+      case "matchup":
+        return [{ text: `This machine has ${state.cpu_count} cores. Untick Ask to run the script as a batch job, e.g. with SLURM.` }];
+      case "files":
+        return [{ text: "Only file names are checked, not directories." }];
+      default:
+        return [];
+    }
+  }
+
+  // marks each box and shows each group's error or hint; returns how many
+  // boxes need fixing
+  function refreshSettings() {
+    const errors = { ...settingErrors(), ...serverErrors };
+    $("row-subregions_file").hidden = form.subregions !== "file";
+    for (const [group, names] of Object.entries(GROUPS)) {
+      for (const name of names) {
+        field(name).classList.toggle("is-invalid", Boolean(errors[name]));
+        field(name).setAttribute("aria-invalid", String(Boolean(errors[name])));
+      }
+      const msg = $(`g-${group}`);
+      const problems = [...new Set(names.filter((name) => errors[name]).map((name) => errors[name]))];
+      if (problems.length) {
+        msg.className = "group__msg is-error";
+        msg.replaceChildren(...problems.map((text) =>
+          el("span", { class: "group__line" }, icon("error"), el("span", { text }))));
+        continue;
+      }
+      msg.className = "group__msg";
+      msg.replaceChildren(...groupHints(group).map((hint) =>
+        el("span", { class: "group__line" + (hint.warn ? " is-warn" : "") },
+          hint.warn ? icon("warn") : null, el("span", { text: hint.text }))));
+    }
+    const count = SETTINGS.filter((names) => names.some((name) => form[name] !== initialForm[name])).length;
+    $("settings-changed").hidden = count === 0;
+    $("settings-changed").textContent = `${count} changed`;
+    return SETTINGS.filter((names) => names.some((name) => errors[name])).length;
+  }
+
+  // ---- rows ----
+  const rows = state.rows.map((row) => ({
+    ...row,
+    original: row.model_variable,
+    value: row.model_variable,
+    status: "ok",
+    message: "",
+    // an unidentified row takes its default ticks once it is filled in
+    needsDefaults: !row.model_variable,
+    datasets: row.gridded
+      .map((dataset) => ({ ...dataset, kind: "gridded", checked: dataset.ticked }))
+      .concat(row.point.map((dataset) => ({
+        ...dataset,
+        kind: "point",
+        checked: dataset.ticked,
+        opts: { point_time_res: "", start: "", end: "", vertical: false },
+        serverErrors: {},
+      }))),
+  }));
+
+  function check(value) {
+    const text = value.trim();
+    if (!text) return { status: "empty", message: "" };
+    const names = text.split("+").map((name) => name.trim());
+    if (names.some((name) => !name)) {
+      return { status: "invalid", message: "Remove the empty name beside “+”." };
+    }
+    const unknown = names.filter((name) => !available.has(name));
+    if (unknown.length) {
+      const list = unknown.length === 1 ? unknown[0]
+        : unknown.slice(0, -1).join(", ") + " and " + unknown[unknown.length - 1];
+      return { status: "invalid", message: `${list} ${unknown.length === 1 ? "is" : "are"} not in the model output.` };
+    }
+    return { status: "ok", message: "" };
+  }
+
+  function setValue(row, value) {
+    row.value = value;
+    Object.assign(row, check(value));
+    if (row.status === "empty") {
+      row.datasets.forEach((dataset) => { dataset.checked = false; });
+      row.needsDefaults = true;
+    } else if (row.status === "ok" && row.needsDefaults) {
+      row.datasets.forEach((dataset) => { dataset.checked = dataset.default; });
+      row.needsDefaults = false;
+    }
+    update(row);
+    summarise();
+  }
+
+  function undo(row) {
+    return el("button", {
+      type: "button",
+      class: "link",
+      text: "Undo",
+      onclick: () => { setValue(row, row.original); row.dom.input.focus(); },
+    });
+  }
+
+  function message(row) {
+    const edited = row.value.trim() !== row.original;
+    if (row.status === "invalid") {
+      return [icon("error"), el("span", {}, row.message + " ", row.original ? undo(row) : null)];
+    }
+    if (row.status === "empty") {
+      if (row.original) {
+        return [icon("warn"), el("span", {}, `Cleared, so its datasets are off. It was ${row.original}. `, undo(row))];
+      }
+      return [icon("warn"), el("span", { text: "Not identified. Type or pick a model variable to use its datasets." })];
+    }
+    if (edited) {
+      const was = row.original ? `Changed from ${row.original}. ` : "Not identified automatically. ";
+      return [el("span", {}, was, undo(row))];
+    }
+    return [];
+  }
+
+  function update(row) {
+    const { tr, input, msg, chips } = row.dom;
+    if (input.value !== row.value) input.value = row.value;
+    input.title = row.value;
+    tr.classList.toggle("is-empty", row.status === "empty");
+    tr.classList.toggle("is-invalid", row.status === "invalid");
+    input.setAttribute("aria-invalid", String(row.status === "invalid"));
+    const locked = row.status !== "ok";
+    for (const chip of chips) {
+      chip.box.checked = chip.dataset.checked;
+      chip.box.disabled = locked;
+      chip.label.classList.toggle("is-on", chip.dataset.checked && !locked);
+      chip.label.classList.toggle("is-disabled", locked);
+      if (chip.opts) refreshOptions(row, chip);
+    }
+    msg.replaceChildren(...message(row));
+  }
+
+  function pointErrors(dataset) {
+    const errors = { ...dataset.serverErrors };
+    const opts = dataset.opts;
+    for (const name of ["start", "end"]) {
+      if (String(opts[name]).trim() && !isInteger(opts[name])) errors[name] = "Years must be whole numbers.";
+    }
+    if (Object.keys(errors).length) return errors;
+    const start = String(opts.start).trim() ? +opts.start : null;
+    const end = String(opts.end).trim() ? +opts.end : null;
+    const years = knownYears();
+    const missed = years ? `These years miss the ${years[0]}–${years[1]} being matched up.` : "";
+    if (start !== null && end !== null && start > end) errors.end = "To must not be before From.";
+    else if (years && start !== null && start > years[1]) errors.start = missed;
+    else if (years && end !== null && end < years[0]) errors.end = missed;
+    return errors;
+  }
+
+  // shows a ticked point dataset's options; returns whether they need fixing
+  function refreshOptions(row, chip) {
+    const { dataset, opts } = chip;
+    const shown = row.status === "ok" && dataset.checked;
+    opts.block.hidden = !shown;
+    for (const [name, control] of Object.entries(opts.controls)) {
+      if (name === "vertical") control.checked = dataset.opts.vertical;
+      else if (control.value !== dataset.opts[name]) control.value = dataset.opts[name];
+    }
+    const select = opts.controls.point_time_res;
+    const own = timeRes.get(dataset.opts.point_time_res);
+    const global = timeRes.get(form.point_time_res);
+    select.classList.toggle("is-default", !own);
+    select.title = own ? own.hint : `As in the global settings: ${global ? global.label : ""}`;
+    const errors = shown ? pointErrors(dataset) : {};
+    for (const [name, control] of Object.entries(opts.controls)) {
+      control.classList.toggle("is-invalid", Boolean(errors[name]));
+    }
+    opts.msg.textContent = Object.values(errors)[0] || "";
+    return Object.keys(errors).length > 0;
+  }
+
+  function buildOptions(row, dataset) {
+    const name = `${dataset.label} observations for ${row.title}`;
+    const select = el("select", { class: "s-select is-small", "aria-label": `Match ${name} by` },
+      el("option", { value: "", text: "Global setting" }),
+      ...state.time_res_options.map((option) => el("option", { value: option.value, text: option.label })));
+    const [from, to] = ["start", "end"].map((key) => el("input", {
+      class: "s-input is-num is-small",
+      inputmode: "numeric",
+      placeholder: key === "start" ? "from" : "to",
+      spellcheck: "false",
+      autocomplete: "off",
+      "aria-label": `${key === "start" ? "First" : "Last"} year of ${name}`,
+    }));
+    const vertical = el("input", {
+      type: "checkbox",
+      class: "tick",
+      "aria-label": `Validate ${name} through the full water column`,
+    });
+    const controls = { point_time_res: select, start: from, end: to, vertical };
+    for (const [key, control] of Object.entries(controls)) {
+      control.addEventListener(control === select || control === vertical ? "change" : "input", () => {
+        dataset.opts[key] = control === vertical ? control.checked : control.value;
+        delete dataset.serverErrors[key];
+        summarise();
+      });
+    }
+    const msg = el("p", { class: "opts__msg" });
+    const block = el("div", { class: "opts" },
+      el("div", { class: "opts__row" }, el("span", { class: "opts__label", text: "Match by" }), select),
+      el("div", { class: "opts__row" }, el("span", { class: "opts__label", text: "Years" }),
+        el("span", { class: "opts__years" }, from, el("span", { class: "dash", text: "–" }), to)),
+      el("label", {
+        class: "tick-label opts__vertical",
+        title: "Validate the full water column. Unticked is surface-only.",
+      }, vertical, "Vertical"),
+      msg);
+    return { block, controls, msg };
+  }
+
+  function buildChip(row, dataset) {
+    const box = el("input", {
+      type: "checkbox",
+      "aria-label": `${dataset.label}, ${dataset.region_name}, for ${row.title}`,
+    });
+    box.addEventListener("change", () => {
+      dataset.checked = box.checked;
+      update(row);
+      summarise();
+    });
+    const label = el("label", {
+      class: "chip",
+      title: [dataset.source, dataset.region_name, dataset.details].filter(Boolean).join("\n"),
+    },
+      box,
+      el("span", { class: "chip__name", text: dataset.label }),
+      el("span", {
+        class: "chip__region" + (dataset.region_name === context.region ? " is-domain" : ""),
+        text: dataset.region,
+      }));
+    const opts = dataset.kind === "point" ? buildOptions(row, dataset) : null;
+    return { dataset, box, label, opts };
+  }
+
+  function datasetsCell(label, chips, emptyTitle) {
+    return el("td", { "data-label": label },
+      chips.length
+        ? el("div", { class: "chips" }, ...chips.map((chip) =>
+          chip.opts ? el("div", { class: "point" }, chip.label, chip.opts.block) : chip.label))
+        : el("span", { class: "none", title: emptyTitle, "aria-label": emptyTitle, text: "—" }));
+  }
+
+  function buildRow(row) {
+    const input = el("input", {
+      class: "field__input",
+      type: "text",
+      list: "model-variables",
+      value: row.value,
+      placeholder: "Not identified",
+      spellcheck: "false",
+      autocomplete: "off",
+      autocapitalize: "off",
+      "aria-label": `Model variable for ${row.title}`,
+      "aria-describedby": `message-${row.variable}`,
+    });
+    input.addEventListener("input", () => setValue(row, input.value));
+    const msg = el("p", { class: "field__msg", id: `message-${row.variable}` });
+    const chips = row.datasets.map((dataset) => buildChip(row, dataset));
+    const tr = el("tr", {},
+      el("td", {},
+        el("span", { class: "obs__title", text: row.title }),
+        row.variable === row.title.toLowerCase() ? null : el("code", { class: "obs__key", text: row.variable })),
+      el("td", { "data-label": "Model variable" }, input, msg),
+      datasetsCell("Gridded datasets", chips.filter((chip) => chip.dataset.kind === "gridded"),
+        `No gridded dataset for ${row.title}`),
+      datasetsCell("Point datasets", chips.filter((chip) => chip.dataset.kind === "point"),
+        `No point dataset for ${row.title}`));
+    row.dom = { tr, input, msg, chips };
+    return tr;
+  }
+
+  const tbody = $("rows");
+  for (const row of rows) {
+    tbody.append(buildRow(row));
+    Object.assign(row, check(row.value));
+    update(row);
+  }
+
+  // ---- summary and actions ----
+  const writeButton = $("write");
+  const cancelButton = $("cancel");
+  const resetButton = $("reset");
+  let busy = false;
+
+  const changed = () =>
+    FIELDS.some((name) => form[name] !== initialForm[name])
+    || rows.some((row) => row.value.trim() !== row.original || row.datasets.some((dataset) =>
+      dataset.checked !== dataset.ticked
+      || (dataset.opts && Object.values(dataset.opts).some(
+        (value) => value === true || (typeof value === "string" && value.trim())))));
+
+  function summarise() {
+    const matched = rows.filter((row) => row.status === "ok");
+    const comparisons = matched.reduce(
+      (count, row) => count + row.datasets.filter((dataset) => dataset.checked).length, 0);
+    const invalid = rows.filter((row) => row.status === "invalid").length;
+    let settingsToFix = refreshSettings();
+    for (const row of rows) {
+      for (const chip of row.dom.chips) {
+        if (chip.opts && refreshOptions(row, chip)) settingsToFix += 1;
+      }
+    }
+    const parts = [
+      el("span", {}, el("b", { text: String(matched.length) }), ` of ${rows.length} variables matched`),
+      el("span", {}, el("b", { text: String(comparisons) }), ` comparison${comparisons === 1 ? "" : "s"} selected`),
+    ];
+    if (invalid) {
+      parts.push(el("span", { class: "summary__warn", text: `${plural(invalid, "model variable")} to fix` }));
+    }
+    if (settingsToFix) {
+      parts.push(el("span", { class: "summary__warn", text: `${plural(settingsToFix, "setting")} to fix` }));
+    }
+    if (!invalid && !settingsToFix && !comparisons) {
+      parts.push(el("span", { class: "summary__warn is-soft", text: "Nothing ticked, so every recipe will be commented out" }));
+    }
+    const summary = $("summary");
+    summary.replaceChildren();
+    parts.forEach((part, index) => {
+      if (index) summary.append(el("span", { class: "summary__dot", "aria-hidden": "true", text: "•" }));
+      summary.append(part);
+    });
+    writeButton.disabled = busy || invalid > 0 || settingsToFix > 0;
+    writeButton.title = invalid || settingsToFix ? "Fix what is marked in red first" : `Write ${context.out}`;
+    resetButton.hidden = busy || !changed();
+  }
+
+  function setBusy(value) {
+    busy = value;
+    cancelButton.disabled = value;
+    writeButton.textContent = value ? "Writing…" : "Write script";
+    summarise();
+  }
+
+  let toastTimer = null;
+  function toast(text) {
+    const node = $("toast");
+    node.textContent = text;
+    node.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { node.hidden = true; }, 7000);
+  }
+
+  async function post(path, body) {
+    const response = await fetch(path, {
+      method: "POST",
+      cache: "no-store",
+      headers: { "Content-Type": "application/json", "X-OceanVal-Token": state.token },
+      body: JSON.stringify(body),
+    });
+    try {
+      return await response.json();
+    } catch (error) {
+      return { ok: false, error: `create_recipes sent back an unexpected reply (${response.status}).` };
+    }
+  }
+
+  function finish(kind, out) {
+    document.querySelectorAll("input, button, select").forEach((control) => { control.disabled = true; });
+    const iconBox = $("done-icon");
+    const extra = $("done-extra");
+    extra.replaceChildren();
+    let title;
+    let text;
+    if (kind === "written") {
+      iconBox.className = "done__icon";
+      iconBox.innerHTML = ICONS.check;
+      title = "Script written";
+      text = "create_recipes has finished, so you can close this tab.";
+      const command = /\s/.test(out) ? `python "${out}"` : `python ${out}`;
+      extra.append(
+        el("p", { class: "done__label", text: "Written to" }), el("code", { text: out }),
+        el("p", { class: "done__label", text: "Next, run it" }), el("code", { text: command }));
+    } else if (kind === "cancelled") {
+      iconBox.className = "done__icon is-off";
+      iconBox.innerHTML = ICONS.cross;
+      title = "Cancelled";
+      text = "Nothing was written, and create_recipes has finished. You can close this tab.";
+    } else {
+      iconBox.className = "done__icon is-warn";
+      iconBox.innerHTML = ICONS.warn;
+      title = "create_recipes has stopped";
+      text = "It is no longer waiting for this page, so nothing can be written from it. " +
+        "Run create_recipes again to start over.";
+    }
+    $("done-title").textContent = title;
+    $("done-text").textContent = text;
+    $("done").hidden = false;
+    $("done-title").focus();
+  }
+
+  writeButton.addEventListener("click", async () => {
+    if (busy || writeButton.disabled) return;
+    setBusy(true);
+    const payload = {
+      settings: form,
+      rows: rows.map((row) => {
+        const ok = row.status === "ok";
+        const point = {};
+        for (const dataset of row.datasets) {
+          if (ok && dataset.kind === "point" && dataset.checked) point[dataset.recipe] = dataset.opts;
+        }
+        return {
+          variable: row.variable,
+          model_variable: ok ? row.value.trim() : "",
+          selected: ok ? row.datasets.filter((dataset) => dataset.checked).map((dataset) => dataset.recipe) : [],
+          point,
+        };
+      }),
+    };
+    let reply;
+    try {
+      reply = await post("/write", payload);
+    } catch (error) {
+      finish("gone");
+      return;
+    }
+    if (reply.ok) {
+      finish("written", reply.out);
+      return;
+    }
+    setBusy(false);
+    const rowErrors = reply.errors || {};
+    const settingProblems = reply.setting_errors || {};
+    const pointProblems = reply.point_errors || {};
+    if ([rowErrors, settingProblems, pointProblems].some((errors) => Object.keys(errors).length)) {
+      Object.assign(serverErrors, settingProblems);
+      for (const [variable, byRecipe] of Object.entries(pointProblems)) {
+        const row = rows.find((candidate) => candidate.variable === variable);
+        for (const [recipe, problems] of Object.entries(byRecipe)) {
+          const dataset = row && row.datasets.find((item) => item.kind === "point" && item.recipe === recipe);
+          if (dataset) dataset.serverErrors = { ...problems };
+        }
+      }
+      let first = null;
+      for (const [variable, text] of Object.entries(rowErrors)) {
+        const row = rows.find((candidate) => candidate.variable === variable);
+        if (!row) continue;
+        Object.assign(row, { status: "invalid", message: text });
+        update(row);
+        first = first || row.dom.input;
+      }
+      const setting = Object.keys(settingProblems)[0];
+      if (setting) {
+        $("settings").open = true;
+        first = first || field(setting);
+      }
+      summarise();
+      if (first) first.focus();
+      toast("Some boxes need fixing before the script can be written.");
+    } else {
+      toast(reply.error || "The script could not be written.");
+    }
+  });
+
+  cancelButton.addEventListener("click", async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await post("/cancel", {});
+    } catch (error) {
+      finish("gone");
+      return;
+    }
+    finish("cancelled");
+  });
+
+  resetButton.addEventListener("click", () => {
+    Object.assign(form, initialForm);
+    for (const name of Object.keys(serverErrors)) delete serverErrors[name];
+    FIELDS.forEach(setControl);
+    for (const row of rows) {
+      row.datasets.forEach((dataset) => {
+        dataset.checked = dataset.ticked;
+        if (dataset.kind === "point") {
+          dataset.opts = { point_time_res: "", start: "", end: "", vertical: false };
+          dataset.serverErrors = {};
+        }
+      });
+      row.needsDefaults = !row.original;
+      setValue(row, row.original);
+    }
+  });
+
+  summarise();
+})();
+</script>
+</body>
+</html>

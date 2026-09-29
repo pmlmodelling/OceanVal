@@ -82,6 +82,13 @@ oceanval.create_recipes(
 )
 ```
 
+Pass `gui=True` to check and change all of this before the script is
+written: a page opens in your web browser with a row for each
+observational variable, holding the model variable identified for it
+(which you can change) and tick-boxes for the gridded and point datasets
+available for it. They start ticked as the script would otherwise be
+written; tick several to validate a variable against each of them.
+
 ## Comparing multiple validation outputs
 
 To compare validation reports from multiple simulations:

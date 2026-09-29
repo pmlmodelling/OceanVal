@@ -11,6 +11,9 @@ from oceanval.create_recipes import (
     RECIPE_CATALOGUE,
     RECIPE_VARIABLES,
     build_recipe_script,
+    default_selection,
+    matchup_defaults,
+    validate_defaults,
     extract_recipe_variable_mapping,
     generate_recipe_mapping,
     simulation_files,
@@ -461,8 +464,8 @@ class TestGeneratedScript:
         )
         script = open(out).read()
 
-        # registering a variable twice replaces the first registration, so
-        # only one block per variable can be live
+        # by default only one recipe per variable is left live - the others
+        # are written out commented, to be added as further sources
         live = [
             line
             for line in script.splitlines()
@@ -793,3 +796,301 @@ class TestFvcom:
     def test_fvcom_must_be_a_boolean(self, fvcom_simulation, tmp_path):
         with pytest.raises(TypeError, match="fvcom"):
             self._create(fvcom_simulation, tmp_path, ask=False, fvcom="yes")
+
+
+class TestSelection:
+    MAPPING = {"temperature": "thetao", "salinity": "so", "chlorophyll": "chl"}
+
+    @pytest.mark.parametrize("domain", ["global", "nwes"])
+    def test_the_default_selection_is_what_is_left_live(self, domain):
+        chosen = build_recipe_script(
+            "/sim", 2, self.MAPPING, (2011, 2012), domain,
+            selection=default_selection(self.MAPPING, domain),
+        )
+        assert chosen == build_recipe_script(
+            "/sim", 2, self.MAPPING, (2011, 2012), domain
+        )
+
+    def test_the_default_is_one_gridded_recipe_per_variable(self):
+        assert default_selection(self.MAPPING, "global") == {
+            ("temperature", "cobe2"),
+            ("salinity", "woa23"),
+            ("chlorophyll", "occci"),
+        }
+        # nwes also gets the ICES point recipes
+        assert default_selection(self.MAPPING, "nwes") == {
+            ("temperature", "nsbc"),
+            ("salinity", "nsbc"),
+            ("chlorophyll", "nsbc"),
+            ("temperature", "ices"),
+            ("salinity", "ices"),
+            ("chlorophyll", "ices"),
+        }
+
+    def test_a_variable_can_be_validated_against_several_sources(self):
+        script = build_recipe_script(
+            "/sim", 2, {"temperature": "thetao"}, (2011, 2012),
+            selection={("temperature", "cobe2"), ("temperature", "woa23")},
+        )
+        ast.parse(script)
+        for recipe in ("cobe2", "woa23"):
+            assert (
+                '\noceanval.add_gridded_comparison(\n    name="temperature",\n'
+                '    model_variable="thetao",\n'
+                f'    recipe={{"temperature": "{recipe}"}},'
+            ) in script
+        # the one left out names what is registered instead
+        assert "# The Global recipes for temperature are registered instead." in script
+        assert '#     recipe={"temperature": "nsbc"},' in script
+
+    def test_an_alternative_can_be_added_as_well(self):
+        script = build_recipe_script("/sim", 2, self.MAPPING, (2011, 2012), "nwes")
+
+        # sources are registered side by side, so nothing needs commenting out
+        assert "# To validate against this source as well, uncomment this block." in script
+        assert "would replace it" not in script
+        assert "replaces the first" not in script
+
+    def test_a_variable_with_nothing_selected_is_commented_out(self):
+        script = build_recipe_script(
+            "/sim", 2, {"temperature": "thetao"}, (2011, 2012), selection=set()
+        )
+
+        assert "\noceanval.add_gridded_comparison(" not in script
+        # cobe2, woa23 and nsbc
+        assert script.count("# Not selected when this script was generated.") == 3
+
+    def test_an_ices_recipe_can_be_selected_for_the_global_domain(self):
+        mapping = {"temperature": "thetao", "salinity": "so"}
+        selection = default_selection(mapping, "global") | {("temperature", "ices")}
+        script = build_recipe_script(
+            "/sim", 2, mapping, (2011, 2012), "global", selection=selection
+        )
+        ast.parse(script)
+
+        assert script.count("add_point_comparison(") == len(POINT_RECIPE_CATALOGUE)
+        assert '\noceanval.add_point_comparison(\n    name="temperature",' in script
+        # salinity has a model variable, but its ICES recipe was not selected
+        assert '\noceanval.add_point_comparison(\n    name="salinity",' not in script
+
+
+class TestGui:
+    def _create(self, simulation, tmp_path, **kwargs):
+        out = str(tmp_path / "matchup.py")
+        returned = oceanval.create_recipes(
+            simdir=simulation, ndown=2, out=out, domain="nwes",
+            start=2011, end=2012, gui=True, **kwargs,
+        )
+        return out, returned
+
+    def test_gui_must_be_a_boolean(self, simulation, tmp_path):
+        with pytest.raises(TypeError, match="gui must be True or False"):
+            oceanval.create_recipes(
+                simdir=simulation, ndown=2, out=str(tmp_path / "out.py"),
+                domain="global", start=2011, end=2012, ask=False, gui="yes",
+            )
+
+    def test_the_window_is_shown_what_was_identified(
+        self, simulation, tmp_path, monkeypatch
+    ):
+        shown = {}
+
+        def window(mapping, domain, available, context, write):
+            shown.update(mapping=mapping, domain=domain, available=available)
+            shown.update(context=context)
+            return None
+
+        monkeypatch.setattr("oceanval.recipes_gui.choose_recipes", window)
+        self._create(simulation, tmp_path, ask=False)
+
+        assert shown["mapping"]["temperature"] == "thetao"
+        assert shown["domain"] == "nwes"
+        # any variable in the output can be picked, not only the matched ones
+        assert {"thetao", "tair", "R1_n"} <= set(shown["available"])
+        assert shown["context"]["region"] == "Northwest European Shelf"
+        assert (shown["context"]["start"], shown["context"]["end"]) == (2011, 2012)
+        assert shown["context"]["out"] == str(tmp_path / "matchup.py")
+
+    def test_what_is_chosen_in_the_window_is_written(
+        self, simulation, tmp_path, monkeypatch, capsys
+    ):
+        def window(mapping, domain, available, context, write):
+            mapping = dict(mapping, temperature="tair")
+            selection = {
+                ("temperature", "cobe2"),
+                ("temperature", "woa23"),
+                ("salinity", "ices"),
+            }
+            write(mapping, selection, None, None)
+            return mapping, selection, None, None
+
+        monkeypatch.setattr("oceanval.recipes_gui.choose_recipes", window)
+        out, returned = self._create(simulation, tmp_path, ask=False)
+        script = open(out).read()
+        ast.parse(script)
+
+        assert returned == out
+        for recipe in ("cobe2", "woa23"):
+            assert (
+                '\noceanval.add_gridded_comparison(\n    name="temperature",\n'
+                '    model_variable="tair",\n'
+                f'    recipe={{"temperature": "{recipe}"}},'
+            ) in script
+        assert '\noceanval.add_point_comparison(\n    name="salinity",' in script
+        # nwes would have left salinity's NSBC recipe live, but it was not chosen
+        assert '\noceanval.add_gridded_comparison(\n    name="salinity",' not in script
+        assert "commented out (no dataset selected): alkalinity" in capsys.readouterr().out
+
+    def test_the_window_replaces_the_terminal_questions(self, tmp_path, monkeypatch):
+        write_netcdf(
+            str(tmp_path / "sim" / "a.nc"),
+            {"thetao": "sea water potential temperature", "mystery": "unknown thing"},
+        )
+        monkeypatch.setattr("sys.stdin.isatty", lambda: True, raising=False)
+        monkeypatch.setattr(
+            "builtins.input", lambda prompt="": pytest.fail(f"asked {prompt!r}")
+        )
+
+        def window(mapping, domain, available, context, write):
+            mapping = dict(mapping, salinity="mystery")
+            selection = default_selection(mapping, domain)
+            write(mapping, selection, None, None)
+            return mapping, selection, None, None
+
+        monkeypatch.setattr("oceanval.recipes_gui.choose_recipes", window)
+        out = str(tmp_path / "matchup.py")
+        oceanval.create_recipes(
+            simdir=str(tmp_path / "sim"), ndown=0, out=out,
+            domain="global", start=2011, end=2012, gui=True,
+        )
+
+        assert 'model_variable="mystery"' in open(out).read()
+
+    def test_cancelling_the_window_writes_nothing(
+        self, simulation, tmp_path, monkeypatch, capsys
+    ):
+        monkeypatch.setattr(
+            "oceanval.recipes_gui.choose_recipes", lambda *args: None
+        )
+        out, returned = self._create(simulation, tmp_path, ask=False)
+
+        assert returned is None
+        assert not os.path.exists(out)
+        assert "nothing was written" in capsys.readouterr().out
+
+
+
+def settings(**changes):
+    """The window's settings: matchup's and validate's defaults, changed."""
+    values = dict(matchup_defaults(), **validate_defaults(), start=2011, end=2012)
+    values.update(changes)
+    return values
+
+
+def matchup_call(script):
+    return script[script.index("oceanval.matchup(") :]
+
+
+class TestSettings:
+    MAPPING = {"temperature": "thetao", "salinity": "so"}
+
+    def build(self, domain="nwes", **kwargs):
+        return build_recipe_script(
+            "/sim", 2, self.MAPPING, (2011, 2012), domain, **kwargs
+        )
+
+    def test_unchanged_settings_write_nothing_more(self):
+        # so writing straight away from the window gives the gui=False script
+        assert self.build(settings=settings()) == self.build()
+        assert "oceanval.validate()\n" in self.build(settings=settings())
+
+    def test_changed_settings_are_written_in_matchups_order(self):
+        script = self.build(
+            settings=settings(
+                lon_lim=[-20.0, 10.5], lat_lim=[40.0, 65.0], cores=12,
+                ask=False, exclude=["restart", "5d"],
+            )
+        )
+        ast.parse(script)
+
+        assert (
+            '    n_dirs_down=2,\n'
+            '    lon_lim=[-20, 10.5],\n'
+            '    lat_lim=[40, 65],\n'
+            '    cores=12,\n'
+            '    ask=False,\n'
+            '    exclude=["restart", "5d"],\n'
+            ')'
+        ) in matchup_call(script)
+        # left at their defaults, so not written
+        assert "overwrite=" not in script
+        assert "point_time_res=" not in matchup_call(script)
+
+    def test_validate_reads_the_matchups_from_out_dir(self):
+        script = self.build(settings=settings(out_dir="/scratch/run 1"))
+
+        assert '    out_dir="/scratch/run 1",\n)' in matchup_call(script)
+        assert (
+            'oceanval.validate(\n'
+            '    data_dir="/scratch/run 1",\n'
+            '    out_dir="/scratch/run 1",\n'
+            ')'
+        ) in script
+
+    def test_report_settings_are_passed_to_validate(self):
+        script = self.build(settings=settings(pdf=True, word=True, subregions="nwes"))
+
+        assert (
+            'oceanval.validate(\n    subregions="nwes",\n    pdf=True,\n    word=True,\n)'
+        ) in script
+
+    @pytest.mark.parametrize(
+        "value, written", [(0.0, "as_missing=0,"), ([0.0, 1e20], "as_missing=[0, 1e+20],")]
+    )
+    def test_as_missing_is_a_value_or_a_range(self, value, written):
+        assert written in matchup_call(self.build(settings=settings(as_missing=value)))
+
+    def test_a_point_dataset_gets_its_own_options(self):
+        script = self.build(
+            point_options={
+                ("temperature", "ices"): {"start": 2011, "end": None, "point_time_res": ["month"]}
+            }
+        )
+        ast.parse(script)
+
+        assert (
+            '    recipe={"temperature": "ices"},\n'
+            '    start=2011,\n'
+            '    point_time_res=["month"],\n'
+            '    vertical=False,'
+        ) in script
+        # the other ICES recipes are left as they were
+        assert '    recipe={"salinity": "ices"},\n    vertical=False,' in script
+
+    def test_a_vertical_point_dataset_is_written_as_vertical(self):
+        script = self.build(
+            point_options={("temperature", "ices"): {"vertical": True}}
+        )
+
+        assert '    recipe={"temperature": "ices"},\n    vertical=True,' in script
+        # the others stay surface-only
+        assert '    recipe={"salinity": "ices"},\n    vertical=False,' in script
+
+    def test_the_years_chosen_in_the_window_are_used(self, simulation, tmp_path, monkeypatch):
+        def window(mapping, domain, available, context, write):
+            chosen = (mapping, default_selection(mapping, domain), settings(start=1996, end=2003), {})
+            write(*chosen)
+            return chosen
+
+        monkeypatch.setattr("oceanval.recipes_gui.choose_recipes", window)
+        out = str(tmp_path / "matchup.py")
+        oceanval.create_recipes(
+            simdir=simulation, ndown=2, out=out, domain="global",
+            start=2011, end=2012, ask=False, gui=True,
+        )
+        script = open(out).read()
+
+        assert "    start=1996,\n    end=2003,\n" in matchup_call(script)
+        # and the WOA23 decade covering them, not the one covering 2011-2012
+        assert "start=1995, end=2004," in script
+        assert "start=2005, end=2014," not in script

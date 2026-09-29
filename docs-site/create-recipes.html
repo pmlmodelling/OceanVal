@@ -73,6 +73,7 @@
       <li><a href="#check">Step 2: Check what was found</a></li>
       <li><a href="#run">Step 3: Run it</a></li>
       <li><a href="#domain">Choosing the domain</a></li>
+      <li><a href="#gui">Choosing recipes in a window</a></li>
       <li><a href="#inside">Inside the generated script</a></li>
       <li><a href="#gaps">Filling in the gaps</a></li>
       <li><a href="#before">Before you run it</a></li>
@@ -153,6 +154,7 @@ oceanval.<a href="api.html#create_recipes"><span class="tok-fn">create_recipes</
     </div>
     <p>A name joined with <code>+</code> is a sum — here the four ERSEM phytoplankton chlorophyll variables, which together are what the satellite observes.</p>
     <p>The last line is what OceanVal could not find. This run has no carbonate chemistry or optics, so alkalinity, pH and KD490 were left out. Nothing is silently dropped: those recipes are still written into the script, commented out and ready for you to complete. See <a href="#gaps">Filling in the gaps</a>.</p>
+    <p>To check all of this, and change it, before the script is written, pass <code>gui=True</code> &mdash; see <a href="#gui">Choosing recipes in a window</a>.</p>
 
     <h2 id="run">Step 3: Run it</h2>
     <p>The generated file is an ordinary Python script. Read it, adjust anything you want to change, and run it:</p>
@@ -174,7 +176,7 @@ oceanval.<a href="api.html#create_recipes"><span class="tok-fn">create_recipes</
     </div>
 
     <h2 id="domain">Choosing the domain</h2>
-    <p>Several variables have a recipe in both regions. Registering the same variable twice would replace the first registration, so only one recipe per variable can be live — <code>domain</code> decides which.</p>
+    <p>Several variables have a recipe in both regions. A variable can be validated against more than one source, but by default the script leaves one recipe per variable live — <code>domain</code> decides which.</p>
     <ul>
       <li><code>domain="global"</code> — World Ocean Atlas 2023, Ocean Colour CCI, GLODAPv2.2016b and COBE-SST 2.</li>
       <li><code>domain="nwes"</code> — the North Sea Biogeochemical Climatology, for Northwest European Shelf models.</li>
@@ -205,12 +207,50 @@ oceanval.<a href="api.html#create_recipes"><span class="tok-fn">create_recipes</
         </tbody>
       </table>
     </div>
-    <p>So a shelf model run with <code>domain="nwes"</code> still gets pH, alkalinity and KD490 from the global datasets, and a global model run with <code>domain="global"</code> still gets ammonium from NSBC. The recipe that loses out is written into the script as a commented alternative, so you can swap back by uncommenting it and commenting out the other.</p>
+    <p>So a shelf model run with <code>domain="nwes"</code> still gets pH, alkalinity and KD490 from the global datasets, and a global model run with <code>domain="global"</code> still gets ammonium from NSBC. The recipe that loses out is written into the script as a commented alternative: uncomment it to validate against that source as well, or comment out the other to use it instead. With <code>gui=True</code> you can make the same choice with <a href="#gui">tick-boxes</a>.</p>
 
-    <p><code>domain="nwes"</code> also adds a further section to the script: the ten <a href="recipes.html#point-recipes">ICES point (in-situ) recipes</a>, registered with <a href="api.html#add_point_comparison"><code>add_point_comparison</code></a> rather than <code>add_gridded_comparison</code>. Unlike the gridded recipes above, these have no global counterpart, so <code>domain="global"</code> leaves them out of the script entirely rather than writing them in commented out.</p>
+    <p><code>domain="nwes"</code> also adds a further section to the script: the ten <a href="recipes.html#point-recipes">ICES point (in-situ) recipes</a>, registered with <a href="api.html#add_point_comparison"><code>add_point_comparison</code></a> rather than <code>add_gridded_comparison</code>. Unlike the gridded recipes above, these have no global counterpart, so <code>domain="global"</code> leaves them out of the script entirely rather than writing them in commented out &mdash; unless you tick one in the <a href="#gui">window</a>.</p>
+
+    <h2 id="gui">Choosing recipes in a window</h2>
+    <p>To check, and change, what <code>create_recipes</code> found before the script is written, pass <code>gui=True</code>:</p>
+    <div class="code-block">
+      <div class="code-card__bar">
+        <div class="code-card__dots"><span></span><span></span><span></span></div>
+        <span class="code-card__label">python</span>
+        <button class="code-card__copy" data-copy-target="#cr-code-3">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          <span class="copy-label">Copy</span>
+        </button>
+      </div>
+      <pre id="cr-code-3"><span class="tok-kw">import</span> oceanval
+
+oceanval.<a href="api.html#create_recipes"><span class="tok-fn">create_recipes</span></a>(
+    simdir=<span class="tok-str">"/path/to/model/output"</span>,
+    ndown=<span class="tok-num">2</span>,
+    out=<span class="tok-str">"matchup.py"</span>,
+    domain=<span class="tok-str">"nwes"</span>,
+    start=<span class="tok-num">2005</span>,
+    end=<span class="tok-num">2014</span>,
+    gui=<span class="tok-kw">True</span>,
+)</pre>
+    </div>
+    <p>This opens a page in your web browser, with a row for each observational variable OceanVal has a recipe for:</p>
+    <figure class="docs-figure">
+      <img src="assets/img/create_recipes_gui.png" width="1843" height="2073" loading="lazy" alt="The create_recipes window: a row for each observational variable, with the model variable identified for it and tick-boxes for the gridded and point datasets available">
+      <figcaption>A NEMO-ERSEM shelf run with <code>domain="nwes"</code>. The shelf datasets start ticked, and alkalinity, KD490 and pH, which this run does not produce, are left blank.</figcaption>
+    </figure>
+    <ul>
+      <li><strong>Model variable</strong> &mdash; the model variable identified, which you can change, or blank if none was. Type a name, or pick one from every variable in your output; join several with <code>+</code> to sum them. A name that is not in the output is flagged, and must be fixed before the script can be written.</li>
+      <li><strong>Gridded datasets</strong> and <strong>point datasets</strong> &mdash; every dataset OceanVal has for the variable, as tick-boxes. They start ticked as the script would be written without the window: the datasets for your <code>domain</code> ticked, the other region's alternatives not. Tick more than one to validate a variable against several sources &mdash; each is registered as a comparison of its own.</li>
+    </ul>
+    <p>Filling in a blank row unlocks its datasets and ticks the ones for your domain. <strong>Write script</strong> writes the script, with each ticked dataset live and everything else commented out as usual. <strong>Cancel</strong>, or Ctrl+C where <code>create_recipes</code> is running, writes nothing, and <code>create_recipes</code> returns <code>None</code>.</p>
+    <div class="callout">
+      <div class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>On a remote machine</div>
+      <p>The page is served by <code>create_recipes</code> itself, on the machine it runs on, and only answers the private link it prints. If it cannot open a browser for you, open that link yourself. VS Code forwards the port for you; over plain SSH, forward the port in the link first &mdash; for port 8765, <code>ssh -L 8765:127.0.0.1:8765 you@server</code>.</p>
+    </div>
 
     <h2 id="inside">Inside the generated script</h2>
-    <p>Every recipe OceanVal ships with appears in the script, in one of three states. The first is live — a model variable was found, and this is the recipe for your domain:</p>
+    <p>Every recipe OceanVal ships with appears in the script, in one of three states. The first is live — a model variable was found, and this is the recipe for your domain, or one you ticked in the window:</p>
     <div class="code-block">
       <div class="code-card__bar">
         <div class="code-card__dots"><span></span><span></span><span></span></div>
@@ -226,7 +266,7 @@ oceanval.<a href="api.html#add_gridded_comparison"><span class="tok-fn">add_grid
     vertical=<span class="tok-kw">False</span>,  <span class="tok-com"># set True to validate the full water column</span>
 )</pre>
     </div>
-    <p>The second is an alternative source for a variable that is already covered, commented out with an explanation of what to do if you want it instead:</p>
+    <p>The second is an alternative source for a variable that is already covered, commented out with a note on how to add it:</p>
     <div class="code-block">
       <div class="code-card__bar">
         <div class="code-card__dots"><span></span><span></span><span></span></div>
@@ -235,8 +275,7 @@ oceanval.<a href="api.html#add_gridded_comparison"><span class="tok-fn">add_grid
       <pre><span class="tok-com"># Chlorophyll - Ocean Colour CCI (https://esa-oceancolour-cci.org/)</span>
 <span class="tok-com"># recipe: 'occci'</span>
 <span class="tok-com"># The Northwest European Shelf recipe for chlorophyll is registered instead.</span>
-<span class="tok-com"># Registering a second one would replace it, so to validate against</span>
-<span class="tok-com"># this source, comment out the other recipe and uncomment this one.</span>
+<span class="tok-com"># To validate against this source as well, uncomment this block.</span>
 <span class="tok-com"># oceanval.add_gridded_comparison(</span>
 <span class="tok-com">#     name="chlorophyll",</span>
 <span class="tok-com">#     model_variable="P1_Chl+P2_Chl+P3_Chl+P4_Chl",</span>
