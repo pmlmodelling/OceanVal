@@ -315,6 +315,30 @@ class TestPointTimeRes:
         assert _matchup_dict(out_dir, "surface", "foo")["point_time_res"] == ["month"]
         oceanval.reset()
 
+    def test_a_dataset_can_set_its_own(self, simulation, model, tmp_path):
+        """A point_time_res given to add_point_comparison replaces matchup's"""
+        sim_dir, paths = simulation
+        surface = model.query("level == 0")
+        daily = _average(surface, ["lon", "lat", "year", "month", "day"])
+
+        oceanval.reset()
+        _add("foo", _write_obs(str(tmp_path / "obs"), daily), point_time_res="month")
+        oceanval.matchup(
+            sim_dir=sim_dir,
+            start=2000,
+            end=2001,
+            point_time_res=["year", "month", "day"],
+            ask=False,
+            cores=1,
+            out_dir=str(tmp_path / "out"),
+        )
+
+        out_dir = str(tmp_path / "out")
+        df = _read(out_dir, "surface", "foo")
+        _check(df, _average(surface, ["lon", "lat", "month"]), ["lon", "lat", "month"])
+        assert _matchup_dict(out_dir, "surface", "foo")["point_time_res"] == ["month"]
+        oceanval.reset()
+
 
 class TestPointStartEnd:
     """Observations without a year should only be compared with the years from start to end"""

@@ -696,7 +696,8 @@ class Validator:
                              obs_multiplier = 1,
                              obs_adder = 0,
                              binning = None,
-                             recipe = None  ):
+                             recipe = None,
+                             point_time_res = None  ):
         """
 
         Add a point comparison variable to the Validator
@@ -719,9 +720,9 @@ class Validator:
 
         model_variable (str): Model variable name
 
-        start (int): Start depth of the variable
+        start (int): First year of observations to use
 
-        end (int): End depth of the variable
+        end (int): Last year of observations to use
 
         obs_path (str): Directory of the observations
 
@@ -732,6 +733,11 @@ class Validator:
         recipe (dict): Built-in point recipe, e.g. {"temperature": "ices"}. The
         observations are downloaded during matchup for the years and lon/lat
         range being matched, so obs_path is not used.
+
+        point_time_res (str or list): Which of "year", "month" and "day" the
+        observations are matched to the model by, in place of the
+        point_time_res given to matchup. Defaults to None, which uses
+        matchup's.
 
         """
         if recipe is not None:
@@ -791,6 +797,19 @@ class Validator:
             end = int(end)
         except:
             raise ValueError("start and end must be integers")
+
+        if point_time_res is not None:
+            if isinstance(point_time_res, str):
+                point_time_res = [point_time_res]
+            if (
+                not isinstance(point_time_res, list)
+                or len(point_time_res) == 0
+                or not all(x in ("year", "month", "day") for x in point_time_res)
+                or len(set(point_time_res)) != len(point_time_res)
+            ):
+                raise ValueError(
+                    'point_time_res must be "year", "month" or "day", or a list of them'
+                )
 
         assumed = []
         if source_info is None:
@@ -891,6 +910,7 @@ class Validator:
             obs_adder = obs_adder,
             binning = binning,
             recipe = recipe,
+            point_time_res = point_time_res,
         )
         self[name].sources[source_name] = source_info
         self[name].n_levels = 1

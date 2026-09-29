@@ -796,3 +796,30 @@ class TestPointRecipes:
                 recipe={"temperature": "ices"},
                 model_variable="votemper",
             )
+
+
+class TestPointTimeRes:
+    """A point dataset can be matched to the model by its own time resolution,
+    in place of the one given to matchup."""
+
+    def add(self, **kwargs):
+        oceanval.reset()
+        oceanval.add_point_comparison(
+            recipe={"temperature": "ices"}, model_variable="votemper", **kwargs
+        )
+        return oceanval.definitions["temperature"].point_comparisons["ICES"]
+
+    def test_by_default_matchup_decides(self):
+        assert self.add()["point_time_res"] is None
+
+    @pytest.mark.parametrize(
+        "value, stored", [("month", ["month"]), (["year", "month"], ["year", "month"])]
+    )
+    def test_it_is_stored_as_a_list(self, value, stored):
+        assert self.add(point_time_res=value)["point_time_res"] == stored
+
+    @pytest.mark.parametrize("value", [[], ["week"], ["month", "month"], [["year"]], 3])
+    def test_anything_but_year_month_and_day_raises(self, value):
+        with pytest.raises(ValueError, match="point_time_res must be"):
+            self.add(point_time_res=value)
+

@@ -558,10 +558,10 @@ def matchup(
         If the cell_thickness variable is in the raw data, it will be used, and thickness does not need to be supplied.
     n_dirs_down : int
         Number of levels down to look for netCDF files. Default is 2, ie. the files are of the format ``*/*/*.nc``.
-    point_time_res : list or dict
-        List of strings or a dict. Default is ['year', 'month', 'day']. This is the time resolution of the point data matchup.
-        If you want fine-grained control, provide a dictionary where the key is the variable and the value is a list of strings.
-        If you provide this list make sure all variables have keys, or else provide a key called "default" with a value to use when the variable is not stated explicitly.
+    point_time_res : list or str
+        Which of "year", "month" and "day" point observations are matched to the model by. Default is ['year', 'month', 'day'].
+        Leave out "year" to compare the observations climatologically, and "day" for monthly model output.
+        A point_time_res given to add_point_comparison is used for that dataset instead.
     overwrite : bool
         If True, existing matched data will be overwritten. Default is True.
     ask : bool
@@ -1387,9 +1387,11 @@ def matchup(
                                     # drop depth
                                     df = df.drop(columns=["depth"])
 
-                            # extract point_time_res from dictionary
+                            # a comparison can set its own point_time_res, in
+                            # place of the one given to matchup
                             point_time_res = copy.deepcopy(
-                                session_info["point_time_res"]
+                                comparison.get("point_time_res")
+                                or session_info["point_time_res"]
                             )
                             for x in [
                                 x
