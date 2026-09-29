@@ -2,6 +2,7 @@ import pandas as pd
 import shutil
 import glob
 import subprocess
+import sys
 import warnings
 import nctoolkit as nc
 
@@ -51,6 +52,54 @@ def _jupyter_book_major_version():
         return 1
 
 
+# Recent ipykernel versions log a benign-but-alarming warning whenever a kernel starts on the
+# default TCP transport ("Kernel is running over TCP without encryption..."), and jupyter-book's
+# notebook execution never propagates any config down to the KernelManager it creates, so there's
+# no _config.yml/env-var knob that reaches it to switch transport. Every build here is local-only,
+# so there's nothing to actually secure - drop just that line from the kernel-launching build
+# subprocess's output rather than changing how it runs.
+_KERNEL_WARNING_SNIPPETS = ("Kernel is running over TCP without encryption",)
+
+
+def _run_filtered(cmd, check=False, **kwargs):
+    """Like subprocess.run, but drops output lines matching _KERNEL_WARNING_SNIPPETS.
+    Streams output live (stdout/stderr merged, since that's the only way to filter
+    lines while still showing build/notebook-execution progress as it happens)."""
+    proc = subprocess.Popen(
+        cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1,
+        **kwargs,
+    )
+    output_lines = []
+    for line in proc.stdout:
+        output_lines.append(line)
+        if not any(snippet in line for snippet in _KERNEL_WARNING_SNIPPETS):
+            sys.stdout.write(line)
+            sys.stdout.flush()
+    proc.wait()
+    if check and proc.returncode != 0:
+        raise subprocess.CalledProcessError(
+            proc.returncode, cmd, output="".join(output_lines)
+        )
+    return proc
+
+
+def _run_jupytext(args, notebook_glob):
+    """Run jupytext over the notebooks matched by notebook_glob, quietly.
+
+    jupytext prints a "Reading .../Writing ..." line per notebook, which is noise
+    users don't need to see; only surface output if the command actually fails.
+    """
+    notebooks = glob.glob(notebook_glob)
+    if not notebooks:
+        return
+    proc = subprocess.run(
+        ["jupytext", *args, *notebooks], capture_output=True, text=True
+    )
+    if proc.returncode != 0:
+        sys.stdout.write(proc.stdout)
+        sys.stderr.write(proc.stderr)
+
+
 def _build_book(book_dir, validation_links=None, pdf=False, word=False):
     if _jupyter_book_major_version() >= 2:
         notebooks = glob.glob(os.path.join(book_dir, "notebooks", "*.ipynb"))
@@ -59,7 +108,7 @@ def _build_book(book_dir, validation_links=None, pdf=False, word=False):
         )
         output_dir = os.path.join(book_dir, "_build", "html")
         if notebooks:
-            subprocess.run(
+            _run_filtered(
                 [
                     "jupyter",
                     "nbconvert",
@@ -101,7 +150,7 @@ def _build_book(book_dir, validation_links=None, pdf=False, word=False):
             output_dir, notebooks, validation_links=validation_links, pdf=pdf, word=word
         )
     else:
-        subprocess.run(["jupyter-book", "build", book_dir], check=True)
+        _run_filtered(["jupyter-book", "build", book_dir], check=True)
 
 
 def _remove_diagnostic_outputs(notebooks):
@@ -1499,8 +1548,8 @@ def validate(
 
         # pair the notebooks using jupyter text
 
-        os.system(
-            f"jupytext --set-formats ipynb,py:percent {book_dir}/notebooks/*.ipynb"
+        _run_jupytext(
+            ["--set-formats", "ipynb,py:percent"], f"{book_dir}/notebooks/*.ipynb"
         )
 
         # add the chunks
@@ -1550,7 +1599,7 @@ def validate(
 
         # sync the notebooks
         #
-        os.system(f"jupytext --sync {book_dir}/notebooks/*.ipynb")
+        _run_jupytext(["--sync"], f"{book_dir}/notebooks/*.ipynb")
 
     # loop through notebooks and change fast_plot_value to fast_plot
 
@@ -1763,7 +1812,10 @@ def compare(model_dict=None, view=True, ask=True, pdf=False, word=False):
         with open(path, "w") as file:
             file.write(filedata)
 
-    os.system("jupytext --set-formats ipynb,py:percent oceanval_comparison/compare/notebooks/*.ipynb")
+    _run_jupytext(
+        ["--set-formats", "ipynb,py:percent"],
+        "oceanval_comparison/compare/notebooks/*.ipynb",
+    )
     add_chunks(None)
     for book in glob.glob("oceanval_comparison/compare/notebooks/*.py"):
         with open(book, "r") as file:
@@ -1775,7 +1827,7 @@ def compare(model_dict=None, view=True, ask=True, pdf=False, word=False):
         filedata = filedata.replace("fast_plot_value", "False")
         with open(book, "w") as file:
             file.write(filedata)
-    os.system("jupytext --sync oceanval_comparison/compare/notebooks/*.ipynb")
+    _run_jupytext(["--sync"], "oceanval_comparison/compare/notebooks/*.ipynb")
     validation_links = []
     for key in model_dict:
         try:

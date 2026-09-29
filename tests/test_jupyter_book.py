@@ -1,4 +1,5 @@
 import importlib.resources
+import os
 import re
 import shutil
 from unittest.mock import call, patch
@@ -9,13 +10,60 @@ import pytest
 import oceanval
 
 
+def _mock_ok(run):
+    """Give a mocked subprocess.run a plausible successful CompletedProcess-like
+    return value, since _run_filtered (unlike a bare subprocess.run(check=True))
+    actually inspects .returncode/.stdout/.stderr itself."""
+    run.return_value.returncode = 0
+    run.return_value.stdout = ""
+    run.return_value.stderr = ""
+
+
+def test_run_filtered_drops_the_tcp_kernel_warning(capsys):
+    with patch("oceanval.subprocess.run") as run:
+        run.return_value.returncode = 0
+        run.return_value.stdout = (
+            "reading sources... [100%] notebooks/test\n"
+            "WARNING | Kernel is running over TCP without encryption. All "
+            "communication (including code and outputs) is sent in plain text "
+            "and is susceptible to eavesdropping. Use IPC transport or launch "
+            "with kernel manager-provisioned CurveZMQ keys to enable transport "
+            "encryption.\n"
+            "build succeeded.\n"
+        )
+        run.return_value.stderr = ""
+
+        oceanval._run_filtered(["jupyter-book", "build", "report"], check=True)
+
+    run.assert_called_once_with(
+        ["jupyter-book", "build", "report"], capture_output=True, text=True
+    )
+    out = capsys.readouterr().out
+    assert "Kernel is running over TCP" not in out
+    assert "reading sources... [100%] notebooks/test" in out
+    assert "build succeeded." in out
+
+
+def test_run_filtered_raises_on_nonzero_exit():
+    with patch("oceanval.subprocess.run") as run:
+        run.return_value.returncode = 1
+        run.return_value.stdout = ""
+        run.return_value.stderr = "boom"
+
+        with pytest.raises(oceanval.subprocess.CalledProcessError):
+            oceanval._run_filtered(["jupyter-book", "build", "report"], check=True)
+
+
 def test_build_book_uses_legacy_command_for_jupyter_book_1():
     with patch.object(oceanval, "_version", return_value="1.0.4"), patch(
         "oceanval.subprocess.run"
     ) as run:
+        _mock_ok(run)
         oceanval._build_book("report")
 
-    run.assert_called_once_with(["jupyter-book", "build", "report"], check=True)
+    run.assert_called_once_with(
+        ["jupyter-book", "build", "report"], capture_output=True, text=True
+    )
 
 
 def test_build_book_uses_offline_html_for_jupyter_book_2():
@@ -30,39 +78,48 @@ def test_build_book_uses_offline_html_for_jupyter_book_2():
     ) as remove_diagnostics, patch(
         "oceanval._write_offline_report_pages"
     ) as write_pages, patch("oceanval.subprocess.run") as run:
+        _mock_ok(run)
         oceanval._build_book("report")
 
-    assert run.call_args_list == [
-        call(
-            [
-                "jupyter",
-                "nbconvert",
-                "--to",
-                "notebook",
-                "--execute",
-                "--inplace",
-                "--allow-errors",
-                "--ExecutePreprocessor.timeout=500",
-                "report/notebooks/example.ipynb",
-                "report/notebooks/summary.ipynb",
-            ],
-            check=True,
-        ),
-        call(
-            [
-                "jupyter",
-                "nbconvert",
-                "--to",
-                "html",
-                "--no-input",
-                "--output-dir",
-                "report/_build/html/notebooks",
-                "report/notebooks/example.ipynb",
-                "report/notebooks/summary.ipynb",
-            ],
-            check=True,
-        ),
-    ]
+    assert len(run.call_args_list) == 2
+    execute_call, html_call = run.call_args_list
+
+    # the kernel-launching --execute call goes through _run_filtered, so it's
+    # captured (no `check` kwarg reaching the real subprocess.run) rather than
+    # streamed with check=True directly
+    assert execute_call == call(
+        [
+            "jupyter",
+            "nbconvert",
+            "--to",
+            "notebook",
+            "--execute",
+            "--inplace",
+            "--allow-errors",
+            "--ExecutePreprocessor.timeout=500",
+            "report/notebooks/example.ipynb",
+            "report/notebooks/summary.ipynb",
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    # the --to html conversion afterwards never starts a kernel, so it's left
+    # as a plain streamed subprocess.run call, unfiltered
+    assert html_call == call(
+        [
+            "jupyter",
+            "nbconvert",
+            "--to",
+            "html",
+            "--no-input",
+            "--output-dir",
+            "report/_build/html/notebooks",
+            "report/notebooks/example.ipynb",
+            "report/notebooks/summary.ipynb",
+        ],
+        check=True,
+    )
     write_pages.assert_called_once_with(
         "report/_build/html",
         ["report/notebooks/example.ipynb", "report/notebooks/summary.ipynb"],
