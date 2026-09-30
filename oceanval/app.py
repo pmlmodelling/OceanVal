@@ -466,9 +466,9 @@ class App:
     view is the step the page is on: "start", then "setup", "own_data" (whether
     there are observations of your own), "point_data" and "gridded_data" (adding
     them), "preparing" (while create_recipes reads the simulation) and
-    "recipes" (its window) to match up, then "units_check" (whether the model's
-    and the observations' units match up) and "units_table" (their units, and
-    a conversion for each), or "validate" for the report options, and then
+    "recipes" (its window) to match up, then "units_table" (the model's and
+    the observations' units, with the conversions OceanVal suggests, to check,
+    change and always confirm), or "validate" for the report options, and then
     "running" and "finished". Everything the page does goes through the methods here,
     which the server's threads call.
     """
@@ -498,7 +498,6 @@ class App:
         # recipes window's choices, which the step can add conversions to
         self.units_rows = None
         self.units_choices = None
-        self.units_model_units = None
         self._units_done = threading.Event()
         self._units_conversions = None
         self.run = None
@@ -612,7 +611,6 @@ class App:
                 "own_data": "setup",
                 "point_data": "own_data",
                 "gridded_data": "point_data",
-                "units_table": "units_check",
             }
             if self.view not in earlier:
                 return False
@@ -784,12 +782,18 @@ class App:
             # the matchups, and the report, go where the settings say
             self.results_dir = _path(result[2].get("out_dir") or ".", self.cwd)
             self.units_choices = result
+            # the page says they are being read until they have been
             self.units_rows = None
-            self.units_model_units = None
             self._units_conversions = None
             self._units_done.clear()
-            self.view = "units_check"
+            self.view = "units_table"
             self._notify()
+            setup, own = dict(self.setup_arguments), self.own_data
+        rows = self._read_units(result, setup, own)
+        with self._lock:
+            if self.view == "units_table":
+                self.units_rows = rows
+                self._notify()
         while not self._units_done.wait(0.25):
             if self.closed.is_set():
                 return result
@@ -819,53 +823,43 @@ class App:
 
     # ---- the units step ----
 
-    def units_answer(self, match):
-        """Answer whether the model's and the observations' units match up.
-        If they do, carry on; if not, show their units."""
-        with self._lock:
-            if self.view != "units_check":
-                return False
-            if match:
-                self._units_done.set()
-                return True
-            mapping, selection, settings, point_options, gridded_options = (
-                self.units_choices
-            )
-            simdir, ndown = self.setup_arguments["simdir"], self.setup_arguments["ndown"]
-            names = units.model_variables(mapping, selection, self.own_data)
-        # reads the simulation's files, so not with the lock held
+    def _read_units(self, choices, setup, own):
+        """The units step's table: the units of each matchup the recipes
+        window chose, and the conversion OceanVal suggests for each (see
+        units.matchups). It reads the simulation's files, so is not called
+        with the lock held."""
+        mapping, selection, settings, point_options, gridded_options = choices
         model_units = units.model_units(
-            simdir,
-            ndown,
-            names,
+            setup["simdir"],
+            setup["ndown"],
+            units.model_variables(mapping, selection, own),
             # the window can change the file filters along with the rest
             exclude=settings.get("exclude"),
             require=settings.get("require"),
         )
-        rows = units.matchups(
+        return units.matchups(
             mapping,
             selection,
             gridded_options,
             point_options,
-            self.own_data,
+            own,
             model_units,
             self.cwd,
         )
-        with self._lock:
-            if self.view != "units_check":
-                return False
-            self.units_rows = rows
-            self.view = "units_table"
-            self._notify()
-        return True
 
-    def units_continue(self, sent):
+    def units_continue(self, sent, confirmed=False):
         """Carry on from the units table, with the conversions its boxes
-        hold. Returns the HTTP status and the reply for the page."""
+        hold, but only once the units have been confirmed: they always have to
+        be, and the page's button being disabled is not what makes sure of it.
+        Returns the HTTP status and the reply for the page."""
         with self._lock:
             if self.view != "units_table":
                 return 409, {"ok": False, "error": "That cannot be done now."}
-            keys = {row["key"] for row in self.units_rows or []}
+            if self.units_rows is None:
+                return 409, {"ok": False, "error": "The units are still being read."}
+            if confirmed is not True:
+                return 400, {"ok": False, "error": "Confirm the units before carrying on."}
+            keys = {row["key"] for row in self.units_rows}
         conversions, errors = units.check_conversions(sent)
         errors.update({key: "This matchup is not in the table." for key in conversions if key not in keys})
         if errors:
@@ -1317,7 +1311,9 @@ class _Handler(recipes_gui._Handler):
             self._reply_json(*app.validate(payload.get("form")))
             return
         if path == "/api/units_continue":
-            self._reply_json(*app.units_continue(payload.get("conversions")))
+            self._reply_json(
+                *app.units_continue(payload.get("conversions"), payload.get("confirmed"))
+            )
             return
         if path == "/api/own_add":
             self._reply_json(
@@ -1339,7 +1335,6 @@ class _Handler(recipes_gui._Handler):
                 payload.get("kind"), payload.get("index")
             ),
             "/api/own_next": app.next_own_data,
-            "/api/units_answer": lambda: app.units_answer(bool(payload.get("match"))),
             "/api/back": app.back,
             "/api/restart": app.restart,
             "/api/stop": app.stop,

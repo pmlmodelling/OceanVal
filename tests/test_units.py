@@ -203,6 +203,33 @@ class TestMatchups:
         ]
         assert (row["obs_multiplier"], row["obs_adder"]) == (1, 0)
 
+    def test_each_row_says_what_oceanval_makes_of_its_units(self):
+        rows = self.rows(
+            {("temperature", "cobe2"), ("nitrate", "woa23"), ("nitrate", "ices")}
+        )
+        checks = {row["key"]: row["check"] for row in rows}
+
+        assert checks["recipe:temperature:cobe2"]["status"] == "same"
+        # WOA23 is per kilogram, and ICES per litre, where the model is per m3
+        assert checks["recipe:nitrate:woa23"]["multiplier"] == 1.025
+        assert checks["point:nitrate:ices"]["status"] == "same"
+
+    def test_a_sum_is_checked_only_if_its_parts_are_in_the_same_units(self):
+        def check(lookup):
+            (row,) = units.matchups(
+                {"nitrate": "N3_n+N4_n"},
+                {("nitrate", "woa23")},
+                {},
+                {},
+                {"gridded": [], "point": []},
+                lookup,
+            )
+            return row["check"]
+
+        assert check({"N3_n": "mmol N m-3", "N4_n": "mmol N/m^3"})["multiplier"] == 1.025
+        assert "different units" in check({"N3_n": "mmol N m-3", "N4_n": "mg/m3"})["note"]
+        assert "do not give" in check({"N3_n": "mmol N m-3", "N4_n": None})["note"]
+
     def test_the_model_variables_to_read(self):
         names = units.model_variables(
             {"temperature": "thetao", "nitrate": "N3_n+N4_n"},

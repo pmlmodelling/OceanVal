@@ -1,5 +1,6 @@
 """The units of each gridded and point matchup, for the oceanval window's units
-step.
+step, and how to convert the observations into the model's units, where
+OceanVal can tell (see oceanval.unit_conversion).
 
 The model's units are read from the netCDF files of the simulation, and the
 observations' from RECIPE_CATALOGUE and POINT_RECIPE_CATALOGUE for the recipes
@@ -23,6 +24,7 @@ from oceanval.create_recipes import (
     simulation_files,
 )
 from oceanval.parsers import find_recipe
+from oceanval.unit_conversion import suggest, unknown
 
 # what to show where the units are not known
 NOT_AVAILABLE = None
@@ -110,6 +112,18 @@ def _model_side(model_variable, units):
     }
 
 
+def _check(variable, obs_units, model):
+    """What OceanVal makes of a row's units (see unit_conversion.suggest). A sum
+    of model variables is checked only if they are all in the same units."""
+    parts = [part["units"] for part in model["parts"]]
+    if not parts or None in parts:
+        return suggest(variable, obs_units, None)
+    for other in parts[1:]:
+        if suggest(variable, other, parts[0])["status"] != "same":
+            return unknown("the model variables in the sum are in different units")
+    return suggest(variable, obs_units, parts[0])
+
+
 def _recipe_rows(point, mapping, selection, options, model_unit_lookup):
     """The rows for the selected recipes of one kind, point or gridded, that
     have a model variable."""
@@ -124,16 +138,18 @@ def _recipe_rows(point, mapping, selection, options, model_unit_lookup):
             # the other kind of recipe, or one with no model variable
             continue
         chosen = options.get((variable, recipe)) or {}
+        model = _model_side(mapping[variable], model_unit_lookup)
         rows.append(
             {
                 "kind": "point" if point else "gridded",
                 "key": f"{'point' if point else 'recipe'}:{variable}:{recipe}",
                 "title": f"{variable} ({recipe}{', point' if point else ''})",
-                "model": _model_side(mapping[variable], model_unit_lookup),
+                "model": model,
                 "obs_variable": _recipe_obs_variable(variable, recipe),
                 "obs_units": entry["units"],
                 "obs_multiplier": chosen.get("obs_multiplier", 1),
                 "obs_adder": chosen.get("obs_adder", 0),
+                "check": _check(variable, entry["units"], model),
             }
         )
     return rows
@@ -156,9 +172,11 @@ def matchups(
     kind ("gridded" or "point"), a key the page sends the conversion back
     under, the matchup's title, the
     model variable with its units (several if it is a sum), the observation
-    variable and its units, and the obs_multiplier and obs_adder it already
-    has. The gridded recipes come first, then the point recipes, then the
-    user's own gridded and point data. The units of the user's own point data
+    variable and its units, the obs_multiplier and obs_adder it already
+    has, and a check: whether the units are the same, with the conversion
+    OceanVal suggests if not (see unit_conversion.suggest), which is kept
+    apart from what the script already has. The gridded recipes come first,
+    then the point recipes, then the user's own gridded and point data. The units of the user's own point data
     are None, with a note saying so, as csv files have none, and their
     observation variable is the csv's observation column.
     """
@@ -168,19 +186,21 @@ def matchups(
         point = kind == "point"
         for index, arguments in enumerate(own_data.get(kind) or []):
             what = "your own point data" if point else "your own data"
+            model = _model_side(arguments.get("model_variable", ""), model_unit_lookup)
+            obs_units = None if point else own_obs_units(arguments, cwd)
             rows.append(
                 {
                     "kind": kind,
                     "key": f"{prefix}:{index}",
                     "title": f"{arguments.get('name')} ({what})",
-                    "model": _model_side(
-                        arguments.get("model_variable", ""), model_unit_lookup
-                    ),
+                    "model": model,
                     "obs_variable": "observation" if point else arguments.get("obs_variable"),
-                    "obs_units": None if point else own_obs_units(arguments, cwd),
+                    "obs_units": obs_units,
                     "obs_note": POINT_NOTE if point else None,
                     "obs_multiplier": arguments.get("obs_multiplier", 1),
                     "obs_adder": arguments.get("obs_adder", 0),
+                    # its name is the variable, if it is one OceanVal knows
+                    "check": _check(arguments.get("name"), obs_units, model),
                 }
             )
     return rows

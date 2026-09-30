@@ -357,6 +357,16 @@
   .units .is-invalid + .units__error { display: block; }
   .units__error { display: none; margin-top: 4px; color: var(--red); font-size: 12px; }
   .units__part + .units__part { margin-top: 4px; }
+  /* what OceanVal made of a row's units, on a line of its own under the row */
+  .units tr.has-check td { border-bottom: 0; padding-bottom: 4px; }
+  .units tr.units__check td { padding-top: 0; font-size: 13px; }
+  .units-reading { margin: 0 0 18px; font-size: 14px; }
+  /* what OceanVal filled in is red and bold, so that none of it is missed */
+  .lede .oceanval-change, .units .s-input.is-oceanval, .units .group__line.is-oceanval { color: var(--red); font-weight: 700; }
+  /* the units always have to be confirmed, after the tables */
+  .units-confirm { padding: 16px 20px; }
+  .units-confirm .tick-label { align-items: flex-start; color: var(--ink); font-size: 14.5px; line-height: 1.5; }
+  .units-confirm .tick { margin-top: 2px; }
 </style>
 </head>
 <body>
@@ -457,24 +467,10 @@
   <section id="view-point" hidden data-own="point"></section>
   <section id="view-gridded" hidden data-own="gridded"></section>
 
-  <section id="view-units-check" hidden>
-    <p class="lede">A model and its observations can report the same quantity in different units, for example nutrients in mmol/m3 against µmol/kg. OceanVal compares the values as they are, so a difference in units shows up as a large error in the report. Are you sure the model and observation units match up?</p>
-    <div class="choices is-two">
-      <button type="button" class="choice" id="units-yes">
-        <span class="choice__title">Yes, the units match</span>
-        <span class="choice__text">Go straight on to matching up the data.</span>
-        <span class="choice__go">Continue →</span>
-      </button>
-      <button type="button" class="choice" id="units-no">
-        <span class="choice__title">No, or I am not sure</span>
-        <span class="choice__text">See the units of the model and of the observations for every gridded and point matchup, and convert the observations where they differ.</span>
-        <span class="choice__go">Show the units →</span>
-      </button>
-    </div>
-  </section>
-
   <section id="view-units-table" hidden>
-    <p class="lede">These are the units of each matchup, read from the model's netCDF files and, for the observations, from OceanVal's recipes (the same as on the recipes page of the documentation) or from the netCDF file you supplied. If they differ, convert the observations: they become <strong>observations × multiply by + add</strong> before they are compared with the model. Leave the boxes empty if no conversion is needed.</p>
+    <p class="lede">A model and its observations can report the same quantity in different units, for example nutrients in mmol/m3 against µmol/kg, and OceanVal compares the values as they are. So it has checked the units of each matchup, and filled in a conversion where they differ: the observations become <strong>observations × multiply by + add</strong> before they are compared with the model.</p>
+    <p class="lede">The model's units are read from its netCDF files, and the observations' from OceanVal's recipes (as on the recipes page of the documentation) or from the netCDF file you supplied. Check the conversions OceanVal filled in, which are <strong class="oceanval-change">in red and bold</strong>, and fill in any it could not work out. Leave the boxes empty where no conversion is needed. The units always have to be confirmed, at the bottom of the page, before the matchup starts.</p>
+    <p class="group__msg units-reading" id="units-reading" hidden>Reading the model's units from the simulation…</p>
     <section class="units-section" id="units-section-gridded" aria-labelledby="units-title-gridded">
       <h2 class="section-title" id="units-title-gridded">Gridded datasets</h2>
       <p class="lede">OceanVal's gridded recipes, and your own gridded data (netCDF).</p>
@@ -502,6 +498,12 @@
         <tbody class="units-body" id="units-body-point"></tbody>
       </table></div>
       <p class="group__msg" id="units-empty-point" hidden>No point datasets are being matched up.</p>
+    </section>
+    <section class="units-section" id="units-section-confirm" aria-labelledby="units-title-confirm">
+      <h2 class="section-title" id="units-title-confirm">Confirm the units</h2>
+      <div class="card units-confirm">
+        <label class="tick-label"><input type="checkbox" class="tick" id="units-confirm">I have checked the units of every matchup above. With these conversions, the observations are in the same units as the model.</label>
+      </div>
     </section>
   </section>
 
@@ -711,7 +713,7 @@
     if (view === "setup" || view === "validate") return 1;
     if (view === "own_data" || view === "point_data" || view === "gridded_data") return 2;
     if (view === "recipes" || view === "preparing") return 3;
-    if (view === "units_check" || view === "units_table") return 4;
+    if (view === "units_table") return 4;
     return STEPS[action].length - 1;
   }
 
@@ -724,8 +726,7 @@
       case "point_data": return "Your point data";
       case "gridded_data": return "Your gridded data";
       case "preparing": return "Reading the simulation";
-      case "units_check": return "Do the units match up?";
-      case "units_table": return "Model and observation units";
+      case "units_table": return "Do the units match up?";
       case "validate": return "Build a validation report";
       case "running": return ACTION_TITLES[state.action];
       default:
@@ -753,7 +754,7 @@
     const view = state.view;
     // only rebuilt when something in it changes, so a button keeps its focus
     const key = [view, state.action, state.run.status, Boolean(stopArmed),
-      state.own.entries.point.length, state.own.entries.gridded.length].join("|");
+      state.own.entries.point.length, state.own.entries.gridded.length, Boolean(state.units.rows)].join("|");
     if (key === barShown) {
       if (view === "setup") refreshSetup();
       return;
@@ -779,12 +780,11 @@
       text = "The report is built in oceanval_report, in the report directory.";
       actions.push(button("Back", "ghost", () => post("api/back")),
         button("Build the report", "primary", submitValidate, { id: "build" }));
-    } else if (view === "units_check") {
-      text = "Nothing is changed in the matchup script unless you set a conversion.";
     } else if (view === "units_table") {
-      text = "A conversion is written into the matchup script as obs_multiplier and obs_adder.";
-      actions.push(button("Back", "ghost", () => post("api/back")),
-        button("Continue", "primary", submitUnits, { id: "units-continue" }));
+      // no Back: a recipes window that has been used cannot be opened again
+      text = "Confirm the units to continue. A conversion is written into the matchup script as obs_multiplier and obs_adder.";
+      actions.push(button("Continue", "primary", submitUnits,
+        { id: "units-continue", disabled: !unitsConfirmed() }));
     } else if (view === "preparing") {
       text = "This takes a few seconds: only one file of each kind is read.";
     } else if (view === "running") {
@@ -824,7 +824,7 @@
   // ---- the views ----
   const VIEWS = { start: "view-start", setup: "view-setup", validate: "view-validate",
     own_data: "view-own", point_data: "view-point", gridded_data: "view-gridded",
-    units_check: "view-units-check", units_table: "view-units-table",
+    units_table: "view-units-table",
     preparing: "view-run", running: "view-run", finished: "view-run" };
   let shownView = null;
 
@@ -838,9 +838,9 @@
       $("v-data_dir").focus();
     } else if (view === "start") {
       document.querySelector(".choice").focus();
-    } else if (view === "units_check") {
-      $("units-yes").focus();
     } else if (view === "units_table") {
+      // the units are confirmed afresh every time this step is reached
+      $("units-confirm").checked = false;
       fillUnits();
     } else if (view === "own_data") {
       $("own-yes").focus();
@@ -860,6 +860,8 @@
     renderBar();
     if (state.view === "point_data") refreshOwn("point");
     if (state.view === "gridded_data") refreshOwn("gridded");
+    // the units are read after the step is shown
+    if (state.view === "units_table" && !unitsFilled && state.units.rows) fillUnits();
     if (VIEWS[state.view] === "view-run") renderRun();
   }
 
@@ -972,7 +974,7 @@
   }
 
   function line(text, kind, ...extra) {
-    const pictures = { ok: "check", warn: "warn", error: "error" };
+    const pictures = { ok: "check", warn: "warn", error: "error", oceanval: "warn" };
     return el("span", { class: "group__line" + (kind ? ` is-${kind}` : "") },
       pictures[kind] ? icon(pictures[kind]) : null, el("span", {}, text, ...extra));
   }
@@ -1281,8 +1283,16 @@
   }
 
   // ---- the units of each gridded and point matchup ----
-  $("units-yes").addEventListener("click", () => post("api/units_answer", { match: true }));
-  $("units-no").addEventListener("click", () => post("api/units_answer", { match: false }));
+  // whether the table holds the rows, which are read after the step is shown
+  let unitsFilled = false;
+
+  // the units have to be confirmed to carry on, and there is nothing to confirm until they are read
+  const unitsConfirmed = () => Boolean(state.units.rows) && $("units-confirm").checked;
+  function unitsButton() {
+    const button = $("units-continue");
+    if (button) button.disabled = !unitsConfirmed();
+  }
+  $("units-confirm").addEventListener("change", unitsButton);
 
   function unitsText(units, missing) {
     return units === null || units === undefined || units === ""
@@ -1291,33 +1301,87 @@
   }
 
   function fillUnits() {
+    const reading = !state.units.rows;
+    $("units-reading").hidden = !reading;
     const allRows = state.units.rows || [];
-    const number = (value, fallback) => (value === fallback ? "" : String(value));
     for (const kind of ["gridded", "point"]) {
       const rows = allRows.filter((row) => row.kind === kind);
+      $(`units-section-${kind}`).hidden = reading;
       // a section with nothing in it says so, rather than going missing
       $(`units-empty-${kind}`).hidden = rows.length > 0;
       $(`units-body-${kind}`).closest(".card").hidden = rows.length === 0;
-      $(`units-body-${kind}`).replaceChildren(...rows.map((row) => unitsRow(row, number)));
+      $(`units-body-${kind}`).replaceChildren(...rows.flatMap(unitsRow));
     }
+    $("units-section-confirm").hidden = reading;
+    unitsFilled = !reading;
     const first = document.querySelector(".units-body input");
     if (first) first.focus();
   }
 
-  function unitsRow(row, number) {
+  // the conversion the boxes start with: one the script already has, e.g. given
+  // with your own data, or else the one OceanVal suggests
+  function unitsStart(row) {
+    if (row.obs_multiplier !== 1 || row.obs_adder !== 0) return [row.obs_multiplier, row.obs_adder, true];
+    if (row.check.status === "convert") return [row.check.multiplier, row.check.adder, false];
+    return [1, 0, false];
+  }
+
+  // what OceanVal made of the units, for under the row. A conversion it filled in is
+  // red and bold for as long as it is what the boxes hold, and is not once it is changed.
+  function unitsNote(row, kept, held) {
+    const check = row.check;
+    if (check.status === "convert" && !kept) {
+      return held
+        ? line(check.note, "oceanval")
+        : line(`You have changed the conversion OceanVal filled in, which would multiply by ${check.multiplier} and add ${check.adder}.`);
+    }
+    if (kept && check.status === "convert"
+        && (check.multiplier !== row.obs_multiplier || check.adder !== row.obs_adder)) {
+      return line(`OceanVal would multiply by ${check.multiplier} and add ${check.adder}, but the conversion you gave is kept.`, "ok");
+    }
+    return line(check.note, check.status === "unknown" ? "warn" : "ok");
+  }
+
+  function unitsRow(row) {
+    const number = (value, fallback) => (value === fallback ? "" : String(value));
+    const [startMultiplier, startAdder, kept] = unitsStart(row);
     const multiplier = el("input", { type: "text", class: "s-input is-num", inputmode: "decimal", spellcheck: "false",
-      placeholder: "1", value: number(row.obs_multiplier, 1), "aria-label": `Multiply the ${row.title} observations by` });
+      placeholder: "1", value: number(startMultiplier, 1), "aria-label": `Multiply the ${row.title} observations by` });
     const adder = el("input", { type: "text", class: "s-input is-num", inputmode: "decimal", spellcheck: "false",
-      placeholder: "0", value: number(row.obs_adder, 0), "aria-label": `Add to the ${row.title} observations` });
+      placeholder: "0", value: number(startAdder, 0), "aria-label": `Add to the ${row.title} observations` });
     multiplier.dataset.unitsKey = adder.dataset.unitsKey = row.key;
     multiplier.dataset.unitsBox = "multiplier";
     adder.dataset.unitsBox = "adder";
     const error = el("span", { class: "units__error", role: "alert" });
     error.dataset.unitsError = row.key;
-    for (const box of [multiplier, adder]) {
-      box.addEventListener("input", () => { multiplier.classList.remove("is-invalid"); adder.classList.remove("is-invalid"); error.textContent = ""; });
+    // the numbers OceanVal filled in: a box left at the default has nothing of OceanVal's in it
+    const filled = {};
+    if (!kept && row.check.status === "convert") {
+      if (row.check.multiplier !== 1) filled.multiplier = row.check.multiplier;
+      if (row.check.adder !== 0) filled.adder = row.check.adder;
     }
-    return el("tr", {},
+    const noteCell = el("td");
+    // marks the boxes that still hold OceanVal's numbers, and the note under the row with them
+    const markFilled = () => {
+      let held = false;
+      for (const [name, box] of [["multiplier", multiplier], ["adder", adder]]) {
+        const mine = name in filled && Number(box.value.trim()) === filled[name];
+        box.classList.toggle("is-oceanval", mine);
+        held = held || mine;
+      }
+      noteCell.replaceChildren(unitsNote(row, kept, held));
+    };
+    for (const box of [multiplier, adder]) {
+      box.addEventListener("input", () => {
+        multiplier.classList.remove("is-invalid"); adder.classList.remove("is-invalid"); error.textContent = "";
+        markFilled();
+        // what was confirmed is not what is in the boxes any more
+        $("units-confirm").checked = false;
+        unitsButton();
+      });
+    }
+    markFilled();
+    const cells = [
       el("td", {}, el("strong", { text: row.title })),
       el("td", {}, ...row.model.parts.length > 1
         ? row.model.parts.map((part) => el("div", { class: "units__part is-mono", text: part.name }))
@@ -1327,7 +1391,13 @@
       el("td", {}, unitsText(row.obs_variable, "not known")),
       el("td", {}, unitsText(row.obs_units, row.obs_note || "not available")),
       el("td", {}, multiplier),
-      el("td", {}, adder, error));
+      el("td", {}, adder, error),
+    ];
+    noteCell.colSpan = cells.length;
+    // own point data has no note: it says it has no units already
+    const noted = !row.obs_note;
+    const main = el("tr", { class: noted ? "has-check" : null, "data-units-row": row.key }, ...cells);
+    return noted ? [main, el("tr", { class: "units__check" }, noteCell)] : [main];
   }
 
   async function submitUnits() {
@@ -1339,8 +1409,8 @@
     });
     const button = $("units-continue");
     if (button) button.disabled = true;
-    const reply = await post("api/units_continue", { conversions });
-    if (button) button.disabled = false;
+    const reply = await post("api/units_continue", { conversions, confirmed: $("units-confirm").checked });
+    if (button) button.disabled = !unitsConfirmed();
     if (reply.ok) return;
     const errors = reply.errors || {};
     for (const [key, message] of Object.entries(errors)) {

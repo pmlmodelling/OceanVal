@@ -56,10 +56,16 @@ def write_matchups(directory):
             pickle.dump({}, saved)
 
 
+def units_read(app):
+    """Wait for the units step, after the recipes window's, to have read the
+    units."""
+    wait_for(lambda: app.view == "units_table" and app.units_rows is not None)
+
+
 def units_match(app):
-    """Say the units match, at the step after the recipes window's."""
-    wait_for(lambda: app.view == "units_check")
-    assert post(app, "/api/units_answer", {"match": True})[0] == 200
+    """Carry on from the units step without changing any conversion."""
+    units_read(app)
+    assert post(app, "/api/units_continue", {"conversions": {}, "confirmed": True})[0] == 200
 
 
 def wait_for(condition, timeout=90):
@@ -702,24 +708,51 @@ class TestServer:
             {"variable": "nitrate", "model_variable": "N3_n", "selected": ["woa23"]},
         ]
         assert post(app, "/recipes/write", {"rows": rows})[0] == 200
-        wait_for(lambda: app.view == "units_check")
+        units_read(app)
 
-    def test_the_units_are_asked_about_after_the_recipes(self, app, tmp_path, runs):
+    def test_the_units_are_shown_after_the_recipes(self, app, tmp_path, runs):
         self.choose_recipes(app, tmp_path)
         _, state = get_json(app, "/api/state")
 
-        assert state["view"] == "units_check"
-        # the script is already written, and nothing runs until it is answered
+        assert state["view"] == "units_table"
+        # the script is already written, and nothing runs until it is carried on from
         assert (tmp_path / "matchup.py").exists()
         assert runs == []
         # there is no going back to a recipes window that has been used
         assert post(app, "/api/back")[0] == 409
-        assert post(app, "/api/units_continue", {"conversions": {}})[0] == 409
 
-        assert post(app, "/api/units_answer", {"match": True})[0] == 200
+        # nothing is converted that the page does not send
+        assert post(app, "/api/units_continue", {"conversions": {}, "confirmed": True})[0] == 200
         wait_for(lambda: runs)
         assert "obs_multiplier" not in open(tmp_path / "matchup.py").read()
         assert app.view == "running"
+
+    def test_nothing_carries_on_while_the_units_are_read(self, app):
+        app.view = "units_table"
+
+        status, reply = post(app, "/api/units_continue", {"conversions": {}, "confirmed": True})
+
+        assert status == 409
+        assert "still being read" in reply["error"]
+
+    @pytest.mark.parametrize("confirmed", [None, False, "true", 1])
+    def test_the_units_always_have_to_be_confirmed(self, app, tmp_path, runs, confirmed):
+        """Not just by a button that is disabled: only a confirmation of true
+        carries on, whatever conversions are sent."""
+        self.choose_recipes(app, tmp_path)
+        sent = {"conversions": {}}
+        if confirmed is not None:
+            sent["confirmed"] = confirmed
+
+        status, reply = post(app, "/api/units_continue", sent)
+
+        assert status == 400
+        assert "Confirm the units" in reply["error"]
+        assert app.view == "units_table"
+        assert runs == []
+        # and it can still be confirmed
+        assert post(app, "/api/units_continue", {"conversions": {}, "confirmed": True})[0] == 200
+        wait_for(lambda: runs)
 
     def test_the_units_of_every_gridded_matchup_are_listed(self, app, tmp_path, runs):
         obs = tmp_path / "obs.nc"
@@ -736,7 +769,6 @@ class TestServer:
         }
         self.choose_recipes(app, tmp_path, own)
 
-        assert post(app, "/api/units_answer", {"match": False})[0] == 200
         _, state = get_json(app, "/api/state")
         rows = {row["key"]: row for row in state["units"]["rows"]}
 
@@ -761,9 +793,17 @@ class TestServer:
         assert [part["name"] for part in mine["model"]["parts"]] == ["thetao", "N3_n"]
         assert (mine["obs_variable"], mine["obs_units"]) == ("chl_obs", "mg/m3")
         assert (mine["obs_multiplier"], mine["obs_adder"]) == (5, 0)
-        # back to the question, and on again
-        assert post(app, "/api/back")[0] == 200
-        assert app.view == "units_check"
+        # what OceanVal makes of each: WOA23 is per kilogram, the model per volume
+        assert (nitrate["check"]["status"], nitrate["check"]["multiplier"]) == (
+            "convert",
+            1.025,
+        )
+        assert "1025 kg/m³" in nitrate["check"]["note"]
+        assert temperature["check"]["status"] == "same"
+        assert mine["check"]["status"] == "unknown"
+        assert "different units" in mine["check"]["note"]
+        # which the page fills in: the conversion already chosen is unchanged
+        assert (nitrate["obs_multiplier"], nitrate["obs_adder"]) == (1, 0)
 
     def test_ices_and_own_point_data_are_listed_too(self, app, tmp_path, runs):
         own = {
@@ -775,7 +815,6 @@ class TestServer:
         }
         self.choose_recipes(app, tmp_path, own_point=own, ices=True)
 
-        assert post(app, "/api/units_answer", {"match": False})[0] == 200
         _, state = get_json(app, "/api/state")
         rows = {row["key"]: row for row in state["units"]["rows"]}
 
@@ -795,9 +834,11 @@ class TestServer:
         ices = rows["point:temperature:ices"]
         assert ices["model"]["parts"] == [{"name": "thetao", "units": "degC"}]
         assert (ices["obs_variable"], ices["obs_units"]) == ("TEMPPR01", "\u00b0C")
+        assert ices["check"]["status"] == "same"
         mine = rows["ownpoint:0"]
         assert mine["obs_units"] is None and "no units" in mine["obs_note"]
         assert (mine["obs_multiplier"], mine["obs_adder"]) == (1, 3)
+        assert mine["check"]["status"] == "unknown"
 
     def test_point_conversions_are_written_into_the_script(self, app, tmp_path, runs):
         own = {
@@ -807,13 +848,12 @@ class TestServer:
             "obs_path": "points",
         }
         self.choose_recipes(app, tmp_path, own_point=own, ices=True)
-        post(app, "/api/units_answer", {"match": False})
         conversions = {
             "point:temperature:ices": {"multiplier": "", "adder": "2"},
             "ownpoint:0": {"multiplier": "10", "adder": ""},
         }
 
-        assert post(app, "/api/units_continue", {"conversions": conversions})[0] == 200
+        assert post(app, "/api/units_continue", {"conversions": conversions, "confirmed": True})[0] == 200
         wait_for(lambda: runs)
         text = open(tmp_path / "matchup.py").read()
 
@@ -825,13 +865,12 @@ class TestServer:
 
     def test_a_conversion_is_written_into_the_script(self, app, tmp_path, runs):
         self.choose_recipes(app, tmp_path)
-        post(app, "/api/units_answer", {"match": False})
         conversions = {
             "recipe:nitrate:woa23": {"multiplier": "0.001", "adder": " "},
             "recipe:temperature:cobe2": {"multiplier": "", "adder": "-273.15"},
         }
 
-        assert post(app, "/api/units_continue", {"conversions": conversions})[0] == 200
+        assert post(app, "/api/units_continue", {"conversions": conversions, "confirmed": True})[0] == 200
         wait_for(lambda: runs)
         text = open(tmp_path / "matchup.py").read()
 
@@ -852,11 +891,10 @@ class TestServer:
             "obs_multiplier": 5,
         }
         self.choose_recipes(app, tmp_path, own)
-        post(app, "/api/units_answer", {"match": False})
 
         # blank puts it back to the default, which is left out
         conversions = {"own:0": {"multiplier": "", "adder": "2"}}
-        assert post(app, "/api/units_continue", {"conversions": conversions})[0] == 200
+        assert post(app, "/api/units_continue", {"conversions": conversions, "confirmed": True})[0] == 200
         wait_for(lambda: runs)
         text = open(tmp_path / "matchup.py").read()
         call = text[text.index('name="chl"') :].split("\n)\n")[0]
@@ -866,7 +904,6 @@ class TestServer:
 
     def test_conversions_that_cannot_be_used_are_sent_back(self, app, tmp_path, runs):
         self.choose_recipes(app, tmp_path)
-        post(app, "/api/units_answer", {"match": False})
 
         for conversions in (
             {"recipe:nitrate:woa23": {"multiplier": "x", "adder": ""}},
@@ -874,7 +911,7 @@ class TestServer:
             {"recipe:nitrate:woa23": {"multiplier": "", "adder": "inf"}},
             {"recipe:salinity:woa23": {"multiplier": "2", "adder": ""}},
         ):
-            status, reply = post(app, "/api/units_continue", {"conversions": conversions})
+            status, reply = post(app, "/api/units_continue", {"conversions": conversions, "confirmed": True})
             assert status == 400
             assert set(reply["errors"]) == set(conversions)
         assert app.view == "units_table"
@@ -1178,7 +1215,10 @@ def test_the_window_in_a_browser(browser, tmp_path, monkeypatch):
         # chosen with the simulation instead
         assert page.is_hidden("#group-files")
         page.click("#write")
-        page.click("#units-yes")
+        # the units have to be confirmed, once they have been read
+        page.wait_for_selector("#units-body-gridded tr[data-units-row]")
+        page.check("#units-confirm")
+        page.click("#units-continue")
 
         page.wait_for_selector("#ask:not([hidden])", timeout=90000)
         # the buttons say what "(y/n)" would
@@ -1195,9 +1235,11 @@ def test_the_window_in_a_browser(browser, tmp_path, monkeypatch):
 
 
 def test_the_units_step_in_a_browser(browser, tmp_path, monkeypatch):
-    """Not sure the units match: the table lists them, a conversion that is
-    not a number is marked, and one that is goes into the script."""
-    write_simulation(tmp_path / "sim")
+    """The table lists the units of each matchup with the conversion OceanVal
+    fills in where they differ, in red and bold for as long as it is OceanVal's,
+    the units have to be confirmed to carry on, a conversion that is not a
+    number is marked, and those that are go into the script."""
+    write_simulation(tmp_path / "sim", tracers=True)
     stand_in = tmp_path / "stand_in.py"
     stand_in.write_text("print('running')\n")
     app = App(cwd=str(tmp_path))
@@ -1219,33 +1261,80 @@ def test_the_units_step_in_a_browser(browser, tmp_path, monkeypatch):
         page.wait_for_url("**/recipes/**", timeout=90000)
         page.click("#write")
 
-        page.wait_for_selector("#units-no")
+        page.wait_for_selector("#units-body-gridded tr[data-units-row]")
+        # the units start unconfirmed, and nothing carries on until they are
+        assert page.is_visible("#units-title-confirm")
+        assert not page.is_checked("#units-confirm")
+        assert page.is_disabled("#units-continue")
         assert "Units" in page.text_content("#steps")
         assert page.text_content("#steps .is-current .steps__label") == "Units"
-        page.click("#units-no")
-        page.wait_for_selector(".units-body tr")
+        assert page.is_hidden("#units-reading")
         # two sections, and with no point datasets the second says so
         assert page.text_content("#units-title-gridded") == "Gridded datasets"
         assert page.text_content("#units-title-point") == "Point datasets"
         assert page.locator("#units-body-point tr").count() == 0
         assert page.is_visible("#units-empty-point")
         assert page.is_hidden("#units-empty-gridded")
-        row = page.locator("#units-body-gridded tr").first
-        assert "temperature (cobe2)" in row.text_content()
-        assert "thetao" in row.text_content()
-        assert "degC" in row.text_content()
-        assert "sst" in row.text_content()
 
-        multiplier = page.locator('.units-body input[data-units-box="multiplier"]').first
+        temperature = page.locator('tr[data-units-row="recipe:temperature:cobe2"]')
+        for text in ("temperature (cobe2)", "thetao", "degC", "sst"):
+            assert text in temperature.text_content()
+        # what OceanVal made of the units is on the line under each row
+        below = "xpath=following-sibling::tr[1]"
+        assert "The same units" in temperature.locator(below).text_content()
+        multiplier = temperature.locator('input[data-units-box="multiplier"]')
+        assert multiplier.input_value() == ""
+        # WOA23's nitrate is per kilogram, and the model's per volume
+        nitrate = page.locator('tr[data-units-row="recipe:nitrate:woa23"]')
+        assert nitrate.locator('input[data-units-box="multiplier"]').input_value() == "1.025"
+        assert "1025 kg/m³" in nitrate.locator(below).text_content()
+
+        # what OceanVal filled in is red and bold, and what it did not is not
+        def look(box):
+            return box.evaluate(
+                "node => [getComputedStyle(node).color, getComputedStyle(node).fontWeight]"
+            )
+
+        red_bold = ["rgb(192, 57, 43)", "700"]
+        oceanval = nitrate.locator('input[data-units-box="multiplier"]')
+        oceanval_note = nitrate.locator(f"{below}//*[contains(@class, 'group__line')]")
+        assert look(oceanval) == red_bold
+        assert look(oceanval_note) == red_bold
+        assert look(multiplier)[1] == "400"
+        assert look(temperature.locator(f"{below}//*[contains(@class, 'group__line')]"))[1] == "400"
+        # but not once it is changed, which the note says, and it is again if put back
+        oceanval.fill("2")
+        assert look(oceanval)[1] == "400"
+        assert look(oceanval_note)[1] == "400"
+        assert "You have changed the conversion OceanVal filled in" in nitrate.locator(below).text_content()
+        oceanval.fill("1.025")
+        assert look(oceanval) == red_bold
+        assert look(oceanval_note) == red_bold
+
+        # the units always have to be confirmed, under the tables, to carry on
+        page.check("#units-confirm")
+        assert page.is_enabled("#units-continue")
+        page.uncheck("#units-confirm")
+        assert page.is_disabled("#units-continue")
+
+        # changing a conversion undoes the confirmation, as it is not what was confirmed
+        page.check("#units-confirm")
         multiplier.fill("abc")
+        assert not page.is_checked("#units-confirm")
+        assert page.is_disabled("#units-continue")
+        page.check("#units-confirm")
         page.click("#units-continue")
         page.wait_for_selector(".units-body .is-invalid")
-        assert page.locator(".units__error").first.text_content() != ""
+        error = page.locator('[data-units-error="recipe:temperature:cobe2"]')
+        assert error.text_content() != ""
         multiplier.fill("2")
+        page.check("#units-confirm")
         page.click("#units-continue")
         page.wait_for_selector("#console-text:has-text('running')", timeout=60000)
 
-        assert "    obs_multiplier=2,\n" in open(tmp_path / "matchup.py").read()
+        text = open(tmp_path / "matchup.py").read()
+        assert "    obs_multiplier=1.025,\n" in text[text.index('name="nitrate"') :].split("\n)\n")[0]
+        assert "    obs_multiplier=2,\n" in text
     finally:
         app.close()
 
