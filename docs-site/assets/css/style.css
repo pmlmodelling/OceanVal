@@ -867,6 +867,16 @@ tbody tr.hidden-row { display: none; }
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-md);
 }
+.docs-figure video {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  background: #08222a;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+}
 .docs-figure figcaption { margin-top: 0.8em; color: var(--muted); font-size: 0.88rem; text-align: center; }
 
 .callout {

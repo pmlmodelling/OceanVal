@@ -9,6 +9,7 @@ oceanVal repository). Plain static HTML/CSS/JS — no build step, no dependencie
 index.html          Landing page
 installing.html      \
 quickstart.html       \
+browser.html           Development-version page: the `oceanval` browser window
 how-to-use.html         Documentation, mirrors docs/source/*.rst in the
 recipes.html             oceanVal package, redesigned
 create-recipes.html      /
@@ -22,6 +23,9 @@ assets/
   css/style.css      Design system (design tokens, components)
   js/main.js         Nav, copy-to-clipboard, FAQ accordion, recipe filters, scrollspy
   img/               Logo (from oceanval/data/oceanval_wordmark.svg), PML logo, favicon
+media/               The browser window's demo video and poster. Deliberately outside
+                      assets/, which every archive snapshot copies - a ~10 MB
+                      video would be duplicated into each release.
 archive/             Per-release snapshots of just index.html + api.html
                       (nav simplified to a single Version history link) +
                       assets/, written by .github/workflows/docs-archive.yml.
@@ -90,8 +94,8 @@ reliably and was reverted. Don't rebuild that without being asked - see
 created. It reads the version from `setup.py` (the source of truth - not the
 release's tag name, not PyPI, since PyPI's publish can race this workflow),
 and copies only `index.html`, `api.html`, and `assets/` into
-`archive/vX.Y.Z/` — the other eight pages (`installing.html`,
-`quickstart.html`, `how-to-use.html`, `recipes.html`, `obs-data.html`,
+`archive/vX.Y.Z/` — the other pages (`installing.html`,
+`quickstart.html`, `browser.html`, `how-to-use.html`, `recipes.html`, `obs-data.html`,
 `qa.html`, `about.html`) aren't meaningfully version-specific, and archiving
 all ten pages of every release indefinitely doesn't scale. Within the
 snapshot, the nav on both pages is simplified down to a single "Version
@@ -127,4 +131,4 @@ Page content is authored by hand to match the current oceanVal docs
 so if the underlying package docs change, update the corresponding `.html`
 file(s) directly. Shared header/nav/footer markup is duplicated across pages
 (no static-site generator), so a nav or footer change should be applied to
-all eleven `.html` files (ten content pages plus `version-history.html`).
+all twelve `.html` files (eleven content pages plus `version-history.html`).

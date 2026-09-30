@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Validating from your browser — OceanVal</title>
+<meta name="description" content="Run OceanVal from a browser window: choose a simulation and observations, check the units, and watch the matchup and validation report being made. Development version only.">
+<link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container nav">
+    <a class="brand" href="index.html">
+      <img src="assets/img/oceanval_wordmark.svg" alt="OceanVal">
+      <span id="oceanval-docs-version" class="brand-version">v&hellip;</span>
+    </a>
+    <nav class="nav-links" id="nav-links">
+      <a href="installing.html" data-page="installing.html">Install</a>
+      <a href="quickstart.html" data-page="quickstart.html">Quickstart</a>
+      <div class="nav-drop">
+        <button class="nav-drop-toggle" type="button" aria-expanded="false" aria-haspopup="true">
+          How to use
+          <svg class="nav-drop-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="nav-drop-menu">
+          <a href="how-to-use.html" data-page="how-to-use.html">Guide</a>
+          <a href="browser.html" data-page="browser.html">From your browser</a>
+          <a href="recipes.html" data-page="recipes.html">Recipes</a>
+          <a href="obs-data.html" data-page="obs-data.html">Data formats</a>
+          <a href="qa.html" data-page="qa.html">Q&amp;A</a>
+          <a href="api.html" data-page="api.html">API</a>
+        </div>
+      </div>
+      <a href="create-recipes.html" data-page="create-recipes.html">A rapid workflow</a>
+      <div class="nav-drop">
+        <button class="nav-drop-toggle" type="button" aria-expanded="false" aria-haspopup="true">
+          Info
+          <svg class="nav-drop-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="nav-drop-menu">
+          <a href="about.html" data-page="about.html">About</a>
+          <a href="version-history.html" data-page="version-history.html">Version history</a>
+        </div>
+      </div>
+    </nav>
+    <div class="nav-actions">
+      <a class="icon-btn" href="https://github.com/pmlmodelling/oceanVal" target="_blank" rel="noopener" aria-label="OceanVal on GitHub">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M12 .5C5.73.5.5 5.74.5 12.09c0 5.08 3.29 9.38 7.86 10.9.57.1.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.53-1.34-1.29-1.7-1.29-1.7-1.05-.72.08-.71.08-.71 1.17.08 1.78 1.2 1.78 1.2 1.03 1.77 2.71 1.26 3.37.96.1-.75.4-1.26.73-1.55-2.56-.29-5.26-1.28-5.26-5.71 0-1.26.45-2.29 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.79 0c2.2-1.49 3.17-1.18 3.17-1.18.64 1.59.24 2.76.12 3.05.74.8 1.18 1.83 1.18 3.09 0 4.44-2.7 5.42-5.28 5.7.42.36.78 1.08.78 2.17 0 1.57-.01 2.83-.01 3.22 0 .3.21.66.8.55A10.6 10.6 0 0 0 23.5 12.1C23.5 5.74 18.27.5 12 .5Z"/></svg>
+      </a>
+      <button class="nav-toggle" id="nav-toggle" aria-label="Toggle menu" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<div class="page-hero">
+  <div class="container">
+    <div class="breadcrumb"><a href="index.html">Home</a> / Validating from your browser</div>
+    <h1>Validating from your browser</h1>
+    <p class="lead"><strong>Development version only:</strong> not yet in a tagged release. Install from GitHub to use it &mdash; see below.</p>
+  </div>
+</div>
+
+<div class="container docs-layout">
+  <aside class="docs-toc">
+    <div class="docs-toc-title">On this page</div>
+    <ul>
+      <li><a href="#demo">Demo</a></li>
+      <li><a href="#start">Start it</a></li>
+      <li><a href="#steps">The steps</a></li>
+      <li><a href="#units">Checking the units</a></li>
+      <li><a href="#script">What it writes</a></li>
+      <li><a href="#remote">On a remote machine</a></li>
+      <li><a href="#more">More</a></li>
+    </ul>
+  </aside>
+
+  <div class="docs-content">
+    <div class="callout warn">
+      <div class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Development version only</div>
+      <p>The <code>oceanval</code> browser window is on the <code>main</code> branch but not yet in a tagged release (the latest is v0.5.7; see <a href="version-history.html">version history</a>), so the conda-forge package does not include it. Set up the environment as described in <a href="installing.html">Installing</a>, then install from GitHub: <code>pip install git+https://github.com/pmlmodelling/oceanval.git</code>.</p>
+    </div>
+
+    <p>OceanVal can be used without writing any Python. Run <code>oceanval</code> in a terminal and a page opens in your web browser that takes you from a folder of model output to a validation report: you choose what to do, point it at your simulation, choose the observations to validate against, check the units, and watch the run.</p>
+
+    <h2 id="demo">Demo</h2>
+    <figure class="docs-figure">
+      <video controls preload="metadata" playsinline poster="media/oceanval-browser-demo-poster.jpg" width="2560" height="1440">
+        <source src="media/oceanval-browser-demo.mp4" type="video/mp4">
+        <p>Your browser cannot play this video. <a href="media/oceanval-browser-demo.mp4">Download it (MP4, 9.7&nbsp;MB)</a>.</p>
+      </video>
+      <figcaption>A 35-second tour, from choosing what to do to the report. The simulation is a small synthetic one and the matchup output is staged so that it finishes in seconds; the report at the end is OceanVal&rsquo;s published <a href="example-report/notebooks/002_summary.html">example report</a>.</figcaption>
+    </figure>
+
+    <h2 id="start">Start it</h2>
+    <p>In a terminal, in the directory to work in:</p>
+    <div class="code-block">
+      <div class="code-card__bar">
+        <div class="code-card__dots"><span></span><span></span><span></span></div>
+        <span class="code-card__label">bash</span>
+        <button class="code-card__copy" data-copy-target="#br-code-0">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          <span class="copy-label">Copy</span>
+        </button>
+      </div>
+      <pre id="br-code-0">oceanval</pre>
+    </div>
+    <p><code>OceanVal</code> and <code>python -m oceanval</code> do the same. Matchups, scripts and reports are written in that directory unless you choose another, so make a new directory for each simulation.</p>
+
+    <h2 id="steps">The steps</h2>
+    <p>The window shows where you are in a row of steps at the top.</p>
+    <h3>1. Choose</h3>
+    <p>Match up new data and validate it, match up only (and build the report later, from the same matchups), or validate matchups made earlier, which asks for the report&rsquo;s options instead of the next steps.</p>
+    <h3>2. Simulation</h3>
+    <p>Where the model output is, how many directories down its files are, which files to skip or keep, the domain (global or the Northwest European Shelf) and the years. Type the directory, with folders suggested as you go, or use <strong>Browse&hellip;</strong>, which looks through the folders on the machine OceanVal runs on. As you type, the page counts the files that pass the filters and fills in the years from their names. It also says where the matchup script will be written.</p>
+    <h3>3. Own data</h3>
+    <p>Whether you have observations of your own as well as OceanVal&rsquo;s built-in datasets. If you do, a page for point data (csv files) and one for gridded data (netCDF) let you add them one at a time, with every argument of <a href="api.html#add_point_comparison"><code>add_point_comparison</code></a> or <a href="api.html#add_gridded_comparison"><code>add_gridded_comparison</code></a>; the ones that have to be given are marked in red.</p>
+    <h3>4. Recipes</h3>
+    <p>OceanVal reads one file of each kind from the simulation, works out which model variable holds each observational variable, and shows the <a href="create-recipes.html#gui">create_recipes window</a>. Check the variables it found, tick the datasets to validate against, and set the global settings (years, spatial subset, cores, PDF or Word reports, regional summaries and whether the report is concise). <strong>Clear all selections</strong> unticks everything so you can start from none.</p>
+    <h3>5. Units</h3>
+    <p>Whether the model&rsquo;s and the observations&rsquo; units match. See <a href="#units">below</a>.</p>
+    <h3>6. Run</h3>
+    <p>The matchup runs and its output appears as it comes, in the page and in the terminal. Anything OceanVal asks, such as whether the matchups look right, is asked in the page. When a matchup and validate run finishes, the page shows where the HTML report is and opens it in your browser, where one can be opened. After a match up only run, <strong>Validate these matchups</strong> builds the report from them.</p>
+
+    <h2 id="units">Checking the units</h2>
+    <p>A model and its observations can report the same quantity in different units, for example nutrients in mmol/m&sup3; against &micro;mol/kg. OceanVal compares the values as they are, so a difference shows up as a large error in the report. After the recipes, the window asks whether you are sure the units match. If you are not, it lists every matchup in two sections, <strong>Gridded datasets</strong> and <strong>Point datasets</strong>, each with:</p>
+    <ul>
+      <li>the model variable and its units, read from the simulation&rsquo;s netCDF files (for a sum of variables, each one);</li>
+      <li>the observation variable and its units: for OceanVal&rsquo;s recipes, the Units column of the <a href="recipes.html">recipes page</a>; for your own gridded data, the units in your netCDF file;</li>
+      <li>a <strong>Multiply by</strong> and an <strong>Add</strong> box.</li>
+    </ul>
+    <p>The observations become <em>observations &times; multiply by + add</em> before they are compared with the model, for example adding 273.15 to observations in &deg;C when the model is in kelvin. Leave the boxes empty if no conversion is needed. Any you set are written into the matchup script as <code>obs_multiplier</code> and <code>obs_adder</code>.</p>
+    <div class="callout">
+      <div class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Your own point data</div>
+      <p>Point data is csv files, which have no units, so OceanVal cannot tell you what they are. It is up to you to make sure they match the model&rsquo;s, and to convert them with the boxes if they do not.</p>
+    </div>
+
+    <h2 id="script">What it writes</h2>
+    <p>The window does nothing you could not do in Python. It writes the matchup script first, to <code>matchup.py</code> unless you choose another name, and then runs it. The script holds your own data, every recipe (those you did not tick are commented out), the conversions, the <code>oceanval.matchup()</code> call and, for a matchup and validate run, the <code>oceanval.validate()</code> call, so you can read it, edit it and run it again later with <code>python matchup.py</code>.</p>
+
+    <h2 id="remote">On a remote machine</h2>
+    <p>If <code>oceanval</code> cannot open a browser for you, it prints a link to open. VS Code forwards its port for you; over plain SSH, choose the port with <code>--port</code> and forward it first: <code>oceanval --port 8765</code>, with <code>ssh -L 8765:127.0.0.1:8765 you@server</code>. The run carries on if you close the page, and you can come back to it with the same link.</p>
+
+    <h2 id="more">More</h2>
+    <ul>
+      <li><a href="quickstart.html">Quickstart</a>: the same steps in Python.</li>
+      <li><a href="create-recipes.html">Validating a model with a few lines of code</a>: the create_recipes window in detail.</li>
+      <li><a href="recipes.html">Observation recipes</a>: every built-in dataset, with its units.</li>
+      <li><a href="installing.html">Installing</a></li>
+    </ul>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="container footer-pml">
+    <a href="https://pml.ac.uk/" target="_blank" rel="noopener"><img src="assets/img/pml_logo.jpg" alt="Plymouth Marine Laboratory"></a>
+    <span>Developed by the Environmental Intelligence group at Plymouth Marine Laboratory</span>
+  </div>
+  <div class="container footer-top">
+    <div class="footer-brand">
+      <img src="assets/img/oceanval_wordmark.svg" alt="OceanVal">
+      <p>Automated ocean model validation in Python. Match, compute, and report — in a few lines of code.</p>
+      <div class="footer-social">
+        <a href="https://github.com/pmlmodelling/oceanVal" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M12 .5C5.73.5.5 5.74.5 12.09c0 5.08 3.29 9.38 7.86 10.9.57.1.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.53-1.34-1.29-1.7-1.29-1.7-1.05-.72.08-.71.08-.71 1.17.08 1.78 1.2 1.78 1.2 1.03 1.77 2.71 1.26 3.37.96.1-.75.4-1.26.73-1.55-2.56-.29-5.26-1.28-5.26-5.71 0-1.26.45-2.29 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.79 0c2.2-1.49 3.17-1.18 3.17-1.18.64 1.59.24 2.76.12 3.05.74.8 1.18 1.83 1.18 3.09 0 4.44-2.7 5.42-5.28 5.7.42.36.78 1.08.78 2.17 0 1.57-.01 2.83-.01 3.22 0 .3.21.66.8.55A10.6 10.6 0 0 0 23.5 12.1C23.5 5.74 18.27.5 12 .5Z"/></svg>
+        </a>
+        <a href="mailto:rwi@pml.ac.uk" aria-label="Email">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+        </a>
+      </div>
+    </div>
+    <div class="footer-col">
+      <h4>Documentation</h4>
+      <ul>
+        <li><a href="installing.html">Installing</a></li>
+        <li><a href="quickstart.html">Quickstart</a></li>
+        <li><a href="how-to-use.html">How to use OceanVal</a></li>
+        <li><a href="create-recipes.html">Validating a model with a few lines of code</a></li>
+        <li><a href="browser.html">Validating from your browser</a></li>
+        <li><a href="api.html">API reference</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Data</h4>
+      <ul>
+        <li><a href="recipes.html">Observation recipes</a></li>
+        <li><a href="obs-data.html">Compatible data formats</a></li>
+        <li><a href="qa.html">Q&amp;A</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Project</h4>
+      <ul>
+        <li><a href="about.html">About &amp; contact</a></li>
+        <li><a href="version-history.html">Version history</a></li>
+        <li><a href="https://github.com/pmlmodelling/oceanVal" target="_blank" rel="noopener">GitHub repository</a></li>
+        <li><a href="https://github.com/pmlmodelling/oceanVal/issues" target="_blank" rel="noopener">Report an issue</a></li>
+        <li><a href="https://anaconda.org/conda-forge/oceanval" target="_blank" rel="noopener">conda-forge package</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="container footer-bottom">
+    <span>© 2026 Plymouth Marine Laboratory. Released under the GNU GPLv3 license.</span>
+    <span>Built for ocean modellers, by ocean modellers.</span>
+  </div>
+</footer>
+
+<button class="back-to-top" aria-label="Back to top">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+</button>
+
+<script src="assets/js/main.js"></script>
+</body>
+</html>

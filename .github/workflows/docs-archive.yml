@@ -5,8 +5,8 @@
 # source of truth for the version being released), not from the release's
 # tag name.
 #
-# Only those two pages are archived - the other eight (installing,
-# quickstart, how-to-use, recipes, create-recipes, obs-data, qa, about)
+# Only those two pages are archived - the others (installing,
+# quickstart, browser, how-to-use, recipes, create-recipes, obs-data, qa, about)
 # aren't meaningfully
 # version-specific, and archiving all ten pages of every release
 # indefinitely doesn't scale. The snapshot's nav is simplified to just a
@@ -80,9 +80,9 @@ jobs:
 
           dest = Path(sys.argv[1])
           live_only_pages = [
-              "installing.html", "quickstart.html", "how-to-use.html",
-              "recipes.html", "create-recipes.html", "obs-data.html",
-              "qa.html", "about.html",
+              "installing.html", "quickstart.html", "browser.html",
+              "how-to-use.html", "recipes.html", "create-recipes.html",
+              "obs-data.html", "qa.html", "about.html",
               "example-report/", "version-history.html",
           ]
           nav_re = re.compile(r'<nav class="nav-links" id="nav-links">.*?</nav>', re.S)
