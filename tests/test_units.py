@@ -11,7 +11,7 @@ import xarray as xr
 from oceanval import units
 from oceanval.create_recipes import POINT_RECIPE_CATALOGUE, RECIPE_CATALOGUE
 
-from tests.test_app import write_fvcom, write_simulation
+from simulations import write_fvcom, write_simulation
 
 DOCS = os.path.join(os.path.dirname(os.path.dirname(__file__)), "docs-site", "recipes.html")
 
