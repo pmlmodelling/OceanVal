@@ -31,6 +31,7 @@ from oceanval.parsers import generate_mapping
 from oceanval.gridded import gridded_matchup, retry_failed_gridded, _lonlat_bounds
 from oceanval.fvcom import fvcom_matchup_files, fvcom_extent, fvcom_times
 from oceanval import ices
+from oceanval import prompts
 
 
 def read_point(ff, nrows = None):
@@ -1016,8 +1017,9 @@ def matchup(
             if invert_thickness:
                 if ask:
                     # user check
-                    x = input(
-                        "The thickness data appears to have the sea surface at the bottom (i.e. increasing depth values down. DO NOT PROCEED IF THIS IS A NEMO SIMULATION. Is this correct? (y/n) "
+                    x = prompts.ask(
+                        "The thickness data appears to have the sea surface at the bottom (i.e. increasing depth values down. DO NOT PROCEED IF THIS IS A NEMO SIMULATION. Is this correct? (y/n) ",
+                        ("y", "n"),
                     )
                     if x.lower() == "n":
                         return None
@@ -1107,16 +1109,16 @@ def matchup(
 
     print(all_df_print.to_string(index=False))
 
-    print("Are you happy with these matchups? Y/N")
-
+    question = "Are you happy with these matchups? (y/n) "
     if ask:
-        x = input()
+        x = prompts.ask(question, ("y", "n"))
     else:
+        print("Are you happy with these matchups? Y/N")
         x = "y"
 
     if x.lower() not in ["y", "n"]:
         print("Provide Y or N")
-        x = input()
+        x = prompts.ask(question, ("y", "n"))
 
     if x.lower() == "n":
         print("Please adjust your variable names and try again")

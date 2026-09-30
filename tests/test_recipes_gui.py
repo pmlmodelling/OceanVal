@@ -19,6 +19,7 @@ import oceanval.recipes_gui as recipes_gui
 from oceanval.create_recipes import RECIPE_VARIABLES, default_selection
 from oceanval.recipes_gui import (
     RecipePage,
+    check_gridded_options,
     check_point_options,
     check_settings,
     choose_recipes,
@@ -106,6 +107,31 @@ class TestRows:
         )
         assert row["point"] == []
         assert [dataset["label"] for dataset in row["gridded"]] == ["OC-CCI"]
+
+    def test_vertical_is_only_offered_where_the_observations_have_depths(self):
+        rows = recipe_rows({}, "global")
+        offered = {
+            (row["variable"], dataset["recipe"])
+            for row in rows
+            for dataset in row["gridded"] + row["point"]
+            if dataset["vertical_option"]
+        }
+
+        assert {recipe for _, recipe in offered} == {"woa23", "nsbc", "ices"}
+        # surface-only: satellite, sea surface temperature and GLODAP's surface
+        assert not offered & {
+            ("chlorophyll", "occci"), ("kd490", "occci"),
+            ("temperature", "cobe2"), ("ph", "glodap"), ("alkalinity", "glodap"),
+        }
+
+    def test_only_woa23_temperature_and_salinity_are_per_decade(self):
+        decadal = {
+            (row["variable"], dataset["recipe"])
+            for row in recipe_rows({}, "global")
+            for dataset in row["gridded"]
+            if dataset["decadal"]
+        }
+        assert decadal == {("temperature", "woa23"), ("salinity", "woa23")}
 
     def test_tooltips_leave_out_what_only_makes_sense_in_the_script(self):
         for row in recipe_rows({}, "global"):
@@ -217,6 +243,7 @@ class TestServer:
             },
             default_settings(2011, 2012),
             {},
+            {},
         )
 
         assert (status, reply) == (200, {"ok": True, "out": "/out/matchup.py"})
@@ -261,7 +288,7 @@ class TestServer:
             "point": {"ices": {"point_time_res": "month", "start": "2011", "end": ""}},
         }]
         status, _ = _post(page.url, "/write", {"rows": rows, "settings": form})
-        mapping, selection, settings, point_options = page.written[0]
+        mapping, selection, settings, point_options, gridded_options = page.written[0]
 
         assert status == 200
         assert (settings["cores"], settings["pdf"]) == (12, True)
@@ -271,6 +298,42 @@ class TestServer:
                 "start": 2011, "end": None, "point_time_res": ["month"], "vertical": None
             }
         }
+        assert gridded_options == {}
+
+    def test_gridded_options_are_written(self, page):
+        rows = [{
+            "variable": "temperature",
+            "model_variable": "thetao",
+            "selected": ["cobe2", "nsbc"],
+            "gridded": {
+                "cobe2": {"start": "2012", "end": "", "vertical": False},
+                "nsbc": {"start": "", "end": "", "vertical": True},
+            },
+        }]
+        status, _ = _post(page.url, "/write", {"rows": rows})
+
+        assert status == 200
+        assert page.written[0][4] == {
+            ("temperature", "cobe2"): {"start": 2012, "end": None, "vertical": None},
+            ("temperature", "nsbc"): {"start": None, "end": None, "vertical": True},
+        }
+
+    def test_gridded_options_that_cannot_be_used_are_sent_back(self, page):
+        rows = [{
+            "variable": "temperature",
+            "model_variable": "thetao",
+            "selected": ["woa23"],
+            "gridded": {"woa23": {"start": "2011", "end": "2016"}},
+        }]
+        status, reply = _post(page.url, "/write", {"rows": rows})
+
+        assert status == 400
+        assert reply["gridded_errors"] == {
+            "temperature": {
+                "woa23": {"end": "These years must sit inside one WOA23 decade, e.g. 2005–2014."}
+            }
+        }
+        assert page.written == []
 
     def test_settings_that_cannot_be_used_are_sent_back(self, page):
         form = dict(default_form(2011, 2012), cores="0", lon_min="-20")
@@ -307,6 +370,18 @@ class TestServer:
         assert status == 200
         assert page.written[0][3] == {}
 
+    def test_an_unticked_gridded_datasets_options_are_ignored(self, page):
+        rows = [{
+            "variable": "temperature",
+            "model_variable": "thetao",
+            "selected": ["nsbc"],
+            "gridded": {"cobe2": {"start": "nonsense"}},
+        }]
+        status, _ = _post(page.url, "/write", {"rows": rows})
+
+        assert status == 200
+        assert page.written[0][4] == {}
+
 
 class TestSettingsChecks:
     AVAILABLE = {"thetao", "e3t"}
@@ -340,6 +415,18 @@ class TestSettingsChecks:
     )
     def test_boxes_that_cannot_be_used(self, changes, errors):
         assert set(self.check(**changes)[1]) == errors
+
+    def test_the_report_is_concise_unless_unticked(self):
+        assert self.check()[0]["concise"] is True
+        assert self.check(concise=False)[0]["concise"] is False
+
+    def test_the_file_filters_create_recipes_was_given(self):
+        form = default_form(2011, 2012, ["ptrc", "5d"], ["grid_T"])
+        settings, errors = check_settings(form, self.AVAILABLE)
+
+        assert (form["exclude"], form["require"]) == ("ptrc 5d", "grid_T")
+        assert errors == {}
+        assert (settings["exclude"], settings["require"]) == (["ptrc", "5d"], ["grid_T"])
 
     def test_the_subset_is_all_four_limits(self):
         settings, _ = self.check(lon_min="-20", lon_max="10.5", lat_min="40", lat_max="65")
@@ -418,6 +505,74 @@ class TestPointOptions:
         assert list(check_point_options(form, (2011, 2012))[1]) == [error]
 
 
+class TestGriddedOptions:
+    def test_empty_boxes_leave_everything_to_the_global_settings(self):
+        assert check_gridded_options({}, (2011, 2012), True) == (
+            {"start": None, "end": None, "vertical": None},
+            {},
+        )
+
+    def test_the_years_are_read(self):
+        options, errors = check_gridded_options({"start": "2011", "end": "2012"}, (2011, 2012))
+        assert errors == {}
+        assert options == {"start": 2011, "end": 2012, "vertical": None}
+
+    def test_vertical_is_only_read_where_it_is_offered(self):
+        assert check_gridded_options({"vertical": True}, None, True)[0]["vertical"] is True
+        assert check_gridded_options({"vertical": True}, None, False)[0]["vertical"] is None
+
+    @pytest.mark.parametrize(
+        "form, error",
+        [
+            ({"start": "x"}, "start"),
+            ({"start": "2012", "end": "2011"}, "end"),
+            ({"start": "2015"}, "start"),
+            ({"end": "2000"}, "end"),
+        ],
+    )
+    def test_years_that_cannot_be_used(self, form, error):
+        assert list(check_gridded_options(form, (2011, 2012))[1]) == [error]
+
+    @pytest.mark.parametrize(
+        "form, errors",
+        [
+            ({}, []),
+            ({"start": "2011", "end": "2012"}, []),
+            ({"start": "2015", "end": "2022"}, []),
+            ({"start": "2011"}, ["end"]),
+            ({"end": "2012"}, ["start"]),
+            ({"start": "2011", "end": "2016"}, ["end"]),
+        ],
+    )
+    def test_woa23_years_must_sit_inside_one_decade(self, form, errors):
+        # were they not per decade, all of these could be used
+        assert list(check_gridded_options(form, None, True, decadal=True)[1]) == errors
+        assert check_gridded_options(form, None, True)[1] == {}
+
+
+class TestHosting:
+    def test_the_oceanval_app_shows_the_window_instead(self, monkeypatch):
+        monkeypatch.setattr(recipes_gui, "_open_browser", lambda url: pytest.fail("opened"))
+        shown = []
+
+        class Host:
+            def show_recipes(self, page):
+                shown.append(page)
+                return "chosen"
+
+        with recipes_gui.hosted_by(Host()):
+            result = choose_recipes(
+                {"temperature": "thetao"}, "global", {"thetao"}, CONTEXT, lambda *args: None
+            )
+
+        assert result == "chosen"
+        [page] = shown
+        # it has no server of its own
+        assert page._server is None
+        assert page.context == CONTEXT
+        assert recipes_gui._host is None
+
+
 class TestChooseRecipes:
     def test_it_waits_for_the_page_to_be_written(self, monkeypatch, capsys):
         written = []
@@ -440,6 +595,7 @@ class TestChooseRecipes:
             {"temperature": "thetao"},
             {("temperature", "woa23")},
             default_settings(2011, 2012),
+            {},
             {},
         )
         assert written == [result]
@@ -480,23 +636,6 @@ class TestChooseRecipes:
         monkeypatch.setenv("BROWSER", "/home/me/.vscode-server/bin/helpers/browser.sh")
 
         assert recipes_gui._can_open_browser()
-
-
-@pytest.fixture
-def browser():
-    sync_api = pytest.importorskip("playwright.sync_api")
-    try:
-        playwright = sync_api.sync_playwright().start()
-    except Exception as error:
-        pytest.skip(f"playwright could not start: {error}")
-    try:
-        chromium = playwright.chromium.launch()
-    except Exception as error:
-        playwright.stop()
-        pytest.skip(f"Chromium is not available: {error}")
-    yield chromium
-    chromium.close()
-    playwright.stop()
 
 
 def _open_window(browser, tmp_path, monkeypatch):
@@ -583,6 +722,14 @@ def test_settings_in_the_browser(browser, tmp_path, monkeypatch):
     page.fill("#s-cores", "3")
     assert page.is_enabled("#write")
     page.select_option('select[aria-label="Match ICES observations for Temperature by"]', "month")
+    # a gridded dataset's years and Vertical, which only depth-resolved ones offer
+    page.fill('input[aria-label="First year of NSBC observations for Temperature"]', "2012")
+    page.check(
+        'input[aria-label="Validate NSBC observations for Temperature through the full water column"]'
+    )
+    assert page.locator(
+        'input[aria-label="Validate COBE2 observations for Temperature through the full water column"]'
+    ).count() == 0
     page.click("#write")
     page.wait_for_selector("#done:not([hidden])")
 
@@ -590,3 +737,9 @@ def test_settings_in_the_browser(browser, tmp_path, monkeypatch):
     script = open(out).read()
     assert "    lon_lim=[-20, 10],\n    lat_lim=[40, 65],\n    cores=3,\n" in script
     assert '    recipe={"temperature": "ices"},\n    point_time_res=["month"],\n' in script
+    assert (
+        '    recipe={"temperature": "nsbc"},\n'
+        '    start=2012,\n'
+        '    climatology=True,\n'
+        '    vertical=True,'
+    ) in script

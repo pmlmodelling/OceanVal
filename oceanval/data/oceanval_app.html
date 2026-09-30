@@ -1,0 +1,1746 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>OceanVal</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%230f8f96'/%3E%3Cstop offset='1' stop-color='%23075c68'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='16' fill='url(%23g)'/%3E%3Cpath d='M10 40c6-8 12-8 18 0s12 8 18 0s8-8 8-8' fill='none' stroke='%23fff' stroke-width='4.5' stroke-linecap='round' opacity='.55'/%3E%3Cpath d='M8 30c6-9 13-9 19 0s13 9 19 0s10-9 10-9' fill='none' stroke='%23fff' stroke-width='5' stroke-linecap='round'/%3E%3C/svg%3E">
+<style>
+  /*__OCEANVAL_GUI_CSS__*/
+
+  /* ---- choosing what to do ---- */
+  .choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+  .choice {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    min-height: 220px;
+    padding: 24px 24px 20px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: var(--bg);
+    box-shadow: var(--shadow-md);
+    color: var(--ink);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+  }
+  .choice:hover { border-color: var(--teal-200); box-shadow: var(--shadow-lg); transform: translateY(-2px); }
+  .choice:focus-visible { outline: none; border-color: var(--teal-400); box-shadow: var(--focus), var(--shadow-md); }
+  .choice__icon {
+    display: grid;
+    place-items: center;
+    width: 46px;
+    height: 46px;
+    margin-bottom: 4px;
+    border-radius: 12px;
+    background: var(--teal-50);
+    color: var(--teal-600);
+  }
+  .choice__icon svg { width: 24px; height: 24px; }
+  .choice__title { font: 600 18px/1.3 var(--font-head); letter-spacing: -0.2px; }
+  .choice__text { color: var(--muted); font-size: 14px; line-height: 1.5; }
+  .choice__go { margin-top: auto; padding-top: 6px; color: var(--teal-700); font-size: 13.5px; font-weight: 600; }
+
+  /* ---- your own observations ---- */
+  .choices.is-two { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 760px; }
+  .choices.is-two .choice { min-height: 0; }
+  .own-legend { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 16px; color: var(--muted); font-size: 13px; }
+  .own-swatch { width: 4px; height: 16px; border-radius: 2px; background: var(--red); }
+  .own-legend b { color: var(--red); font-weight: 600; }
+  .own-added { margin: 0 0 18px; padding: 16px 20px; }
+  .own-added h2, .own-form h2 { margin: 0 0 10px; font: 600 15px/1.3 var(--font-head); }
+  .own-added ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+  .own-added li { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg-alt); font-size: 13.5px; }
+  .own-added li > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .own-added li .is-mono { font-family: var(--font-mono); font-size: 12.5px; }
+  .own-form { display: block; padding: 22px 26px 24px; }
+  .own-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 32px; }
+  .own-field { display: block; min-width: 0; }
+  .own-field + .own-field { margin-top: 0; }
+  .own-field.is-wide { grid-column: 1 / -1; }
+  /* what has to be given is marked in red: the label, its tag, and a bar beside the box */
+  .own-field.is-required { padding-left: 12px; border-left: 4px solid var(--red); }
+  .own-field.is-required > .g-label { color: var(--red); font-weight: 600; }
+  .own-field.is-required .s-input, .own-field.is-required .s-select { border-color: #e2a59d; }
+  .own-req { margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: #fdf2f1; color: var(--red); font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
+  .own-help { display: block; margin: 4px 0 0; color: var(--muted); font-size: 12.5px; line-height: 1.4; }
+  .own-err { display: block; margin: 4px 0 0; color: var(--red); font-size: 12.5px; font-weight: 500; }
+  .own-err:empty { display: none; }
+  .own-optional { grid-column: 1 / -1; }
+  .own-optional > summary { display: inline-block; margin-bottom: 14px; color: var(--teal-700); font-weight: 600; cursor: pointer; }
+  .own-optional[open] > summary { color: var(--ink-soft); }
+  .own-actions { display: flex; align-items: center; gap: 14px; margin-top: 22px; }
+  .own-multi { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+  @media (max-width: 720px) { .own-fields, .choices.is-two { grid-template-columns: minmax(0, 1fr); } }
+
+  /* ---- forms ---- */
+  .form {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 26px 32px;
+    margin: 0;
+    padding: 24px 26px 26px;
+  }
+  .form__wide { grid-column: 1 / -1; }
+  .form__row { display: grid; grid-template-columns: minmax(0, 1fr) 230px; gap: 16px; align-items: end; }
+  .form__row > .g-row + .g-row { margin-top: 0; }
+  .form__row + .form__row { margin-top: 14px; }
+  .form__row.is-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .group__intro { margin: -2px 0 12px; color: var(--muted); font-size: 13.5px; line-height: 1.45; }
+  .group__line.is-ok { color: var(--teal-700); }
+  .group__line .link { font-size: inherit; }
+  .banner {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    margin: 0 0 16px;
+    padding: 12px 14px;
+    border: 1px solid #efc4bf;
+    border-radius: 10px;
+    background: #fdf2f1;
+    color: var(--red);
+    font-size: 14px;
+    white-space: pre-wrap;
+  }
+  .segmented {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    max-width: 100%;
+    padding: 3px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--bg-alt);
+  }
+  .segmented label { position: relative; }
+  .segmented input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+  .segmented span {
+    display: block;
+    padding: 7px 14px;
+    border-radius: 7px;
+    color: var(--muted);
+    font-size: 13.5px;
+    font-weight: 600;
+    transition: background-color 0.15s, color 0.15s, box-shadow 0.15s;
+  }
+  .segmented input:checked + span { background: var(--bg); color: var(--teal-700); box-shadow: var(--shadow-sm), 0 0 0 1px var(--teal-200); }
+  .segmented input:focus-visible + span { box-shadow: var(--focus); }
+
+  /* a directory box, with its Browse… button */
+  .path-field { display: flex; gap: 8px; }
+  .path-field .s-input { flex: 1; min-width: 0; }
+  .btn--field { flex: none; height: 34px; padding: 0 14px; font-size: 13px; }
+
+  /* ---- the folder browser ---- */
+  .picker {
+    position: fixed;
+    inset: 0;
+    z-index: 25;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: rgba(8, 34, 42, 0.42);
+    -webkit-backdrop-filter: blur(3px);
+    backdrop-filter: blur(3px);
+  }
+  .picker__card {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 660px;
+    max-height: min(740px, calc(100vh - 48px));
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: var(--bg);
+    box-shadow: var(--shadow-lg);
+  }
+  .picker__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding: 20px 22px 10px; }
+  .picker__head h2 { margin: 0; font: 600 18px/1.3 var(--font-head); letter-spacing: -0.2px; }
+  .picker__places { display: flex; flex-wrap: wrap; gap: 6px; }
+  .picker__place {
+    height: 28px;
+    padding: 0 11px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--bg-alt);
+    color: var(--ink-soft);
+    font: 600 12px/1 var(--font-body);
+    cursor: pointer;
+  }
+  .picker__place:hover { border-color: var(--teal-200); color: var(--teal-700); }
+  .picker__place:focus-visible { outline: none; box-shadow: var(--focus); }
+  .picker__crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 1px; padding: 0 22px 10px; font: 500 13px/1.45 var(--font-mono); }
+  .crumb { padding: 1px 4px; border: 0; border-radius: 6px; background: none; color: var(--teal-700); font: inherit; cursor: pointer; overflow-wrap: anywhere; text-align: left; }
+  .crumb:hover { background: var(--teal-50); }
+  .crumb:focus-visible { outline: none; box-shadow: var(--focus); }
+  .crumb.is-current { color: var(--ink); font-weight: 600; cursor: default; }
+  .crumb.is-current:hover { background: none; }
+  .crumb__sep { color: var(--muted-light); }
+  .picker__filter { width: auto; margin: 0 22px 10px; }
+  .picker__list { flex: 1; min-height: 150px; overflow-y: auto; margin: 0 22px; border: 1px solid var(--line); border-radius: 10px; overscroll-behavior: contain; }
+  .picker__list:focus { outline: none; }
+  .picker__list:focus-visible { box-shadow: var(--focus); }
+  .picker__row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 12px;
+    border: 0;
+    border-bottom: 1px solid var(--line-soft);
+    background: none;
+    color: var(--ink);
+    font: 400 14px/1.3 var(--font-body);
+    text-align: left;
+    cursor: pointer;
+  }
+  .picker__row:hover, .picker__row:focus-visible { outline: none; background: var(--teal-50); }
+  .picker__row svg { flex: none; width: 18px; height: 18px; color: var(--teal-600); }
+  .picker__row span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .picker__row.is-up { color: var(--muted); }
+  .picker__row.is-up svg { color: var(--muted-light); }
+  .picker__empty { margin: 0; padding: 14px 12px; color: var(--muted); font-size: 13.5px; }
+  .picker__info { display: flex; gap: 6px; align-items: flex-start; min-height: 20px; margin: 10px 22px 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
+  .picker__info.is-ok { color: var(--teal-700); }
+  .picker__info.is-warn { color: var(--coral-dark); }
+  .picker__info.is-error { color: var(--red); }
+  .picker__foot { display: flex; justify-content: flex-end; gap: 10px; padding: 16px 22px 20px; }
+
+  /* ---- the run ---- */
+  .result { display: flex; gap: 16px; align-items: flex-start; margin: 0 0 18px; padding: 18px 20px; }
+  .result__icon {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--teal-50);
+    color: var(--teal-600);
+  }
+  .result__icon svg { width: 20px; height: 20px; }
+  .result__icon.is-warn { background: #fdf1ec; color: var(--coral-dark); }
+  .result__icon.is-off { background: var(--line-soft); color: var(--muted); }
+  .result__body { min-width: 0; }
+  .result h2 { margin: 1px 0 4px; font: 600 17px/1.3 var(--font-head); }
+  .result p { margin: 0; color: var(--muted); }
+  .result code {
+    display: inline-block;
+    max-width: 100%;
+    margin-top: 8px;
+    padding: 6px 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--bg-alt);
+    color: var(--ink);
+    font-size: 13px;
+    word-break: break-all;
+  }
+
+  .run { overflow: hidden; }
+  .run__head { display: flex; align-items: center; gap: 12px; padding: 12px 14px 12px 16px; border-bottom: 1px solid var(--line); }
+  .run__label { flex: 1; min-width: 0; overflow: hidden; color: var(--ink-soft); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+  .btn--small { height: 32px; padding: 0 12px; font-size: 13px; }
+  .status {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: 7px;
+    padding: 4px 11px 4px 9px;
+    border-radius: 999px;
+    background: var(--teal-50);
+    color: var(--teal-700);
+    font-size: 12.5px;
+    font-weight: 600;
+  }
+  .status__dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+  .status.is-busy .status__dot { animation: pulse 1.4s ease-in-out infinite; }
+  .status.is-waiting { background: #fdf1ec; color: var(--coral-dark); }
+  .status.is-failed { background: #fdf2f1; color: var(--red); }
+  .status.is-stopped { background: var(--line-soft); color: var(--muted); }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.35; transform: scale(0.7); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .status__dot { animation: none !important; }
+    .choice { transition: none; }
+  }
+  .console-wrap { position: relative; }
+  .console {
+    height: clamp(300px, 56vh, 760px);
+    overflow: auto;
+    padding: 14px 18px 18px;
+    background: #0b2530;
+    color: #d6e9ec;
+    overscroll-behavior: contain;
+  }
+  .console:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--teal-400); }
+  .console__text { margin: 0; font: 400 12.5px/1.55 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .console__dropped { margin: 0 0 8px; color: var(--muted-light); font: italic 12.5px/1.4 var(--font-body); }
+  .console__empty { color: var(--muted-light); font-style: italic; }
+  .console__jump {
+    position: absolute;
+    right: 22px;
+    bottom: 14px;
+    height: 30px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 999px;
+    background: var(--teal-500);
+    color: #fff;
+    box-shadow: var(--shadow-lg);
+    font: 600 12.5px/1 var(--font-body);
+    cursor: pointer;
+  }
+  .console__jump:focus-visible { outline: none; box-shadow: var(--focus); }
+  .ask {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 14px;
+    align-items: center;
+    padding: 16px 18px;
+    border-top: 1px solid #f3d5c8;
+    background: #fff8f4;
+  }
+  .ask__icon {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: var(--coral);
+    color: #fff;
+    font: 700 17px/1 var(--font-head);
+  }
+  .ask__label { margin: 0 0 2px; color: var(--coral-dark); font-size: 11px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; }
+  .ask__question { margin: 0; color: var(--ink); font-size: 15px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .ask__answer { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+  .ask__answer .btn { min-width: 84px; }
+  .ask__answer .s-input { width: 220px; }
+  .btn--danger { border-color: var(--red); background: var(--red); color: #fff; }
+  .btn--danger:hover { background: #a93226; }
+
+  @media (max-width: 1000px) {
+    .choices { grid-template-columns: 1fr; }
+    .choice { min-height: 0; }
+  }
+  @media (max-width: 760px) {
+    .picker { padding: 10px; }
+    .picker__card { max-height: calc(100vh - 20px); }
+    .picker__head, .picker__crumbs, .picker__foot { padding-left: 16px; padding-right: 16px; }
+    .picker__filter, .picker__list, .picker__info { margin-left: 16px; margin-right: 16px; }
+    .form { grid-template-columns: 1fr; padding: 20px 16px 22px; }
+    .form__row, .form__row.is-pair { grid-template-columns: 1fr; }
+    .form__row > .g-row + .g-row { margin-top: 10px; }
+    .ask { grid-template-columns: auto minmax(0, 1fr); }
+    .ask__answer { grid-column: 1 / -1; justify-content: flex-start; }
+    .ask__answer .s-input { flex: 1; width: auto; }
+    .run__head { flex-wrap: wrap; }
+  }
+  .units { overflow-x: auto; margin-bottom: 8px; }
+  .units table { width: 100%; min-width: 860px; table-layout: fixed; border-collapse: collapse; font-size: 14px; }
+  .units th, .units td { padding: 12px 14px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
+  .units th { font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+  .units tbody tr:last-child td { border-bottom: 0; }
+  .units .is-mono { font: 500 13px/20px var(--font-mono); overflow-wrap: anywhere; }
+  .units .unknown { color: var(--muted-light); font-style: italic; }
+  .units td small { display: block; color: var(--muted); font-size: 12px; }
+  .units .s-input { width: 100%; max-width: 90px; }
+  .units .is-invalid + .units__error { display: block; }
+  .units__error { display: none; margin-top: 4px; color: var(--red); font-size: 12px; }
+  .units__part + .units__part { margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="brand">
+      <span class="brand__word">Ocean<span>Val</span></span>
+    </div>
+    <ol class="steps" id="steps" aria-label="Steps" hidden></ol>
+    <h1 id="title">Validate an ocean model</h1>
+    <ul class="meta" id="meta" aria-label="Where OceanVal is working"></ul>
+  </div>
+</header>
+
+<main class="wrap">
+  <section id="view-start" hidden>
+    <p class="lede">Choose what to do. Matchups, scripts and reports are written in the directory shown above, the one you started <code>oceanval</code> in, unless you choose another.</p>
+    <div class="choices">
+      <button type="button" class="choice" data-action="matchup_validate">
+        <span class="choice__icon" data-icon="chart"></span>
+        <span class="choice__title">Match up new data and validate</span>
+        <span class="choice__text">Read a simulation's output, choose the observations to compare it with, match them up, and build the validation report.</span>
+        <span class="choice__go">Start →</span>
+      </button>
+      <button type="button" class="choice" data-action="matchup">
+        <span class="choice__icon" data-icon="match"></span>
+        <span class="choice__title">Match up only</span>
+        <span class="choice__text">Match a simulation up with observations now, and build the report later, from the same matchups.</span>
+        <span class="choice__go">Start →</span>
+      </button>
+      <button type="button" class="choice" data-action="validate">
+        <span class="choice__icon" data-icon="report"></span>
+        <span class="choice__title">Validate using existing data</span>
+        <span class="choice__text">Build the validation report from matchups made earlier.</span>
+        <span class="choice__go">Start →</span>
+      </button>
+    </div>
+  </section>
+
+  <section id="view-setup" hidden>
+    <p class="lede">Tell OceanVal where the simulation is. It then reads the output files, works out which model variable holds each observational variable, and shows you what it found, for you to check.</p>
+    <div class="banner" id="setup-error" role="alert" hidden></div>
+    <form class="form card" id="setup-form" novalidate autocomplete="off">
+      <fieldset class="group form__wide">
+        <legend>Simulation</legend>
+        <div class="form__row">
+          <div class="g-row"><label class="g-label" for="f-simdir">Directory with the model output</label><div class="path-field"><input class="s-input is-mono" id="f-simdir" list="f-simdir-folders" placeholder="/path/to/model/output" spellcheck="false" autocapitalize="off"><button type="button" class="btn btn--ghost btn--field" data-browse="f-simdir">Browse…</button></div><datalist id="f-simdir-folders"></datalist></div>
+          <label class="g-row"><span class="g-label">Files are this many directories below it</span><input class="s-input is-num" id="f-ndown" inputmode="numeric" placeholder="e.g. 2" spellcheck="false" autocapitalize="off"></label>
+        </div>
+        <div class="form__row is-pair">
+          <label class="g-row"><span class="g-label">Skip file names containing <span class="g-note">(separate words with a space)</span></span><input class="s-input is-mono" id="f-exclude" placeholder="e.g. restart 5d" spellcheck="false" autocapitalize="off"></label>
+          <label class="g-row"><span class="g-label">Only file names containing <span class="g-note">(separate words with a space)</span></span><input class="s-input is-mono" id="f-require" placeholder="e.g. grid_T" spellcheck="false" autocapitalize="off"></label>
+        </div>
+        <p class="group__msg" id="m-simulation"></p>
+      </fieldset>
+      <fieldset class="group">
+        <legend>Domain</legend>
+        <div class="segmented" id="f-domain" role="radiogroup" aria-label="Domain"></div>
+        <p class="group__msg" id="m-domain"></p>
+      </fieldset>
+      <fieldset class="group">
+        <legend>Years to validate</legend>
+        <div class="g-row pair">
+          <label><span class="g-label">Start</span><input class="s-input is-num" id="f-start" inputmode="numeric" spellcheck="false" autocapitalize="off"></label>
+          <label><span class="g-label">End</span><input class="s-input is-num" id="f-end" inputmode="numeric" spellcheck="false" autocapitalize="off"></label>
+        </div>
+        <p class="group__msg" id="m-years"></p>
+      </fieldset>
+      <fieldset class="group form__wide">
+        <legend>Matchup script</legend>
+        <p class="group__intro">This is created to produce a fully reproducible version of this validation that can be run from the command line.</p>
+        <label class="g-row"><span class="g-label">Write the script to</span><input class="s-input is-mono" id="f-out" spellcheck="false" autocapitalize="off"></label>
+        <p class="group__msg" id="m-out"></p>
+      </fieldset>
+      <button type="submit" hidden></button>
+    </form>
+  </section>
+
+  <section id="view-own" hidden>
+    <p class="lede">As well as OceanVal's built-in datasets, you can validate against observations of your own, point data (csv files) or gridded data (netCDF). Do you have any to add?</p>
+    <div class="choices is-two">
+      <button type="button" class="choice" id="own-yes">
+        <span class="choice__title">Yes, I have my own data</span>
+        <span class="choice__text">Add point and gridded observations one at a time, in the next two steps.</span>
+        <span class="choice__go">Add my data →</span>
+      </button>
+      <button type="button" class="choice" id="own-no">
+        <span class="choice__title">No, just the built-in datasets</span>
+        <span class="choice__text">Go straight on to choosing which of OceanVal's recipes to use.</span>
+        <span class="choice__go">Continue →</span>
+      </button>
+    </div>
+  </section>
+
+  <section id="view-point" hidden data-own="point"></section>
+  <section id="view-gridded" hidden data-own="gridded"></section>
+
+  <section id="view-units-check" hidden>
+    <p class="lede">A model and its observations can report the same quantity in different units, for example nutrients in mmol/m3 against µmol/kg. OceanVal compares the values as they are, so a difference in units shows up as a large error in the report. Are you sure the model and observation units match up?</p>
+    <div class="choices is-two">
+      <button type="button" class="choice" id="units-yes">
+        <span class="choice__title">Yes, the units match</span>
+        <span class="choice__text">Go straight on to matching up the data.</span>
+        <span class="choice__go">Continue →</span>
+      </button>
+      <button type="button" class="choice" id="units-no">
+        <span class="choice__title">No, or I am not sure</span>
+        <span class="choice__text">See the units of the model and of the observations for every gridded and point matchup, and convert the observations where they differ.</span>
+        <span class="choice__go">Show the units →</span>
+      </button>
+    </div>
+  </section>
+
+  <section id="view-units-table" hidden>
+    <p class="lede">These are the units of each matchup, read from the model's netCDF files and, for the observations, from OceanVal's recipes (the same as on the recipes page of the documentation) or from the netCDF file you supplied. If they differ, convert the observations: they become <strong>observations × multiply by + add</strong> before they are compared with the model. Leave the boxes empty if no conversion is needed.</p>
+    <section class="units-section" id="units-section-gridded" aria-labelledby="units-title-gridded">
+      <h2 class="section-title" id="units-title-gridded">Gridded datasets</h2>
+      <p class="lede">OceanVal's gridded recipes, and your own gridded data (netCDF).</p>
+      <div class="card units"><table>
+        <colgroup><col style="width:19%"><col style="width:11%"><col style="width:13%"><col style="width:14%"><col style="width:19%"><col style="width:12%"><col style="width:12%"></colgroup>
+        <thead><tr>
+        <th scope="col">Matchup</th><th scope="col">Model variable</th><th scope="col">Model units</th>
+        <th scope="col">Observation variable</th><th scope="col">Observation units</th>
+        <th scope="col">Multiply by</th><th scope="col">Add</th>
+        </tr></thead>
+        <tbody class="units-body" id="units-body-gridded"></tbody>
+      </table></div>
+      <p class="group__msg" id="units-empty-gridded" hidden>No gridded datasets are being matched up.</p>
+    </section>
+    <section class="units-section" id="units-section-point" aria-labelledby="units-title-point">
+      <h2 class="section-title" id="units-title-point">Point datasets</h2>
+      <p class="lede">OceanVal's ICES recipes, and your own point data. Your own point data is csv files, which have no units, so it is up to you to make sure they match the model's.</p>
+      <div class="card units"><table>
+        <colgroup><col style="width:19%"><col style="width:11%"><col style="width:13%"><col style="width:14%"><col style="width:19%"><col style="width:12%"><col style="width:12%"></colgroup>
+        <thead><tr>
+        <th scope="col">Matchup</th><th scope="col">Model variable</th><th scope="col">Model units</th>
+        <th scope="col">Observation variable</th><th scope="col">Observation units</th>
+        <th scope="col">Multiply by</th><th scope="col">Add</th>
+        </tr></thead>
+        <tbody class="units-body" id="units-body-point"></tbody>
+      </table></div>
+      <p class="group__msg" id="units-empty-point" hidden>No point datasets are being matched up.</p>
+    </section>
+  </section>
+
+  <section id="view-validate" hidden>
+    <p class="lede">Build the validation report from matchups made earlier by <code>matchup()</code>, or by this window.</p>
+    <form class="form card" id="validate-form" novalidate autocomplete="off">
+      <fieldset class="group form__wide">
+        <legend>Matchups</legend>
+        <div class="g-row"><label class="g-label" for="v-data_dir">Directory the matchups were made in</label><div class="path-field"><input class="s-input is-mono" id="v-data_dir" list="v-data_dir-folders" spellcheck="false" autocapitalize="off"><button type="button" class="btn btn--ghost btn--field" data-browse="v-data_dir">Browse…</button></div><datalist id="v-data_dir-folders"></datalist></div>
+        <p class="group__msg" id="vm-data_dir"></p>
+      </fieldset>
+      <fieldset class="group form__wide">
+        <legend>Report</legend>
+        <div class="g-row"><label class="g-label" for="v-out_dir">Directory to build the report in</label><div class="path-field"><input class="s-input is-mono" id="v-out_dir" list="v-out_dir-folders" spellcheck="false" autocapitalize="off"><button type="button" class="btn btn--ghost btn--field" data-browse="v-out_dir">Browse…</button></div><datalist id="v-out_dir-folders"></datalist></div>
+        <p class="group__msg" id="vm-out_dir"></p>
+      </fieldset>
+      <fieldset class="group">
+        <legend>Spatial subset</legend>
+        <div class="g-row span-row">
+          <span class="span-row__label">Lon</span>
+          <input class="s-input is-num" id="v-lon_min" placeholder="min" aria-label="Minimum longitude" spellcheck="false">
+          <span class="dash">–</span>
+          <input class="s-input is-num" id="v-lon_max" placeholder="max" aria-label="Maximum longitude" spellcheck="false">
+        </div>
+        <div class="g-row span-row">
+          <span class="span-row__label">Lat</span>
+          <input class="s-input is-num" id="v-lat_min" placeholder="min" aria-label="Minimum latitude" spellcheck="false">
+          <span class="dash">–</span>
+          <input class="s-input is-num" id="v-lat_max" placeholder="max" aria-label="Maximum latitude" spellcheck="false">
+        </div>
+        <p class="group__msg" id="vm-subset"></p>
+      </fieldset>
+      <fieldset class="group">
+        <legend>Regional summaries</legend>
+        <label class="g-row"><span class="g-label">Summarise by</span>
+          <select class="s-select" id="v-subregions">
+            <option value="">None</option>
+            <option value="nwes">Northwest European Shelf</option>
+            <option value="global">Global</option>
+            <option value="file">A .nc file of your own…</option>
+          </select>
+        </label>
+        <label class="g-row" id="row-subregions_file" hidden><span class="g-label">Path to the file</span><input class="s-input is-mono" id="v-subregions_file" placeholder="/path/to/regions.nc" spellcheck="false" autocapitalize="off"></label>
+        <p class="group__msg" id="vm-subregions"></p>
+      </fieldset>
+      <fieldset class="group form__wide">
+        <legend>Options</legend>
+        <div class="g-row ticks">
+          <label class="tick-label" title="Cap the seasonal plots' colour scales at the 2nd and 98th percentiles of the model and observations"><input type="checkbox" class="tick" id="v-fixed_scale">Fixed colour scales</label>
+          <label class="tick-label"><input type="checkbox" class="tick" id="v-pdf">PDF version</label>
+          <label class="tick-label"><input type="checkbox" class="tick" id="v-word">Word version</label>
+          <label class="tick-label"><input type="checkbox" class="tick" id="v-zip">Zip of the report</label>
+        </div>
+        <p class="group__msg" id="vm-options"></p>
+      </fieldset>
+      <button type="submit" hidden></button>
+    </form>
+  </section>
+
+  <section id="view-run" hidden>
+    <div class="result card" id="result" hidden></div>
+    <div class="run card">
+      <div class="run__head">
+        <span class="status" id="status"><span class="status__dot" aria-hidden="true"></span><span id="status-text"></span></span>
+        <code class="run__label" id="run-label"></code>
+        <button type="button" class="btn btn--text btn--small" id="copy">Copy output</button>
+      </div>
+      <div class="console-wrap">
+        <div class="console" id="console" tabindex="0" role="log" aria-label="Output">
+          <p class="console__dropped" id="console-dropped" hidden>Earlier output is not shown.</p>
+          <pre class="console__text" id="console-text"></pre>
+        </div>
+        <button type="button" class="console__jump" id="jump" hidden>↓ Latest output</button>
+      </div>
+      <div class="ask" id="ask" hidden>
+        <span class="ask__icon" aria-hidden="true">?</span>
+        <div>
+          <p class="ask__label">A question for you</p>
+          <p class="ask__question" id="ask-question"></p>
+        </div>
+        <div class="ask__answer" id="ask-answer"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="bar" id="bar" hidden>
+  <div class="wrap">
+    <p class="summary" id="summary" aria-live="polite"></p>
+    <div class="actions" id="actions"></div>
+  </div>
+</footer>
+
+<div class="done" id="done" hidden>
+  <div class="done__card" role="dialog" aria-modal="true" aria-labelledby="done-title">
+    <div class="done__icon" id="done-icon"></div>
+    <h2 id="done-title" tabindex="-1"></h2>
+    <p id="done-text"></p>
+  </div>
+</div>
+
+<div class="picker" id="picker" hidden>
+  <div class="picker__card" role="dialog" aria-modal="true" aria-labelledby="picker-title">
+    <div class="picker__head">
+      <h2 id="picker-title"></h2>
+      <div class="picker__places" id="picker-places"></div>
+    </div>
+    <nav class="picker__crumbs" id="picker-crumbs" aria-label="The directory shown"></nav>
+    <input class="s-input picker__filter" id="picker-filter" placeholder="Filter these folders" aria-label="Filter these folders" spellcheck="false" autocomplete="off" autocapitalize="off">
+    <div class="picker__list" id="picker-list" tabindex="-1" aria-label="Folders"></div>
+    <p class="picker__info" id="picker-info"></p>
+    <div class="picker__foot">
+      <button type="button" class="btn btn--ghost" id="picker-cancel">Cancel</button>
+      <button type="button" class="btn btn--primary" id="picker-choose">Choose this directory</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script type="application/json" id="state">__OCEANVAL_STATE__</script>
+<script>
+/*__OCEANVAL_GUI_JS__*/
+</script>
+<script>
+(() => {
+  "use strict";
+
+  const { ICONS, $, el, icon, shorten, plural, toast, STEPS, steps } = OceanValGUI;
+  const initial = JSON.parse($("state").textContent);
+  const token = initial.token;
+  let state = initial.state;
+
+  const PICTURES = {
+    folder: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
+    up: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V6m0 0-5 5m5-5 5 5"/></svg>',
+    chart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16h16"/><path d="m7.5 14.5 3.5-4 3 3 5-6"/></svg>',
+    match: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13m0 0-3.5-3.5M17 8l-3.5 3.5"/><path d="M20 16H7m0 0 3.5-3.5M7 16l3.5 3.5"/></svg>',
+    report: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="m9 14.5 2 2 4-4.5"/></svg>',
+  };
+  document.querySelectorAll("[data-icon]").forEach((node) => { node.innerHTML = PICTURES[node.dataset.icon]; });
+
+  const ACTION_TITLES = {
+    matchup_validate: "Matching up and validating",
+    matchup: "Matching up",
+    validate: "Building the report",
+  };
+
+  function depthText(depth) {
+    return depth === 0 ? "in the directory itself" : `${depth} director${depth === 1 ? "y" : "ies"} down`;
+  }
+
+  // ---- talking to oceanval ----
+  const query = (params) => new URLSearchParams({ token, ...params }).toString();
+
+  async function post(path, body = {}) {
+    let response;
+    try {
+      response = await fetch(path, {
+        method: "POST",
+        cache: "no-store",
+        headers: { "Content-Type": "application/json", "X-OceanVal-Token": token },
+        body: JSON.stringify(body),
+      });
+    } catch (error) {
+      showDone("gone");
+      return { ok: false, error: "OceanVal is no longer running." };
+    }
+    try {
+      return await response.json();
+    } catch (error) {
+      return { ok: false, error: `OceanVal sent back an unexpected reply (${response.status}).` };
+    }
+  }
+
+  function showDone(kind) {
+    document.querySelectorAll("input, button, select").forEach((control) => { control.disabled = true; });
+    const closed = kind === "closed";
+    $("done-icon").className = closed ? "done__icon is-off" : "done__icon is-warn";
+    $("done-icon").innerHTML = closed ? ICONS.cross : ICONS.warn;
+    $("done-title").textContent = closed ? "OceanVal has closed" : "OceanVal has stopped";
+    $("done-text").textContent = closed
+      ? "You can close this tab. Run oceanval in a terminal to start again."
+      : "It is no longer running, so this page can do nothing more. Run oceanval in a terminal to start again.";
+    $("done").hidden = false;
+    $("done-title").focus();
+  }
+
+  // ---- the header and the bar ----
+  function stepIndex(view, action) {
+    if (view === "start") return 0;
+    if (view === "setup" || view === "validate") return 1;
+    if (view === "own_data" || view === "point_data" || view === "gridded_data") return 2;
+    if (view === "recipes" || view === "preparing") return 3;
+    if (view === "units_check" || view === "units_table") return 4;
+    return STEPS[action].length - 1;
+  }
+
+  function title() {
+    const run = state.run;
+    switch (state.view) {
+      case "start": return "Validate an ocean model";
+      case "setup": return "Where is the simulation?";
+      case "own_data": return "Do you have your own data?";
+      case "point_data": return "Your point data";
+      case "gridded_data": return "Your gridded data";
+      case "preparing": return "Reading the simulation";
+      case "units_check": return "Do the units match up?";
+      case "units_table": return "Model and observation units";
+      case "validate": return "Build a validation report";
+      case "running": return ACTION_TITLES[state.action];
+      default:
+        return run.status === "finished" ? "Finished"
+          : run.status === "stopped" ? "Stopped" : "Something went wrong";
+    }
+  }
+
+  function renderHeader() {
+    steps($("steps"), STEPS[state.action || "matchup_validate"], stepIndex(state.view, state.action));
+    $("title").textContent = title();
+    const meta = $("meta");
+    meta.replaceChildren(el("li", { title: state.cwd },
+      el("span", { class: "meta__k", text: "Working in" }),
+      el("span", { class: "meta__v is-mono", text: shorten(state.cwd) })));
+  }
+
+  function button(text, kind, onclick, props = {}) {
+    return el("button", { type: "button", class: `btn btn--${kind}`, text, onclick, ...props });
+  }
+
+  let stopArmed = null;
+  let barShown = null;
+  function renderBar() {
+    const view = state.view;
+    // only rebuilt when something in it changes, so a button keeps its focus
+    const key = [view, state.action, state.run.status, Boolean(stopArmed),
+      state.own.entries.point.length, state.own.entries.gridded.length].join("|");
+    if (key === barShown) {
+      if (view === "setup") refreshSetup();
+      return;
+    }
+    barShown = key;
+    const summary = $("summary");
+    const actions = [];
+    let text = "";
+    if (view === "setup") {
+      text = "Next, OceanVal reads the simulation, and shows you what it found.";
+      actions.push(button("Back", "ghost", () => post("api/back")),
+        button("Continue", "primary", submitSetup, { id: "continue" }));
+    } else if (view === "own_data") {
+      text = "Your data is added to the matchup script, so it is matched up with the built-in datasets.";
+      actions.push(button("Back", "ghost", () => post("api/back")));
+    } else if (view === "point_data" || view === "gridded_data") {
+      const kind = view === "point_data" ? "point" : "gridded";
+      const added = state.own.entries[kind].length;
+      text = added ? `${plural(added, "dataset")} added.` : "Nothing added yet: skip this step if you have no " + kind + " data.";
+      actions.push(button("Back", "ghost", () => post("api/back")),
+        button(added ? "Continue" : "Skip", "primary", () => post("api/own_next"), { id: "own-next" }));
+    } else if (view === "validate") {
+      text = "The report is built in oceanval_report, in the report directory.";
+      actions.push(button("Back", "ghost", () => post("api/back")),
+        button("Build the report", "primary", submitValidate, { id: "build" }));
+    } else if (view === "units_check") {
+      text = "Nothing is changed in the matchup script unless you set a conversion.";
+    } else if (view === "units_table") {
+      text = "A conversion is written into the matchup script as obs_multiplier and obs_adder.";
+      actions.push(button("Back", "ghost", () => post("api/back")),
+        button("Continue", "primary", submitUnits, { id: "units-continue" }));
+    } else if (view === "preparing") {
+      text = "This takes a few seconds: only one file of each kind is read.";
+    } else if (view === "running") {
+      text = "The run carries on if you close this page. Open the link oceanval printed to come back to it.";
+      const stop = button(stopArmed ? "Stop the run?" : "Stop", stopArmed ? "danger" : "ghost", () => {
+        if (!stopArmed) {
+          // a second click stops it
+          stopArmed = setTimeout(() => { stopArmed = null; renderBar(); $("stop").focus(); }, 4000);
+          renderBar();
+          $("stop").focus();
+          return;
+        }
+        clearTimeout(stopArmed);
+        stopArmed = null;
+        post("api/stop");
+      }, { id: "stop" });
+      actions.push(stop);
+    } else if (view === "finished") {
+      text = "Quit closes OceanVal. Closing this tab leaves it running in the terminal.";
+      actions.push(button("Quit", "ghost", async () => {
+        await post("api/quit");
+        showDone("closed");
+      }));
+      const matchupsReady = state.action === "matchup" && state.run.status === "finished";
+      actions.push(button("Start again", matchupsReady ? "ghost" : "primary", () => post("api/restart")));
+      if (matchupsReady) {
+        actions.push(button("Validate these matchups", "primary",
+          () => post("api/choose", { action: "validate", data_dir: state.run.results })));
+      }
+    }
+    summary.textContent = text;
+    $("actions").replaceChildren(...actions);
+    $("bar").hidden = actions.length === 0 && !text;
+    if (view === "setup") refreshSetup();
+  }
+
+  // ---- the views ----
+  const VIEWS = { start: "view-start", setup: "view-setup", validate: "view-validate",
+    own_data: "view-own", point_data: "view-point", gridded_data: "view-gridded",
+    units_check: "view-units-check", units_table: "view-units-table",
+    preparing: "view-run", running: "view-run", finished: "view-run" };
+  let shownView = null;
+
+  function enterView(view) {
+    for (const id of new Set(Object.values(VIEWS))) $(id).hidden = id !== VIEWS[view];
+    if (view === "setup") {
+      fillSetup();
+      $("f-simdir").focus();
+    } else if (view === "validate") {
+      fillValidate();
+      $("v-data_dir").focus();
+    } else if (view === "start") {
+      document.querySelector(".choice").focus();
+    } else if (view === "units_check") {
+      $("units-yes").focus();
+    } else if (view === "units_table") {
+      fillUnits();
+    } else if (view === "own_data") {
+      $("own-yes").focus();
+    } else if (view === "point_data" || view === "gridded_data") {
+      refreshOwn(view === "point_data" ? "point" : "gridded");
+      const first = document.querySelector(`#view-${view === "point_data" ? "point" : "gridded"} input:not([type=checkbox]), #view-${view === "point_data" ? "point" : "gridded"} select`);
+      if (first) first.focus();
+    }
+    shownView = view;
+    $("toast").hidden = true;
+    window.scrollTo(0, 0);
+  }
+
+  function render() {
+    if (state.view !== shownView) enterView(state.view);
+    renderHeader();
+    renderBar();
+    if (state.view === "point_data") refreshOwn("point");
+    if (state.view === "gridded_data") refreshOwn("gridded");
+    if (VIEWS[state.view] === "view-run") renderRun();
+  }
+
+  // ---- 1: choosing what to do ----
+  document.querySelectorAll(".choice").forEach((choice) => {
+    choice.addEventListener("click", () => post("api/choose", { action: choice.dataset.action }));
+  });
+
+  // ---- 2: the simulation ----
+  const DOMAIN_HINTS = {
+    global: "World Ocean Atlas 2023, Ocean Colour CCI, GLODAP and COBE-SST 2 start ticked.",
+    nwes: "The North Sea Biogeochemical Climatology and ICES in-situ observations start ticked.",
+  };
+  const SETUP_FIELDS = ["simdir", "ndown", "exclude", "require", "start", "end", "out"];
+  // the boxes the live check depends on
+  const PROBED = new Set(["simdir", "ndown", "exclude", "require", "out"]);
+  const setup = {};
+  let setupErrors = {};
+  let probe = null;
+  let probeNumber = 0;
+  let probeTimer = null;
+  // whether the depth and years were filled in from the files, so can change with them
+  let autoDepth = false;
+  let autoYears = false;
+
+  const segmented = $("f-domain");
+  for (const [value, label] of initial.domains) {
+    const input = el("input", { type: "radio", name: "domain", value });
+    input.addEventListener("change", () => { setup.domain = value; refreshSetup(); });
+    segmented.append(el("label", {}, input, el("span", { text: label })));
+  }
+
+  function fillSetup() {
+    Object.assign(setup, state.setup.form);
+    for (const name of SETUP_FIELDS) $(`f-${name}`).value = setup[name];
+    segmented.querySelectorAll("input").forEach((input) => { input.checked = input.value === setup.domain; });
+    setupErrors = {};
+    autoDepth = autoYears = false;
+    probe = null;
+    askProbe(0);
+  }
+
+  for (const name of SETUP_FIELDS) {
+    $(`f-${name}`).addEventListener("input", (event) => {
+      setup[name] = event.target.value;
+      delete setupErrors[name];
+      if (name === "ndown") autoDepth = false;
+      if (name === "start" || name === "end") autoYears = false;
+      if (PROBED.has(name)) askProbe(400);
+      refreshSetup();
+    });
+  }
+  $("setup-form").addEventListener("submit", (event) => { event.preventDefault(); submitSetup(); });
+
+  function askProbe(delay) {
+    clearTimeout(probeTimer);
+    probeTimer = setTimeout(async () => {
+      const number = ++probeNumber;
+      let found;
+      try {
+        const response = await fetch(`api/probe?${query({
+          simdir: setup.simdir, ndown: setup.ndown, out: setup.out, exclude: setup.exclude, require: setup.require,
+        })}`, { cache: "no-store" });
+        found = await response.json();
+      } catch (error) {
+        return;
+      }
+      // a later check has been asked for since
+      if (number !== probeNumber) return;
+      probe = found;
+      useProbe();
+      refreshSetup();
+    }, delay);
+  }
+
+  function useProbe() {
+    if (!probe) return;
+    const blank = (name) => !String(setup[name]).trim();
+    const suggestion = probe.suggestion;
+    // an empty depth is filled in with the one the files are at
+    if (suggestion && (blank("ndown") || autoDepth)) {
+      setup.ndown = $("f-ndown").value = String(suggestion.ndown);
+      autoDepth = true;
+      askProbe(0);
+      return;
+    }
+    const years = probe.years;
+    if (years && ((blank("start") && blank("end")) || autoYears)) {
+      setup.start = $("f-start").value = String(years[0]);
+      setup.end = $("f-end").value = String(years[1]);
+      autoYears = true;
+    }
+  }
+
+  const isInteger = (text) => /^[+-]?\d+$/.test(String(text).trim());
+
+  function setupProblems() {
+    const errors = { ...setupErrors };
+    const text = (name) => String(setup[name]).trim();
+    if (!text("simdir")) errors.simdir = errors.simdir || "";
+    else if (probe && probe.directory === "missing") errors.simdir = "There is no directory at this path.";
+    if (!isInteger(setup.ndown) || +setup.ndown < 0) errors.ndown = errors.ndown || (text("ndown") ? "This must be a whole number, 0 or more." : "");
+    else if (probe && probe.directory === "found" && probe.files === 0) errors.ndown = errors.ndown || "";
+    for (const name of ["start", "end"]) {
+      if (!isInteger(setup[name])) errors[name] = errors[name] || (text(name) ? `${name === "start" ? "Start" : "End"} must be a year, e.g. 2011.` : "");
+    }
+    if (!errors.start && !errors.end && +setup.end < +setup.start) errors.end = "End must not be before start.";
+    if (!text("out")) errors.out = errors.out || "";
+    return errors;
+  }
+
+  function line(text, kind, ...extra) {
+    const pictures = { ok: "check", warn: "warn", error: "error" };
+    return el("span", { class: "group__line" + (kind ? ` is-${kind}` : "") },
+      pictures[kind] ? icon(pictures[kind]) : null, el("span", {}, text, ...extra));
+  }
+
+  function message(id, lines, error) {
+    const node = $(id);
+    node.className = "group__msg" + (error ? " is-error" : "");
+    node.replaceChildren(...lines);
+  }
+
+  function refreshSetup() {
+    const errors = setupProblems();
+    for (const name of SETUP_FIELDS) {
+      const invalid = Boolean(errors[name]);
+      $(`f-${name}`).classList.toggle("is-invalid", invalid);
+      $(`f-${name}`).setAttribute("aria-invalid", String(invalid));
+    }
+    segmented.querySelectorAll("input").forEach((input) => { input.checked = input.value === setup.domain; });
+
+    // the simulation, as the live check finds it
+    const simulation = [];
+    if (errors.simdir || errors.ndown) {
+      simulation.push(line(errors.simdir || errors.ndown, "error"));
+    }
+    if (!errors.simdir && probe && probe.directory === "found") {
+      const depth = probe.ndown;
+      const filtered = probe.all_files !== null && probe.all_files !== probe.files;
+      if (probe.files > 0) {
+        let found = filtered
+          ? `${probe.files} of the ${probe.all_files} netCDF files ${depthText(depth)} pass the file filters`
+          : `${probe.files} netCDF file${probe.files === 1 ? "" : "s"} ${depthText(depth)}`;
+        if (probe.years) found += probe.years[0] === probe.years[1] ? `, named for ${probe.years[0]}` : `, named for ${probe.years[0]}–${probe.years[1]}`;
+        simulation.push(line(found + ".", "ok"));
+      } else if (depth !== null && probe.all_files > 0) {
+        simulation.push(line(`None of the ${probe.all_files} netCDF files ${depthText(depth)} pass the file filters.`, "warn"));
+      } else if (depth !== null && probe.suggestion) {
+        const other = probe.suggestion;
+        simulation.push(line(`No netCDF files ${depthText(depth)}, but there are ${other.files} ${depthText(other.ndown)}. `, "warn",
+          el("button", { type: "button", class: "link", text: `Use ${other.ndown}`, onclick: () => {
+            setup.ndown = $("f-ndown").value = String(other.ndown);
+            autoDepth = true;
+            askProbe(0);
+            refreshSetup();
+          } })));
+      } else if (depth !== null) {
+        simulation.push(line(`No netCDF files ${depthText(depth)}, nor at any depth down to 3 directories.`, "warn"));
+      }
+    }
+    if (!simulation.length) {
+      simulation.push(line("Use 2 for output filed as sim/YYYY/MM/*.nc, 1 for sim/YYYY/*.nc, and 0 for a single directory."));
+    }
+    if (String(setup.exclude).trim() || String(setup.require).trim()) {
+      simulation.push(line("Only file names are checked, not directories. The filters are passed on to matchup, too."));
+    }
+    message("m-simulation", simulation, false);
+
+    message("m-domain", [line(DOMAIN_HINTS[setup.domain] + " Where a variable has datasets in both regions, the domain decides which is ticked.")]);
+
+    if (errors.start || errors.end) {
+      message("m-years", [line(errors.start || errors.end, "error")], true);
+    } else {
+      message("m-years", [line(autoYears
+        ? "Filled in from the file names. They can be changed in the next step too."
+        : "The first and last years to match up. They can be changed in the next step too.")]);
+    }
+
+    if (errors.out) message("m-out", [line(errors.out, "error")], true);
+    else if (probe && probe.out_exists) message("m-out", [line("This file already exists, and will be replaced.", "warn")]);
+    else message("m-out", []);
+
+    const blocked = Object.keys(errors).length > 0;
+    const next = $("continue");
+    if (next) {
+      next.disabled = blocked;
+      next.title = blocked ? "Fill in everything first" : "";
+    }
+  }
+
+  async function submitSetup() {
+    if (Object.keys(setupProblems()).length) return;
+    $("setup-error").hidden = true;
+    const reply = await post("api/setup", { form: setup });
+    if (!reply.ok) {
+      setupErrors = reply.errors || {};
+      if (reply.error) toast(reply.error);
+      refreshSetup();
+    }
+  }
+
+  function renderSetupError() {
+    const banner = $("setup-error");
+    banner.hidden = !state.setup.error;
+    if (state.setup.error) banner.replaceChildren(icon("error"), el("span", { text: state.setup.error }));
+  }
+
+  // ---- 3: your own observations ----
+  // Each kind of data has a form built from the fields oceanval sends, which
+  // are every argument of the call that registers it. Those that have to be
+  // given are marked in red.
+  $("own-yes").addEventListener("click", () => post("api/own_data", { answer: true }));
+  $("own-no").addEventListener("click", () => post("api/own_data", { answer: false }));
+
+  const OWN_TEXT = {
+    point: {
+      noun: "point dataset",
+      lede: "Point data are csv files in one directory, with lon, lat and observation columns, and any of year, month, day, depth and source. Add each dataset in turn, then continue. Each is registered with add_point_comparison in the matchup script.",
+    },
+    gridded: {
+      noun: "gridded dataset",
+      lede: "Gridded data are netCDF files, on a grid. Add each dataset in turn, then continue. Each is registered with add_gridded_comparison in the matchup script.",
+    },
+  };
+  const own = { point: {}, gridded: {} };
+
+  function ownField(kind, field) {
+    const id = `o-${kind}-${field.name}`;
+    const error = el("span", { class: "own-err", id: `${id}-err`, role: "alert" });
+    const help = field.help ? el("span", { class: "own-help", id: `${id}-help`, text: field.help }) : null;
+    const described = `${id}-help ${id}-err`;
+    const wrapper = el("div", { class: "own-field" + (field.required ? " is-required" : "") });
+    let input, read, reset, mark = () => {};
+    const label = () => el("label", { class: "g-label", for: id },
+      field.label, field.required ? el("span", { class: "own-req", text: "Required" }) : null);
+
+    if (field.kind === "bool") {
+      input = el("input", { type: "checkbox", class: "tick", id, "aria-describedby": described });
+      read = () => input.checked;
+      reset = () => { input.checked = field.default === true; };
+      wrapper.append(el("label", { class: "tick-label", for: id }, input, field.label));
+    } else if (field.kind === "multi") {
+      const boxes = field.choices.map((choice) => el("input", { type: "checkbox", class: "tick", value: choice }));
+      input = boxes[0];
+      read = () => boxes.filter((box) => box.checked).map((box) => box.value);
+      reset = () => boxes.forEach((box) => { box.checked = false; });
+      wrapper.append(el("span", { class: "g-label" }, field.label),
+        el("div", { class: "own-multi" }, ...boxes.map((box) => el("label", { class: "tick-label" }, box, box.value))));
+    } else if (field.kind === "yesno") {
+      input = el("select", { class: "s-select", id, "aria-describedby": described },
+        el("option", { value: "", text: "Choose…" }),
+        el("option", { value: "yes", text: "Yes" }),
+        el("option", { value: "no", text: "No" }));
+      read = () => input.value;
+      reset = () => { input.value = ""; };
+      mark = (bad) => { input.classList.toggle("is-invalid", bad); input.setAttribute("aria-invalid", String(bad)); };
+      wrapper.append(label(), input);
+    } else {
+      const mono = field.name === "obs_path" || field.name === "model_variable" || field.name === "obs_variable";
+      const number = field.kind !== "text";
+      input = el("input", { type: "text", class: "s-input" + (mono ? " is-mono" : number ? " is-num" : ""), id,
+        placeholder: field.placeholder || "", spellcheck: "false", autocapitalize: "off", autocomplete: "off",
+        "aria-describedby": described });
+      read = () => input.value;
+      reset = () => { input.value = ""; };
+      mark = (bad) => { input.classList.toggle("is-invalid", bad); input.setAttribute("aria-invalid", String(bad)); };
+      wrapper.append(label(), input);
+    }
+    wrapper.append(help, error);
+    if (field.name === "obs_path") wrapper.classList.add("is-wide");
+    reset();
+    const clear = () => { error.textContent = ""; mark(false); };
+    wrapper.addEventListener("input", clear);
+    wrapper.addEventListener("change", clear);
+    own[kind][field.name] = {
+      field, wrapper, input, read, reset, clear,
+      show(text) { error.textContent = text; mark(true); },
+      optional: !field.required,
+    };
+    return wrapper;
+  }
+
+  function buildOwn(kind) {
+    const section = $(`view-${kind}`);
+    const fields = initial.state.own.fields[kind];
+    const needed = el("div", { class: "own-fields" }, ...fields.filter((f) => f.required).map((f) => ownField(kind, f)));
+    const optional = el("details", { class: "own-optional", id: `own-optional-${kind}` },
+      el("summary", { text: "Optional settings" }),
+      el("div", { class: "own-fields" }, ...fields.filter((f) => !f.required).map((f) => ownField(kind, f))));
+    const form = el("form", { class: "own-form card", id: `own-form-${kind}`, novalidate: true, autocomplete: "off" },
+      el("h2", { text: `Add a ${OWN_TEXT[kind].noun}` }),
+      el("p", { class: "own-legend" }, el("span", { class: "own-swatch", "aria-hidden": "true" }),
+        el("span", {}, "Marked in ", el("b", { text: "red" }), " is what has to be given.")),
+      needed, el("div", { class: "own-fields", style: "margin-top:18px" }, optional),
+      el("div", { class: "own-actions" },
+        el("button", { type: "submit", class: "btn btn--primary", id: `own-add-${kind}`, text: "Add this data" }),
+        el("span", { class: "own-help", id: `own-count-${kind}` })));
+    form.addEventListener("submit", (event) => { event.preventDefault(); submitOwn(kind); });
+    section.append(
+      el("p", { class: "lede", text: OWN_TEXT[kind].lede }),
+      el("div", { class: "own-added card", id: `own-list-${kind}`, hidden: true }),
+      el("div", { class: "banner", id: `own-error-${kind}`, role: "alert", hidden: true }),
+      form);
+  }
+  ["point", "gridded"].forEach(buildOwn);
+
+  // the datasets added so far
+  function refreshOwn(kind) {
+    const entries = state.own.entries[kind];
+    const box = $(`own-list-${kind}`);
+    box.hidden = entries.length === 0;
+    box.replaceChildren(el("h2", { text: `Added ${plural(entries.length, OWN_TEXT[kind].noun)}` }),
+      el("ul", {}, ...entries.map((entry, index) => el("li", {},
+        el("span", {}, el("strong", { text: entry.name }), ` from ${entry.source}: `,
+          el("span", { class: "is-mono", text: shorten(String(entry.obs_path), 70) })),
+        button("Remove", "text", () => post("api/own_remove", { kind, index }),
+          { "aria-label": `Remove ${entry.name} from ${entry.source}` })))));
+    $(`own-count-${kind}`).textContent = entries.length ? "Add as many as you have, then continue." : "";
+  }
+
+  async function submitOwn(kind) {
+    const form = {};
+    for (const [name, control] of Object.entries(own[kind])) { form[name] = control.read(); control.clear(); }
+    $(`own-error-${kind}`).hidden = true;
+    const add = $(`own-add-${kind}`);
+    add.disabled = true;
+    const reply = await post("api/own_add", { kind, form });
+    add.disabled = false;
+    if (reply.ok) {
+      Object.values(own[kind]).forEach((control) => control.reset());
+      $(`own-optional-${kind}`).open = false;
+      refreshOwn(kind);
+      toast(`Added. Add another ${OWN_TEXT[kind].noun}, or continue.`);
+      const first = own[kind].name.input;
+      first.focus();
+      return;
+    }
+    const errors = reply.errors || {};
+    let firstBad = null;
+    for (const [name, text] of Object.entries(errors)) {
+      const control = own[kind][name];
+      if (!control) continue;
+      control.show(text || "This is needed.");
+      if (control.optional) $(`own-optional-${kind}`).open = true;
+      firstBad = firstBad || control;
+    }
+    // a refusal that is not about one box
+    const general = errors[""] || reply.error;
+    const banner = $(`own-error-${kind}`);
+    banner.hidden = !general;
+    if (general) banner.replaceChildren(icon("error"), el("span", { text: general }));
+    if (firstBad) firstBad.input.focus();
+  }
+
+  // ---- 2: the report options ----
+  const VALIDATE_TEXT = ["data_dir", "out_dir", "lon_min", "lon_max", "lat_min", "lat_max", "subregions", "subregions_file"];
+  const VALIDATE_TICKS = ["fixed_scale", "pdf", "word", "zip"];
+  const VALIDATE_GROUPS = {
+    "vm-data_dir": ["data_dir"],
+    "vm-out_dir": ["out_dir"],
+    "vm-subset": ["lon_min", "lon_max", "lat_min", "lat_max"],
+    "vm-subregions": ["subregions", "subregions_file"],
+  };
+  const validateForm = {};
+  let validateErrors = {};
+
+  function fillValidate() {
+    Object.assign(validateForm, state.validate.form);
+    for (const name of VALIDATE_TEXT) $(`v-${name}`).value = validateForm[name];
+    for (const name of VALIDATE_TICKS) $(`v-${name}`).checked = Boolean(validateForm[name]);
+    $("v-data_dir").placeholder = state.cwd;
+    $("v-out_dir").placeholder = state.cwd;
+    validateErrors = {};
+    refreshValidate();
+  }
+
+  for (const name of VALIDATE_TEXT) {
+    $(`v-${name}`).addEventListener(name === "subregions" ? "change" : "input", (event) => {
+      validateForm[name] = event.target.value;
+      delete validateErrors[name];
+      refreshValidate();
+    });
+  }
+  for (const name of VALIDATE_TICKS) {
+    $(`v-${name}`).addEventListener("change", (event) => { validateForm[name] = event.target.checked; });
+  }
+  $("validate-form").addEventListener("submit", (event) => { event.preventDefault(); submitValidate(); });
+
+  function refreshValidate() {
+    $("row-subregions_file").hidden = validateForm.subregions !== "file";
+    const hints = {
+      "vm-data_dir": "Where oceanval_matchups is: the directory matchup was run in, or its out_dir. Empty: the directory above.",
+      "vm-out_dir": "Empty: the directory above.",
+      "vm-subset": "Optional: only this box is validated. Empty: all of the matchups.",
+      "vm-subregions": "Optional: summaries for each region, in the report.",
+    };
+    for (const [id, names] of Object.entries(VALIDATE_GROUPS)) {
+      const problems = [...new Set(names.filter((name) => validateErrors[name]).map((name) => validateErrors[name]))];
+      for (const name of names) $(`v-${name}`).classList.toggle("is-invalid", Boolean(validateErrors[name]));
+      if (problems.length) message(id, problems.map((text) => line(text, "error")), true);
+      else message(id, [line(hints[id])]);
+    }
+    message("vm-options", [line("PDF and Word versions take a while longer to build. The zip holds everything needed to share the report.")]);
+  }
+
+  async function submitValidate() {
+    const build = $("build");
+    if (build) build.disabled = true;
+    const reply = await post("api/validate", { form: validateForm });
+    if (build) build.disabled = false;
+    if (!reply.ok) {
+      validateErrors = reply.errors || {};
+      if (reply.error) toast(reply.error);
+      refreshValidate();
+      const first = Object.keys(validateErrors)[0];
+      if (first) $(`v-${first}`).focus();
+    }
+  }
+
+  // ---- the units of each gridded and point matchup ----
+  $("units-yes").addEventListener("click", () => post("api/units_answer", { match: true }));
+  $("units-no").addEventListener("click", () => post("api/units_answer", { match: false }));
+
+  function unitsText(units, missing) {
+    return units === null || units === undefined || units === ""
+      ? el("span", { class: "unknown", text: missing })
+      : el("span", { class: "is-mono", text: units });
+  }
+
+  function fillUnits() {
+    const allRows = state.units.rows || [];
+    const number = (value, fallback) => (value === fallback ? "" : String(value));
+    for (const kind of ["gridded", "point"]) {
+      const rows = allRows.filter((row) => row.kind === kind);
+      // a section with nothing in it says so, rather than going missing
+      $(`units-empty-${kind}`).hidden = rows.length > 0;
+      $(`units-body-${kind}`).closest(".card").hidden = rows.length === 0;
+      $(`units-body-${kind}`).replaceChildren(...rows.map((row) => unitsRow(row, number)));
+    }
+    const first = document.querySelector(".units-body input");
+    if (first) first.focus();
+  }
+
+  function unitsRow(row, number) {
+    const multiplier = el("input", { type: "text", class: "s-input is-num", inputmode: "decimal", spellcheck: "false",
+      placeholder: "1", value: number(row.obs_multiplier, 1), "aria-label": `Multiply the ${row.title} observations by` });
+    const adder = el("input", { type: "text", class: "s-input is-num", inputmode: "decimal", spellcheck: "false",
+      placeholder: "0", value: number(row.obs_adder, 0), "aria-label": `Add to the ${row.title} observations` });
+    multiplier.dataset.unitsKey = adder.dataset.unitsKey = row.key;
+    multiplier.dataset.unitsBox = "multiplier";
+    adder.dataset.unitsBox = "adder";
+    const error = el("span", { class: "units__error", role: "alert" });
+    error.dataset.unitsError = row.key;
+    for (const box of [multiplier, adder]) {
+      box.addEventListener("input", () => { multiplier.classList.remove("is-invalid"); adder.classList.remove("is-invalid"); error.textContent = ""; });
+    }
+    return el("tr", {},
+      el("td", {}, el("strong", { text: row.title })),
+      el("td", {}, ...row.model.parts.length > 1
+        ? row.model.parts.map((part) => el("div", { class: "units__part is-mono", text: part.name }))
+        : [el("span", { class: "is-mono", text: row.model.variable })]),
+      el("td", {}, ...row.model.parts.map((part) => el("div", { class: "units__part" },
+        unitsText(part.units, "not in the files")))),
+      el("td", {}, unitsText(row.obs_variable, "not known")),
+      el("td", {}, unitsText(row.obs_units, row.obs_note || "not available")),
+      el("td", {}, multiplier),
+      el("td", {}, adder, error));
+  }
+
+  async function submitUnits() {
+    const conversions = {};
+    document.querySelectorAll(".units-body input").forEach((box) => {
+      const key = box.dataset.unitsKey;
+      conversions[key] = conversions[key] || {};
+      conversions[key][box.dataset.unitsBox] = box.value;
+    });
+    const button = $("units-continue");
+    if (button) button.disabled = true;
+    const reply = await post("api/units_continue", { conversions });
+    if (button) button.disabled = false;
+    if (reply.ok) return;
+    const errors = reply.errors || {};
+    for (const [key, message] of Object.entries(errors)) {
+      document.querySelectorAll(`.units-body input[data-units-key="${CSS.escape(key)}"]`)
+        .forEach((box) => box.classList.add("is-invalid"));
+      const slot = document.querySelector(`[data-units-error="${CSS.escape(key)}"]`);
+      if (slot) slot.textContent = message;
+    }
+    if (reply.error) toast(reply.error);
+    const first = document.querySelector(".units-body .is-invalid");
+    if (first) first.focus();
+  }
+
+  // ---- directories: a folder browser, and folders suggested as a path is typed ----
+  // Both list the machine oceanval runs on, which this browser need not be on,
+  // so it cannot use a folder picker of its own.
+  function browse(path) {
+    return fetch(`api/browse?${query({ path })}`, { cache: "no-store" }).then((response) => response.json());
+  }
+
+  // what the folder browser says about the directory shown, for each box
+  const DESCRIBE = {
+    "f-simdir": {
+      title: "Choose the directory with the model output",
+      describe: (listing) => listing.nc_files
+        ? [`${listing.nc_files} netCDF file${listing.nc_files === 1 ? "" : "s"} directly in here, e.g. ${listing.example}.`, "ok"]
+        : ["No netCDF files directly in here, which is fine if they are in folders below it.", ""],
+    },
+    "v-data_dir": {
+      title: "Choose the directory the matchups were made in",
+      describe: (listing) => listing.has_matchups
+        ? ["oceanval_matchups is here.", "ok"]
+        : ["No oceanval_matchups here.", "warn"],
+    },
+    "v-out_dir": {
+      title: "Choose the directory to build the report in",
+      describe: () => ["The report is built in oceanval_report, inside it.", ""],
+    },
+  };
+  const picker = { listing: null, input: null, opener: null, number: 0 };
+  // what is behind the folder browser, which cannot be used while it is open
+  const BEHIND = [document.querySelector(".masthead"), document.querySelector("main"), $("bar")];
+
+  function openPicker(input, opener) {
+    Object.assign(picker, { input, opener, listing: null });
+    $("picker-title").textContent = DESCRIBE[input.id].title;
+    $("picker-list").replaceChildren(el("p", { class: "picker__empty", text: "Opening…" }));
+    $("picker-info").replaceChildren();
+    $("picker").hidden = false;
+    BEHIND.forEach((node) => { node.inert = true; });
+    // the directory in the box, or the nearest one above it
+    showFolder(input.value.trim());
+  }
+
+  function closePicker() {
+    $("picker").hidden = true;
+    BEHIND.forEach((node) => { node.inert = false; });
+    picker.number += 1;
+    if (picker.opener) picker.opener.focus();
+  }
+
+  async function showFolder(path) {
+    const number = ++picker.number;
+    let listing;
+    try {
+      listing = await browse(path);
+    } catch (error) {
+      return;
+    }
+    // closed, or another folder asked for since
+    if (number !== picker.number || $("picker").hidden) return;
+    picker.listing = listing;
+    $("picker-filter").value = "";
+    renderPicker();
+    $("picker-list").scrollTop = 0;
+    $("picker-list").focus({ preventScroll: true });
+  }
+
+  function renderPicker() {
+    const listing = picker.listing;
+    $("picker-places").replaceChildren(...listing.places.map((place) =>
+      el("button", { type: "button", class: "picker__place", text: place.label, title: place.path,
+        onclick: () => showFolder(place.path) })));
+
+    const parts = listing.path.split("/").filter(Boolean);
+    const crumbs = [el("button", { type: "button", class: "crumb" + (parts.length ? "" : " is-current"), text: "/",
+      "aria-label": "The top of the file system", onclick: () => showFolder("/") })];
+    parts.forEach((part, index) => {
+      const last = index === parts.length - 1;
+      crumbs.push(el("button", { type: "button", class: "crumb" + (last ? " is-current" : ""), text: part,
+        "aria-current": last ? "location" : null, onclick: () => showFolder("/" + parts.slice(0, index + 1).join("/")) }));
+      if (!last) crumbs.push(el("span", { class: "crumb__sep", "aria-hidden": "true", text: "/" }));
+    });
+    $("picker-crumbs").replaceChildren(...crumbs);
+
+    renderFolders();
+    const info = $("picker-info");
+    if (listing.error) {
+      info.className = "picker__info is-error";
+      info.replaceChildren(icon("error"), el("span", { text: listing.error }));
+    } else {
+      const [text, kind] = DESCRIBE[picker.input.id].describe(listing);
+      info.className = "picker__info" + (kind ? ` is-${kind}` : "");
+      const pictures = { ok: "check", warn: "warn" };
+      info.replaceChildren(pictures[kind] ? icon(pictures[kind]) : "", el("span", { text }));
+    }
+    $("picker-choose").disabled = Boolean(listing.error);
+  }
+
+  function folderRow(picture, text, onclick, extra = "") {
+    return el("button", { type: "button", class: `picker__row${extra}`, onclick, title: text },
+      el("span", { html: PICTURES[picture], "aria-hidden": "true", style: "display:contents" }), el("span", { text }));
+  }
+
+  function renderFolders() {
+    const listing = picker.listing;
+    const words = $("picker-filter").value.trim().toLowerCase();
+    const rows = [];
+    if (listing.parent !== null && !words) {
+      rows.push(folderRow("up", "Up one level", () => showFolder(listing.parent), " is-up"));
+    }
+    const folders = listing.folders.filter((folder) => !words || folder.name.toLowerCase().includes(words));
+    rows.push(...folders.map((folder) => folderRow("folder", folder.name, () => showFolder(folder.path))));
+    if (!folders.length && !listing.error) {
+      rows.push(el("p", { class: "picker__empty", text: words ? "No folders here match." : "No folders in here." }));
+    }
+    if (listing.more) {
+      rows.push(el("p", { class: "picker__empty", text: `…and ${listing.more} more folders, not listed. Type the path in the box instead.` }));
+    }
+    $("picker-list").replaceChildren(...rows);
+  }
+
+  $("picker-filter").addEventListener("input", () => { if (picker.listing) renderFolders(); });
+  $("picker-cancel").addEventListener("click", closePicker);
+  $("picker-choose").addEventListener("click", () => {
+    const { input, listing } = picker;
+    if (!listing || listing.error) return;
+    closePicker();
+    input.value = listing.shown;
+    // as if it had been typed, so everything that follows the box sees it
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  // outside the card
+  $("picker").addEventListener("click", (event) => { if (event.target === $("picker")) closePicker(); });
+  $("picker").addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closePicker();
+      return;
+    }
+    const rows = [...$("picker-list").querySelectorAll(".picker__row")];
+    const at = rows.indexOf(document.activeElement);
+    if ((event.key === "ArrowDown" || event.key === "ArrowUp") && rows.length) {
+      event.preventDefault();
+      const next = event.key === "ArrowDown" ? Math.min(at + 1, rows.length - 1) : at - 1;
+      if (next < 0) $("picker-filter").focus();
+      else rows[next].focus();
+    } else if (event.key === "Backspace" && event.target !== $("picker-filter")
+        && picker.listing && picker.listing.parent !== null) {
+      event.preventDefault();
+      showFolder(picker.listing.parent);
+    }
+  });
+
+  document.querySelectorAll("[data-browse]").forEach((opener) => {
+    opener.addEventListener("click", () => openPicker($(opener.dataset.browse), opener));
+  });
+
+  // the folders in what has been typed so far, like a terminal's tab completion
+  for (const id of Object.keys(DESCRIBE)) {
+    const input = $(id);
+    const options = $(`${id}-folders`);
+    let timer = null;
+    let number = 0;
+    input.addEventListener("input", () => {
+      clearTimeout(timer);
+      timer = setTimeout(async () => {
+        const text = input.value;
+        const cut = text.lastIndexOf("/") + 1;
+        const base = text.slice(0, cut);
+        const start = text.slice(cut).toLowerCase();
+        const mine = ++number;
+        let listing;
+        try {
+          listing = await browse(base);
+        } catch (error) {
+          return;
+        }
+        if (mine !== number) return;
+        const folders = listing.exact && !listing.error
+          ? listing.folders.filter((folder) => folder.name.toLowerCase().startsWith(start)).slice(0, 60)
+          : [];
+        options.replaceChildren(...folders.map((folder) => el("option", { value: `${base}${folder.name}/` })));
+      }, 250);
+    });
+  }
+
+  // ---- 3: the output, as a terminal shows it ----
+  const consoleBox = $("console");
+  const committed = document.createTextNode("");
+  const current = document.createTextNode("");
+  $("console-text").append(committed, current);
+  const MAX_LINES = 5000;
+  // the characters in each committed line, for dropping the oldest
+  let lineLengths = [];
+  let currentText = "";
+  let carriageReturn = false;
+  let consoleEpoch = null;
+  let consoleLast = 0;
+  // colours and cursor movements, which a terminal would act on
+  const ANSI = /\x1b\[[0-9;?]*[ -\/]*[@-~]/g;
+
+  function clearConsole() {
+    committed.data = "";
+    current.data = "";
+    lineLengths = [];
+    currentText = "";
+    carriageReturn = false;
+  }
+
+  function writeConsole(text) {
+    for (const part of text.replace(ANSI, "").split(/(\r\n|\n|\r)/)) {
+      if (part === "\n" || part === "\r\n") {
+        committed.appendData(currentText + "\n");
+        lineLengths.push(currentText.length + 1);
+        currentText = "";
+        carriageReturn = false;
+      } else if (part === "\r") {
+        // a progress bar redrawing its line
+        carriageReturn = true;
+      } else if (part) {
+        if (carriageReturn) currentText = "";
+        carriageReturn = false;
+        currentText += part;
+      }
+    }
+    current.data = currentText;
+    if (lineLengths.length > MAX_LINES) {
+      const dropped = lineLengths.splice(0, lineLengths.length - MAX_LINES);
+      committed.deleteData(0, dropped.reduce((sum, length) => sum + length, 0));
+      $("console-dropped").hidden = false;
+    }
+  }
+
+  const atBottom = () => consoleBox.scrollHeight - consoleBox.scrollTop - consoleBox.clientHeight < 32;
+
+  function applyConsole(update) {
+    const follow = atBottom();
+    if (update.reset || update.epoch !== consoleEpoch) {
+      clearConsole();
+      $("console-dropped").hidden = !update.dropped;
+    }
+    consoleEpoch = update.epoch;
+    consoleLast = update.last;
+    if (update.text) writeConsole(update.text);
+    if (follow) consoleBox.scrollTop = consoleBox.scrollHeight;
+    $("jump").hidden = atBottom();
+  }
+  consoleBox.addEventListener("scroll", () => { $("jump").hidden = atBottom(); });
+  $("jump").addEventListener("click", () => {
+    consoleBox.scrollTop = consoleBox.scrollHeight;
+    consoleBox.focus();
+  });
+  $("copy").addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(committed.data + currentText);
+      toast("The output is copied.");
+    } catch (error) {
+      toast("The output could not be copied. Select it, and copy it with the keyboard.");
+    }
+  });
+
+  const STATUS = {
+    preparing: ["Reading the simulation", "is-busy"],
+    starting: ["Starting", "is-busy"],
+    running: ["Running", "is-busy"],
+    waiting: ["Waiting for your answer", "is-waiting is-busy"],
+    finished: ["Finished", ""],
+    failed: ["Failed", "is-failed"],
+    stopped: ["Stopped", "is-stopped"],
+  };
+
+  function renderRun() {
+    const run = state.run;
+    const kind = state.question ? "waiting" : state.view === "preparing" ? "preparing" : run.status || "starting";
+    const [text, classes] = STATUS[kind];
+    $("status").className = `status ${classes}`;
+    $("status-text").textContent = text;
+    $("run-label").textContent = state.view === "preparing" ? "create_recipes(...)" : run.label || "";
+    $("run-label").title = $("run-label").textContent;
+    renderQuestion();
+    renderResult();
+    document.title = (state.question ? "Question · " : "") + "OceanVal";
+  }
+
+  function renderResult() {
+    const run = state.run;
+    const box = $("result");
+    if (state.view !== "finished") {
+      box.hidden = true;
+      return;
+    }
+    let picture = "check";
+    let tone = "";
+    let heading;
+    let text;
+    let path = null;
+    if (run.status === "finished" && state.action === "matchup") {
+      heading = "The matchups are ready";
+      text = "Build the report from them now, with Validate these matchups, or later.";
+      path = run.matchups;
+    } else if (run.status === "finished") {
+      heading = run.report_exists ? "The validation report is ready" : "The run has finished";
+      text = run.report_exists ? "It opens in your web browser, where one can be opened. It is here:" : "The output above says what was made.";
+      path = run.report_exists ? run.report : null;
+    } else if (run.status === "stopped") {
+      heading = "The run was stopped";
+      text = "Anything it had not finished was left undone.";
+      picture = "cross";
+      tone = " is-off";
+    } else {
+      heading = "The run stopped with an error";
+      text = "The output below says what went wrong.";
+      picture = "warn";
+      tone = " is-warn";
+    }
+    box.replaceChildren(
+      el("span", { class: "result__icon" + tone, html: ICONS[picture] }),
+      el("div", { class: "result__body" },
+        el("h2", { text: heading }), el("p", { text }), path ? el("code", { text: path }) : null));
+    box.hidden = false;
+  }
+
+  // ---- questions ----
+  let shownQuestion = null;
+  const ANSWER_LABELS = { y: "Yes", n: "No" };
+
+  function renderQuestion() {
+    const question = state.question;
+    const box = $("ask");
+    if (!question) {
+      box.hidden = true;
+      shownQuestion = null;
+      return;
+    }
+    if (shownQuestion === question.id) return;
+    shownQuestion = question.id;
+    let text = question.text.trim();
+    // the buttons say it
+    if (question.choices) text = text.replace(/\s*\(?\b[yY]\s*\/\s*[nN]\b\)?\s*:?$/, "");
+    $("ask-question").textContent = text;
+    const answer = $("ask-answer");
+    if (question.choices) {
+      answer.replaceChildren(...question.choices.map((choice, index) =>
+        button(ANSWER_LABELS[choice.toLowerCase()] || choice, index === 0 ? "primary" : "ghost",
+          () => send(question.id, choice))));
+    } else {
+      const input = el("input", { class: "s-input", "aria-label": "Your answer", spellcheck: "false", autocomplete: "off" });
+      const form = el("form", { class: "ask__answer" }, input, button("Send", "primary", null, { type: "submit" }));
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        send(question.id, input.value);
+      });
+      answer.replaceChildren(form);
+    }
+    box.hidden = false;
+    consoleBox.scrollTop = consoleBox.scrollHeight;
+    box.scrollIntoView({ block: "nearest" });
+    const first = answer.querySelector("input, button");
+    if (first) first.focus({ preventScroll: true });
+  }
+
+  async function send(id, text) {
+    $("ask-answer").querySelectorAll("input, button").forEach((control) => { control.disabled = true; });
+    const reply = await post("api/answer", { id, answer: text });
+    if (!reply.ok) toast("That question has been answered already.");
+  }
+
+  // ---- keeping up with oceanval ----
+  let version = null;
+
+  function apply(next) {
+    state = next;
+    applyConsole(next.console);
+    if (next.view === "recipes") {
+      // the create_recipes window, as the next step
+      location.assign(`recipes/?${query({})}`);
+      return false;
+    }
+    render();
+    if (next.view === "setup") renderSetupError();
+    return true;
+  }
+
+  async function poll() {
+    for (;;) {
+      let next;
+      try {
+        const response = await fetch(`api/state?${query({ version: version ?? "", after: consoleLast, epoch: consoleEpoch ?? "" })}`, { cache: "no-store" });
+        if (!response.ok) throw new Error(`${response.status}`);
+        next = await response.json();
+      } catch (error) {
+        showDone("gone");
+        return;
+      }
+      if (next.closed) {
+        showDone("closed");
+        return;
+      }
+      if (!apply(next)) return;
+      version = next.version;
+      // output can come in many small pieces: let them gather a moment
+      await new Promise((resolve) => setTimeout(resolve, 150));
+    }
+  }
+
+  // the first poll answers at once, with what has been printed so far
+  if (apply(state)) poll();
+})();
+</script>
+</body>
+</html>

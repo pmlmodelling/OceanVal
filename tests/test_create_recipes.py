@@ -150,7 +150,7 @@ class TestArguments:
     )
     def test_every_argument_is_required(self, kwargs, message):
         with pytest.raises(ValueError, match=message):
-            oceanval.create_recipes(**kwargs)
+            oceanval.create_recipes(gui=False, **kwargs)
 
     def test_ndown_must_be_an_integer(self, tmp_path):
         with pytest.raises(TypeError, match="ndown must be an integer"):
@@ -162,6 +162,7 @@ class TestArguments:
                 start=2011,
                 end=2012,
                 ask=False,
+                gui=False,
             )
 
     def test_ndown_must_not_be_negative(self, tmp_path):
@@ -174,6 +175,7 @@ class TestArguments:
                 start=2011,
                 end=2012,
                 ask=False,
+                gui=False,
             )
 
     def test_simdir_must_exist(self, tmp_path):
@@ -187,6 +189,7 @@ class TestArguments:
                 start=2011,
                 end=2012,
                 ask=False,
+                gui=False,
             )
 
     def test_a_simulation_with_no_files_says_which_argument_to_check(self, tmp_path):
@@ -199,6 +202,7 @@ class TestArguments:
                 start=2011,
                 end=2012,
                 ask=False,
+                gui=False,
             )
 
     def test_domain_must_be_a_string(self, tmp_path):
@@ -211,6 +215,7 @@ class TestArguments:
                 start=2011,
                 end=2012,
                 ask=False,
+                gui=False,
             )
 
     @pytest.mark.parametrize("domain", ["europe", "local", "", "GLOBALLY"])
@@ -226,6 +231,7 @@ class TestArguments:
                 start=2011,
                 end=2012,
                 ask=False,
+                gui=False,
             )
 
     def test_domain_is_case_insensitive(self, tmp_path):
@@ -238,7 +244,7 @@ class TestArguments:
         oceanval.create_recipes(
             simdir=str(tmp_path / "sim"), ndown=0, out=out, domain="NWES",
             start=2011, end=2012,
-            ask=False,
+            ask=False, gui=False,
         )
 
         assert 'recipe={"temperature": "nsbc"}' in open(out).read()
@@ -253,6 +259,7 @@ class TestArguments:
                 start="2011",
                 end=2012,
                 ask=False,
+                gui=False,
             )
 
     def test_end_must_be_an_integer(self, tmp_path):
@@ -265,6 +272,7 @@ class TestArguments:
                 start=2011,
                 end="2012",
                 ask=False,
+                gui=False,
             )
 
     def test_end_must_not_be_before_start(self, tmp_path):
@@ -277,6 +285,7 @@ class TestArguments:
                 start=2012,
                 end=2011,
                 ask=False,
+                gui=False,
             )
 
     def test_a_single_year_simulation_is_allowed(self, tmp_path):
@@ -289,7 +298,7 @@ class TestArguments:
         oceanval.create_recipes(
             simdir=str(tmp_path / "sim"), ndown=0, out=out, domain="global",
             start=2011, end=2011,
-            ask=False,
+            ask=False, gui=False,
         )
 
         assert "start=2011," in open(out).read()
@@ -413,7 +422,7 @@ class TestGeneratedScript:
         out = str(tmp_path / "matchup.py")
         oceanval.create_recipes(
             simdir=simulation, ndown=2, out=out, domain="global", start=2011, end=2012,
-            ask=False,
+            ask=False, gui=False,
         )
 
         ast.parse(open(out).read())
@@ -422,7 +431,7 @@ class TestGeneratedScript:
         out = str(tmp_path / "matchup.py")
         oceanval.create_recipes(
             simdir=simulation, ndown=2, out=out, domain="global", start=2011, end=2012,
-            ask=False,
+            ask=False, gui=False,
         )
         script = open(out).read()
 
@@ -444,6 +453,7 @@ class TestGeneratedScript:
                 start=2011,
                 end=2012,
                 ask=False,
+                gui=False,
             )
         script = open(out).read()
 
@@ -460,7 +470,7 @@ class TestGeneratedScript:
         out = str(tmp_path / "matchup.py")
         oceanval.create_recipes(
             simdir=simulation, ndown=2, out=out, domain="global", start=2011, end=2012,
-            ask=False,
+            ask=False, gui=False,
         )
         script = open(out).read()
 
@@ -478,7 +488,7 @@ class TestGeneratedScript:
         out = str(tmp_path / "matchup.py")
         oceanval.create_recipes(
             simdir=simulation, ndown=2, out=out, domain="nwes", start=2011, end=2012,
-            ask=False,
+            ask=False, gui=False,
         )
         script = open(out).read()
 
@@ -511,7 +521,7 @@ class TestGeneratedScript:
         # own to prefer, so the global woa23 one stays live either way
         oceanval.create_recipes(
             simdir=simulation, ndown=2, out=out, domain="nwes", start=2011, end=2012,
-            ask=False,
+            ask=False, gui=False,
         )
         script = open(out).read()
 
@@ -525,7 +535,7 @@ class TestGeneratedScript:
         out = str(tmp_path / "matchup.py")
         oceanval.create_recipes(
             simdir=simulation, ndown=2, out=out, domain="global", start=2009, end=2013,
-            ask=False,
+            ask=False, gui=False,
         )
         script = open(out).read()
 
@@ -543,7 +553,7 @@ class TestGeneratedScript:
         out = str(tmp_path / "matchup.py")
         oceanval.create_recipes(
             simdir=simulation, ndown=2, out=out, domain="global", start=2011, end=2012,
-            ask=False,
+            ask=False, gui=False,
         )
         script = open(out).read()
 
@@ -589,7 +599,7 @@ class TestPointRecipes:
         out = str(tmp_path / "matchup.py")
         oceanval.create_recipes(
             simdir=simulation, ndown=2, out=out, domain="nwes", start=2011, end=2012,
-            ask=False,
+            ask=False, gui=False,
         )
         script = open(out).read()
 
@@ -604,7 +614,7 @@ class TestPointRecipes:
         out = str(tmp_path / "matchup.py")
         oceanval.create_recipes(
             simdir=simulation, ndown=2, out=out, domain="global", start=2011, end=2012,
-            ask=False,
+            ask=False, gui=False,
         )
         script = open(out).read()
 
@@ -623,6 +633,7 @@ class TestPointRecipes:
                 start=2011,
                 end=2012,
                 ask=False,
+                gui=False,
             )
         script = open(out).read()
 
@@ -687,7 +698,7 @@ class TestAskingForMissingVariables:
         out = str(tmp_path / "matchup.py")
         oceanval.create_recipes(
             simdir=str(tmp_path / "sim"), ndown=0, out=out,
-            domain="global", start=2011, end=2012,
+            domain="global", start=2011, end=2012, gui=False,
         )
         return open(out).read(), asked
 
@@ -729,13 +740,17 @@ def _from_a_terminal(monkeypatch, answers):
 
 
 class TestFvcom:
-    QUESTION = "Is this FVCOM output? (y/n) "
+    QUESTION = (
+        "The output in {simdir} looks like raw FVCOM output "
+        "(an unstructured mesh with node, nele and nv).\n"
+        "Is this FVCOM output? (y/n) "
+    )
 
     def _create(self, simdir, tmp_path, **kwargs):
         out = str(tmp_path / "matchup.py")
         oceanval.create_recipes(
             simdir=simdir, ndown=2, out=out,
-            domain="global", start=2012, end=2012, **kwargs,
+            domain="global", start=2012, end=2012, gui=False, **kwargs,
         )
         return open(out).read()
 
@@ -763,13 +778,13 @@ class TestFvcom:
     def test_confirmed_fvcom(self, fvcom_simulation, tmp_path, monkeypatch):
         asked = _from_a_terminal(monkeypatch, iter(["y"]))
         script = self._create(fvcom_simulation, tmp_path)
-        assert asked[0] == self.QUESTION
+        assert asked[0] == self.QUESTION.format(simdir=fvcom_simulation)
         assert "    fvcom=True,\n" in script
 
     def test_declined_fvcom(self, fvcom_simulation, tmp_path, monkeypatch):
         asked = _from_a_terminal(monkeypatch, iter(["n"]))
         script = self._create(fvcom_simulation, tmp_path)
-        assert asked[0] == self.QUESTION
+        assert asked[0] == self.QUESTION.format(simdir=fvcom_simulation)
         assert "fvcom=True" not in script
 
     def test_anything_but_yes_or_no_is_asked_again(
@@ -777,7 +792,7 @@ class TestFvcom:
     ):
         asked = _from_a_terminal(monkeypatch, iter(["maybe", "y"]))
         script = self._create(fvcom_simulation, tmp_path)
-        assert asked[:2] == [self.QUESTION, self.QUESTION]
+        assert asked[:2] == [self.QUESTION.format(simdir=fvcom_simulation)] * 2
         assert "Provide y or n" in capsys.readouterr().out
         assert "    fvcom=True,\n" in script
 
@@ -786,7 +801,7 @@ class TestFvcom:
     ):
         asked = _from_a_terminal(monkeypatch, iter([]))
         script = self._create(fvcom_simulation, tmp_path, fvcom=False)
-        assert self.QUESTION not in asked
+        assert not any('FVCOM output?' in question for question in asked)
         assert "fvcom=True" not in script
 
     def test_fvcom_true_is_not_second_guessed(self, simulation, tmp_path):
@@ -883,6 +898,18 @@ class TestGui:
         )
         return out, returned
 
+    def test_the_window_is_shown_by_default(self, simulation, tmp_path, monkeypatch):
+        shown = []
+        monkeypatch.setattr(
+            "oceanval.recipes_gui.choose_recipes", lambda *args: shown.append(args)
+        )
+        oceanval.create_recipes(
+            simdir=simulation, ndown=2, out=str(tmp_path / "matchup.py"),
+            domain="global", start=2011, end=2012, ask=False,
+        )
+
+        assert len(shown) == 1
+
     def test_gui_must_be_a_boolean(self, simulation, tmp_path):
         with pytest.raises(TypeError, match="gui must be True or False"):
             oceanval.create_recipes(
@@ -921,8 +948,8 @@ class TestGui:
                 ("temperature", "woa23"),
                 ("salinity", "ices"),
             }
-            write(mapping, selection, None, None)
-            return mapping, selection, None, None
+            write(mapping, selection, None, None, None)
+            return mapping, selection, None, None, None
 
         monkeypatch.setattr("oceanval.recipes_gui.choose_recipes", window)
         out, returned = self._create(simulation, tmp_path, ask=False)
@@ -954,8 +981,8 @@ class TestGui:
         def window(mapping, domain, available, context, write):
             mapping = dict(mapping, salinity="mystery")
             selection = default_selection(mapping, domain)
-            write(mapping, selection, None, None)
-            return mapping, selection, None, None
+            write(mapping, selection, None, None, None)
+            return mapping, selection, None, None, None
 
         monkeypatch.setattr("oceanval.recipes_gui.choose_recipes", window)
         out = str(tmp_path / "matchup.py")
@@ -1044,6 +1071,13 @@ class TestSettings:
             'oceanval.validate(\n    subregions="nwes",\n    pdf=True,\n    word=True,\n)'
         ) in script
 
+    def test_a_full_report_is_asked_for_with_concise_false(self):
+        assert "concise" not in self.build(settings=settings()).split("oceanval.validate")[-1]
+
+        script = self.build(settings=settings(concise=False))
+
+        assert "oceanval.validate(\n    concise=False,\n)" in script
+
     @pytest.mark.parametrize(
         "value, written", [(0.0, "as_missing=0,"), ([0.0, 1e20], "as_missing=[0, 1e+20],")]
     )
@@ -1076,9 +1110,125 @@ class TestSettings:
         # the others stay surface-only
         assert '    recipe={"salinity": "ices"},\n    vertical=False,' in script
 
+    def test_a_gridded_dataset_gets_its_own_years(self):
+        script = self.build(
+            domain="global",
+            gridded_options={
+                ("temperature", "cobe2"): {"start": 2012, "end": None, "vertical": None}
+            },
+        )
+        ast.parse(script)
+
+        assert (
+            '    recipe={"temperature": "cobe2"},\n'
+            '    start=2012,\n'
+            '    climatology=False,\n)'
+        ) in script
+
+    def test_a_vertical_gridded_dataset_is_written_as_vertical(self):
+        script = self.build(
+            gridded_options={("salinity", "nsbc"): {"vertical": True}}
+        )
+
+        assert (
+            '    recipe={"salinity": "nsbc"},\n'
+            '    climatology=True,\n'
+            '    vertical=True,  # the full water column, so matchup also needs thickness\n'
+        ) in script
+        # the others stay surface-only
+        assert (
+            '    recipe={"temperature": "nsbc"},\n    climatology=True,\n    vertical=False,'
+        ) in script
+
+    def test_fvcom_needs_no_thickness_for_vertical(self):
+        script = build_recipe_script(
+            "/sim", 2, self.MAPPING, (2011, 2012), "nwes", fvcom=True,
+            gridded_options={("salinity", "nsbc"): {"vertical": True}},
+            point_options={("salinity", "ices"): {"vertical": True}},
+        )
+
+        assert script.count("    vertical=True,  # the full water column\n") == 2
+        assert "so matchup also needs thickness" not in script
+
+    def test_a_woa23_decade_can_be_chosen(self):
+        # 2011-2012 sits inside 2005-2014, but the years chosen replace it
+        script = self.build(
+            domain="global",
+            selection={("temperature", "woa23")},
+            gridded_options={
+                ("temperature", "woa23"): {"start": 2015, "end": 2022, "vertical": None}
+            },
+        )
+
+        assert (
+            '    recipe={"temperature": "woa23"},\n'
+            '    start=2015,\n'
+            '    end=2022,\n'
+            '    climatology=True,\n'
+        ) in script
+        # salinity was given none, so keeps the decade covering the simulation
+        assert (
+            '#     recipe={"salinity": "woa23"},\n'
+            '#     start=2005, end=2014,\n'
+        ) in script
+
+    def test_validate_can_be_left_for_later(self, simulation, tmp_path):
+        out = str(tmp_path / "matchup.py")
+        oceanval.create_recipes(
+            simdir=simulation, ndown=2, out=out, domain="global",
+            start=2011, end=2012, ask=False, gui=False, validate=False,
+        )
+        script = open(out).read()
+        ast.parse(script)
+
+        assert "\noceanval.matchup(\n" in script
+        assert "\n# oceanval.validate()\n" in script
+        assert "\noceanval.validate(" not in script
+
+    @pytest.mark.parametrize(
+        "filters, written",
+        [
+            ({"exclude": "ptrc"}, '    exclude=["ptrc"],\n'),
+            ({"require": ["grid_T"]}, '    require=["grid_T"],\n'),
+        ],
+    )
+    def test_the_file_filters_are_used_and_passed_on(
+        self, simulation, tmp_path, filters, written
+    ):
+        out = str(tmp_path / "matchup.py")
+        oceanval.create_recipes(
+            simdir=simulation, ndown=2, out=out, domain="global",
+            start=2011, end=2012, ask=False, gui=False, **filters,
+        )
+        script = open(out).read()
+        ast.parse(script)
+
+        # the tracers are only in the ptrc files, which are left out
+        assert 'model_variable="thetao"' in script
+        assert 'model_variable="N3_n"' not in script
+        assert written in matchup_call(script)
+
+    def test_file_filters_must_be_strings(self, simulation, tmp_path):
+        with pytest.raises(TypeError, match="exclude must be a string or a list"):
+            oceanval.create_recipes(
+                simdir=simulation, ndown=2, out=str(tmp_path / "out.py"),
+                domain="global", start=2011, end=2012, ask=False, gui=False,
+                exclude=5,
+            )
+
+    def test_validate_must_be_a_boolean(self, simulation, tmp_path):
+        with pytest.raises(TypeError, match="validate must be True or False"):
+            oceanval.create_recipes(
+                simdir=simulation, ndown=2, out=str(tmp_path / "out.py"),
+                domain="global", start=2011, end=2012, ask=False, gui=False,
+                validate="no",
+            )
+
     def test_the_years_chosen_in_the_window_are_used(self, simulation, tmp_path, monkeypatch):
         def window(mapping, domain, available, context, write):
-            chosen = (mapping, default_selection(mapping, domain), settings(start=1996, end=2003), {})
+            chosen = (
+                mapping, default_selection(mapping, domain), settings(start=1996, end=2003), {}, {}
+            )
             write(*chosen)
             return chosen
 

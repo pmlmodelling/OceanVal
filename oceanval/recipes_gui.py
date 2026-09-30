@@ -1,14 +1,18 @@
 """The create_recipes window.
 
-create_recipes(gui=True) shows what it identified in a page in your web
-browser: a row for each observational variable, with the model variable
-found for it, which you can change, and a tick-box for every gridded and
-point dataset OceanVal has for it. The page is served by a small server
-that only runs while create_recipes waits for you, only listens on
+create_recipes shows what it identified in a page in your web browser: a
+row for each observational variable, with the model variable found for it,
+which you can change, and a tick-box for every gridded and point dataset
+OceanVal has for it, each with its own years and, where its observations
+are resolved in depth, a Vertical tick-box. The page is served by a small
+server that only runs while create_recipes waits for you, only listens on
 127.0.0.1, and only answers requests carrying the random token in the link
 it prints. The page loads nothing from anywhere else, so it works offline.
+Run from the oceanval command (see oceanval.app), the window is one of its
+pages instead (see hosted_by).
 """
 
+import contextlib
 import copy
 import http.server
 import importlib.resources
@@ -27,6 +31,7 @@ from oceanval.create_recipes import (
     RECIPE_CATALOGUE,
     RECIPE_VARIABLES,
     _WOA23_PERIODS,
+    _has_vertical_option,
     _model_variable_names,
     _unknown_variables,
     default_selection,
@@ -76,9 +81,14 @@ def default_settings(start, end):
     return copy.deepcopy(settings)
 
 
-def default_form(start, end):
-    """The Global settings as the page's boxes show them to start with."""
+def default_form(start, end, exclude=None, require=None):
+    """The Global settings as the page's boxes show them to start with:
+    as default_settings, with any file filters create_recipes was given."""
     settings = default_settings(start, end)
+    if exclude is not None:
+        settings["exclude"] = list(exclude)
+    if require is not None:
+        settings["require"] = list(require)
 
     def limit(name, index):
         value = settings[name]
@@ -106,6 +116,7 @@ def default_form(start, end):
         "require": " ".join(settings["require"] or []),
         "pdf": settings["pdf"],
         "word": settings["word"],
+        "concise": settings["concise"],
         "subregions": settings["subregions"] or "",
         # the path typed when the regional summaries come from a file
         "subregions_file": "",
@@ -151,28 +162,9 @@ def check_settings(form, available, fvcom=False):
     if not errors and settings["end"] < settings["start"]:
         errors["end"] = "End must not be before start."
 
-    given = [name for name in _LIMITS if text(name)]
-    limits = {name: _number(text(name)) for name in given}
-    for name in given:
-        if limits[name] is None:
-            errors[name] = "Limits must be numbers."
-    if given and len(given) < len(_LIMITS):
-        for name in _LIMITS:
-            if name not in given:
-                errors[name] = "Fill in all four limits, or leave them all empty."
-    elif given and not any(name in errors for name in _LIMITS):
-        for axis, low, high in (("lon", -180, 360), ("lat", -90, 90)):
-            first, last = limits[f"{axis}_min"], limits[f"{axis}_max"]
-            label = "Longitude" if axis == "lon" else "Latitude"
-            if first < low or last > high:
-                errors[f"{axis}_min"] = f"{label} must be between {low} and {high}."
-            elif first >= last:
-                errors[f"{axis}_max"] = (
-                    f"The maximum {label.lower()} must be more than the minimum."
-                )
-        if not any(name in errors for name in _LIMITS):
-            settings["lon_lim"] = [limits["lon_min"], limits["lon_max"]]
-            settings["lat_lim"] = [limits["lat_min"], limits["lat_max"]]
+    limits = check_limits(text, errors)
+    if limits is not None:
+        settings["lon_lim"], settings["lat_lim"] = limits
 
     settings["out_dir"] = text("out_dir")
     if settings["out_dir"] and os.path.isfile(os.path.expanduser(settings["out_dir"])):
@@ -225,6 +217,52 @@ def check_settings(form, available, fvcom=False):
 
     settings["pdf"] = bool(form.get("pdf"))
     settings["word"] = bool(form.get("word"))
+    settings["concise"] = bool(form.get("concise", True))
+    settings["subregions"] = check_subregions(text, errors)
+    return settings, errors
+
+
+def check_limits(text, errors):
+    """The lon_lim and lat_lim in the lon_min, lon_max, lat_min and lat_max
+    boxes, as ([lon_min, lon_max], [lat_min, lat_max]).
+
+    text(name) is what a box holds. None if the boxes are empty, or cannot
+    be used, in which case errors says why.
+    """
+    given = [name for name in _LIMITS if text(name)]
+    limits = {name: _number(text(name)) for name in given}
+    for name in given:
+        if limits[name] is None:
+            errors[name] = "Limits must be numbers."
+    if given and len(given) < len(_LIMITS):
+        for name in _LIMITS:
+            if name not in given:
+                errors[name] = "Fill in all four limits, or leave them all empty."
+    elif given and not any(name in errors for name in _LIMITS):
+        for axis, low, high in (("lon", -180, 360), ("lat", -90, 90)):
+            first, last = limits[f"{axis}_min"], limits[f"{axis}_max"]
+            label = "Longitude" if axis == "lon" else "Latitude"
+            if first < low or last > high:
+                errors[f"{axis}_min"] = f"{label} must be between {low} and {high}."
+            elif first >= last:
+                errors[f"{axis}_max"] = (
+                    f"The maximum {label.lower()} must be more than the minimum."
+                )
+        if not any(name in errors for name in _LIMITS):
+            return (
+                [limits["lon_min"], limits["lon_max"]],
+                [limits["lat_min"], limits["lat_max"]],
+            )
+    return None
+
+
+def check_subregions(text, errors):
+    """The regional summaries chosen in the subregions and subregions_file
+    boxes: None, "nwes", "global" or the path to a .nc file.
+
+    text(name) is what a box holds. None as well if they cannot be used, in
+    which case errors says why.
+    """
     choice = text("subregions")
     if choice == "file":
         path = text("subregions_file")
@@ -235,26 +273,21 @@ def check_settings(form, available, fvcom=False):
         elif not os.path.isfile(os.path.expanduser(path)):
             errors["subregions_file"] = "There is no file at this path."
         else:
-            settings["subregions"] = path
+            return path
     elif choice in ("", "nwes", "global"):
-        settings["subregions"] = choice or None
+        return choice or None
     else:
         errors["subregions"] = "Choose one of the options."
-    return settings, errors
+    return None
 
 
-def check_point_options(form, years):
-    """Turn one point dataset's options into add_point_comparison arguments.
+def _check_years(form, years):
+    """The years typed for one dataset, as ({"start", "end"}, errors).
 
     years are the first and last years being matched up, which the dataset's
-    own years must overlap, or None if they are not known. Returns (options,
-    errors).
+    own years must overlap, or None if they are not known.
     """
-    form = form if isinstance(form, dict) else {}
-    options = {"start": None, "end": None, "point_time_res": None, "vertical": None}
-    # unticked is surface-only, which is add_point_comparison's own default
-    if form.get("vertical"):
-        options["vertical"] = True
+    options = {"start": None, "end": None}
     errors = {}
     for name in ("start", "end"):
         value = str(form.get(name) or "").strip()
@@ -263,12 +296,6 @@ def check_point_options(form, years):
                 options[name] = int(value)
             except ValueError:
                 errors[name] = "Years must be whole numbers."
-    choice = str(form.get("point_time_res") or "").strip()
-    if choice:
-        if choice in _TIME_RES:
-            options["point_time_res"] = list(_TIME_RES[choice])
-        else:
-            errors["point_time_res"] = "Choose one of the options."
 
     start, end = options["start"], options["end"]
     if errors:
@@ -279,6 +306,55 @@ def check_point_options(form, years):
         errors["start"] = f"These years miss the {years[0]}–{years[1]} being matched up."
     elif years is not None and end is not None and end < years[0]:
         errors["end"] = f"These years miss the {years[0]}–{years[1]} being matched up."
+    return options, errors
+
+
+def check_point_options(form, years):
+    """Turn one point dataset's options into add_point_comparison arguments.
+
+    years are the first and last years being matched up, which the dataset's
+    own years must overlap, or None if they are not known. Returns (options,
+    errors).
+    """
+    form = form if isinstance(form, dict) else {}
+    years_chosen, errors = _check_years(form, years)
+    options = dict(years_chosen, point_time_res=None, vertical=None)
+    # unticked is surface-only, which is add_point_comparison's own default
+    if form.get("vertical"):
+        options["vertical"] = True
+    choice = str(form.get("point_time_res") or "").strip()
+    if choice:
+        if choice in _TIME_RES:
+            options["point_time_res"] = list(_TIME_RES[choice])
+        else:
+            errors["point_time_res"] = "Choose one of the options."
+    return options, errors
+
+
+def check_gridded_options(form, years, vertical_option=False, decadal=False):
+    """Turn one gridded dataset's options into add_gridded_comparison
+    arguments.
+
+    years are as for check_point_options. vertical_option is whether the
+    dataset can be validated through the full water column at all, and
+    decadal whether it is one WOA23 publishes per decade, whose years must
+    then both be given and sit inside one decade. Returns (options, errors).
+    """
+    form = form if isinstance(form, dict) else {}
+    options, errors = _check_years(form, years)
+    # the page only offers Vertical where the recipe takes it
+    options["vertical"] = True if vertical_option and form.get("vertical") else None
+
+    start, end = options["start"], options["end"]
+    if decadal and not errors and (start is not None or end is not None):
+        if start is None:
+            errors["start"] = "WOA23 publishes this per decade, so give both years."
+        elif end is None:
+            errors["end"] = "WOA23 publishes this per decade, so give both years."
+        elif not any(first <= start and end <= last for first, last in _WOA23_PERIODS):
+            errors["end"] = (
+                "These years must sit inside one WOA23 decade, e.g. 2005–2014."
+            )
     return options, errors
 
 
@@ -331,6 +407,10 @@ def recipe_rows(mapping, domain):
             "details": details,
             "default": key in defaults,
             "ticked": key in ticked,
+            # whether the page offers Vertical, and makes the years sit
+            # inside one WOA23 decade
+            "vertical_option": _has_vertical_option(entry),
+            "decadal": bool(entry.get("decadal")),
         }
 
     return [
@@ -353,11 +433,57 @@ def recipe_rows(mapping, domain):
     ]
 
 
+def render_page(template, state):
+    """One of the pages in oceanval/data, with state for its script.
+
+    The stylesheet and scripts every page shares are inlined, so that the
+    page loads nothing from anywhere else.
+    """
+    data = importlib.resources.files("oceanval").joinpath("data")
+
+    def read(name):
+        return data.joinpath(name).read_text(encoding="utf-8")
+
+    # the state sits in a <script> element, which a "</script>" in, say, a
+    # variable name would otherwise close
+    state = (
+        json.dumps(state)
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+        .replace("&", "\\u0026")
+    )
+    return (
+        read(template)
+        .replace("/*__OCEANVAL_GUI_CSS__*/", read("gui.css"))
+        .replace("/*__OCEANVAL_GUI_JS__*/", read("gui.js"))
+        # last, so nothing inlined above can be mistaken for it
+        .replace("__OCEANVAL_STATE__", state)
+    )
+
+
 def _unknown_message(unknown):
     if "" in unknown:
         return 'Remove the empty name beside "+".'
     verb = "is" if len(unknown) == 1 else "are"
     return f"{', '.join(unknown)} {verb} not in the model output."
+
+
+# set by hosted_by: the oceanval app, which shows the create_recipes window
+# as one of its own pages rather than starting a server of its own
+_host = None
+
+
+@contextlib.contextmanager
+def hosted_by(host):
+    """Show the create_recipes window inside the block as one of host's own
+    pages, with host.show_recipes(page), which returns what page.wait()
+    does. See oceanval.app."""
+    global _host
+    previous, _host = _host, host
+    try:
+        yield
+    finally:
+        _host = previous
 
 
 class _Server(http.server.ThreadingHTTPServer):
@@ -374,14 +500,18 @@ class _Handler(http.server.BaseHTTPRequestHandler):
 
     def _reply(self, status, body, content_type):
         data = body.encode("utf-8")
-        self.send_response(status)
-        self.send_header("Content-Type", content_type)
-        self.send_header("Content-Length", str(len(data)))
-        self.send_header("Cache-Control", "no-store")
-        self.send_header("X-Content-Type-Options", "nosniff")
-        self.send_header("Referrer-Policy", "no-referrer")
-        self.end_headers()
-        self.wfile.write(data)
+        try:
+            self.send_response(status)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(data)))
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("Referrer-Policy", "no-referrer")
+            self.end_headers()
+            self.wfile.write(data)
+        except (BrokenPipeError, ConnectionResetError):
+            # the page went before the reply came, e.g. on to another step
+            pass
 
     def _reply_json(self, status, payload):
         self._reply(status, json.dumps(payload), "application/json")
@@ -436,9 +566,9 @@ class RecipePage:
 
     start() serves the page and returns its link, wait() blocks until the
     page is submitted or cancelled, and close() stops serving it. write is
-    called with the (mapping, selection, settings, point_options) the page
-    submits, from the server's thread, so that the page can say whether the
-    script was written.
+    called with the (mapping, selection, settings, point_options,
+    gridded_options) the page submits, from the server's thread, so that the
+    page can say whether the script was written.
     """
 
     def __init__(self, rows, available, context, write):
@@ -446,7 +576,12 @@ class RecipePage:
         self.available = set(available)
         self.context = context
         self.write = write
-        self.form = default_form(context.get("start"), context.get("end"))
+        self.form = default_form(
+            context.get("start"),
+            context.get("end"),
+            context.get("exclude"),
+            context.get("require"),
+        )
         self.token = secrets.token_urlsafe(24)
         self.url = None
         self.result = None
@@ -476,20 +611,7 @@ class RecipePage:
             "woa23_periods": _WOA23_PERIODS,
             "cpu_count": os.cpu_count(),
         }
-        # the state sits in a <script> element, which a "</script>" in, say,
-        # a variable name would otherwise close
-        data = (
-            json.dumps(state)
-            .replace("<", "\\u003c")
-            .replace(">", "\\u003e")
-            .replace("&", "\\u0026")
-        )
-        template = (
-            importlib.resources.files("oceanval")
-            .joinpath("data/create_recipes_gui.html")
-            .read_text(encoding="utf-8")
-        )
-        return template.replace("__OCEANVAL_STATE__", data)
+        return render_page("create_recipes_gui.html", state)
 
     def submit(self, payload):
         """Check what the page sent, and write the script if it is sound.
@@ -522,6 +644,7 @@ class RecipePage:
 
             mapping, selection, errors = {}, set(), {}
             point_options, point_errors = {}, {}
+            gridded_options, gridded_errors = {}, {}
             for item in sent:
                 if not isinstance(item, dict) or item.get("variable") not in rows:
                     return 400, {
@@ -554,33 +677,52 @@ class RecipePage:
                     }
                 selection.update((variable, recipe) for recipe in chosen)
 
-                # only ticked point datasets show their options in the page
-                forms = item.get("point") if isinstance(item.get("point"), dict) else {}
-                for dataset in rows[variable]["point"]:
-                    recipe = dataset["recipe"]
-                    if (variable, recipe) not in selection or recipe not in forms:
-                        continue
-                    options, problems = check_point_options(forms[recipe], years)
-                    if problems:
-                        point_errors.setdefault(variable, {})[recipe] = problems
-                    elif any(value is not None for value in options.values()):
-                        point_options[(variable, recipe)] = options
+                # only ticked datasets show their options in the page
+                for kind, chosen_options, kind_errors in (
+                    ("gridded", gridded_options, gridded_errors),
+                    ("point", point_options, point_errors),
+                ):
+                    forms = item.get(kind) if isinstance(item.get(kind), dict) else {}
+                    for dataset in rows[variable][kind]:
+                        recipe = dataset["recipe"]
+                        if (variable, recipe) not in selection or recipe not in forms:
+                            continue
+                        if kind == "point":
+                            options, problems = check_point_options(
+                                forms[recipe], years
+                            )
+                        else:
+                            options, problems = check_gridded_options(
+                                forms[recipe],
+                                years,
+                                dataset["vertical_option"],
+                                dataset["decadal"],
+                            )
+                        if problems:
+                            kind_errors.setdefault(variable, {})[recipe] = problems
+                        elif any(value is not None for value in options.values()):
+                            chosen_options[(variable, recipe)] = options
 
-            if errors or setting_errors or point_errors:
+            if errors or setting_errors or point_errors or gridded_errors:
                 return 400, {
                     "ok": False,
                     "errors": errors,
                     "setting_errors": setting_errors,
                     "point_errors": point_errors,
+                    "gridded_errors": gridded_errors,
                 }
             try:
-                out = self.write(mapping, selection, settings, point_options)
+                out = self.write(
+                    mapping, selection, settings, point_options, gridded_options
+                )
             except Exception as error:
                 return 500, {
                     "ok": False,
                     "error": f"The script could not be written: {error}",
                 }
-            self.result = (mapping, selection, settings, point_options)
+            self.result = (
+                mapping, selection, settings, point_options, gridded_options
+            )
             self._used = True
             return 200, {"ok": True, "out": out}
 
@@ -608,9 +750,9 @@ class RecipePage:
     def wait(self):
         """Block until the page is submitted or cancelled.
 
-        Returns the (mapping, selection, settings, point_options) the script
-        was written with, or None if the window was cancelled - from the page,
-        or with Ctrl+C here.
+        Returns the (mapping, selection, settings, point_options,
+        gridded_options) the script was written with, or None if the window
+        was cancelled - from the page, or with Ctrl+C here.
         """
         try:
             # waiting in steps, so Ctrl+C is not held up until the page answers
@@ -654,11 +796,14 @@ def choose_recipes(mapping, domain, available, context, write, open_browser=True
     mapping is what create_recipes identified, available every variable in
     the model output, and context what the page's header shows, along with
     the start and end the Global settings begin with. When the page is
-    submitted, write(mapping, selection, settings, point_options) writes the
-    script and returns its path. Returns what write was called with, or None
-    if the window was cancelled.
+    submitted, write(mapping, selection, settings, point_options,
+    gridded_options) writes the script and returns its path. Returns what
+    write was called with, or None if the window was cancelled. Inside
+    hosted_by, the window is one of the host's pages instead.
     """
     page = RecipePage(recipe_rows(mapping, domain), available, context, write)
+    if _host is not None:
+        return _host.show_recipes(page)
     url = page.start()
     try:
         if open_browser and _can_open_browser() and _open_browser(url):

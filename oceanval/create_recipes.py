@@ -8,10 +8,11 @@ out, but commented, so nothing is silently dropped. When run interactively,
 it first asks you for the model variable of each one it could not identify.
 Output that looks like raw FVCOM is read with xarray, as CDO skips FVCOM's
 mesh variables, and the script's matchup call is given fvcom=True - once you
-have confirmed it is FVCOM. With gui=True, what was identified is shown in a
-page in your web browser instead (see oceanval.recipes_gui), where the model
-variables and the datasets to validate against can be changed before the
-script is written.
+have confirmed it is FVCOM. By default (gui=True), what was identified is
+shown in a page in your web browser instead (see oceanval.recipes_gui), where
+the model variables, the datasets to validate against, and each dataset's
+years and whether to validate it through the water column can be changed
+before the script is written.
 
 The identification follows the approach ecoval takes in its ``matchup``:
 model output rarely names its variables the way an observational dataset
@@ -24,14 +25,15 @@ import inspect
 import json
 import os
 import re
-import sys
 import textwrap
 import warnings
 
 import nctoolkit as nc
 import xarray as xr
 
+from oceanval import prompts
 from oceanval.fvcom import fvcom_contents
+from oceanval.own_data import FIELDS as OWN_DATA_FIELDS
 
 
 # The region argument on create_recipes, keyed by the catalogue's own
@@ -244,6 +246,37 @@ RECIPE_CATALOGUE = RECIPE_CATALOGUE + tuple(
     for variable, title in _SHELF_RECIPES
 )
 
+# The units each gridded recipe's observations are in, as the observation files
+# state them (those for temperature in the WOA23 and NSBC recipes, and for KD490,
+# are the documented ones, as their files are not held locally). They are shown
+# in the units step of the oceanval window and in the Units column of
+# https://pmlmodelling.github.io/OceanVal/recipes.html, which a test keeps the same.
+_GRIDDED_UNITS = {
+    ("alkalinity", "glodap"): "micro-mol kg-1",
+    ("chlorophyll", "occci"): "milligram m-3",
+    ("kd490", "occci"): "m-1",
+    ("nitrate", "woa23"): "micromoles_per_kilogram",
+    ("oxygen", "woa23"): "micromoles_per_kilogram",
+    ("ph", "glodap"): "total scale",
+    ("phosphate", "woa23"): "micromoles_per_kilogram",
+    ("salinity", "woa23"): "1",
+    ("silicate", "woa23"): "micromoles_per_kilogram",
+    ("temperature", "cobe2"): "degC",
+    ("temperature", "woa23"): "degC",
+    ("ammonium", "nsbc"): "mmol/m^3",
+    ("chlorophyll", "nsbc"): "mg/m^3",
+    ("nitrate", "nsbc"): "mmol/m^3",
+    ("oxygen", "nsbc"): "mmol/m^3",
+    ("phosphate", "nsbc"): "mmol/m^3",
+    ("salinity", "nsbc"): "1",
+    ("silicate", "nsbc"): "mmol/m^3",
+    ("temperature", "nsbc"): "degC",
+}
+RECIPE_CATALOGUE = tuple(
+    dict(entry, units=_GRIDDED_UNITS[entry["variable"], entry["recipe"]])
+    for entry in RECIPE_CATALOGUE
+)
+
 # ICES point (in-situ) recipes. Unlike the gridded catalogue above, these are
 # only written into the generated script for domain="nwes", or when one is
 # selected by hand (see build_recipe_script), rather than for every domain
@@ -262,10 +295,27 @@ _ICES_RECIPES = (
     ("silicate", "Silicate", "Bottle and low resolution CTD data", "micromoles per litre"),
 )
 
+# the units of the ICES observations, as the Units column of the point recipes
+# table at https://pmlmodelling.github.io/OceanVal/recipes.html gives them,
+# which a test keeps the same
+_POINT_UNITS = {
+    "temperature": "\u00b0C",
+    "salinity": "dimensionless",
+    "alkalinity": "mEq/l",
+    "ammonium": "\u00b5mol/l",
+    "chlorophyll": "\u00b5g/l",
+    "nitrate": "\u00b5mol/l",
+    "oxygen": "ml/l",
+    "ph": "pH units",
+    "phosphate": "\u00b5mol/l",
+    "silicate": "\u00b5mol/l",
+}
+
 POINT_RECIPE_CATALOGUE = tuple(
     {
         "variable": variable,
         "recipe": "ices",
+        "units": _POINT_UNITS[variable],
         "example_variable": variable,
         "notes": (
             f"{title} - ICES Oceanographic database (https://ocean.ices.dk)",
@@ -313,7 +363,7 @@ MATCHUP_SETTINGS = (
     "require",
     "as_missing",
 )
-VALIDATE_SETTINGS = ("subregions", "pdf", "word")
+VALIDATE_SETTINGS = ("subregions", "pdf", "word", "concise")
 
 
 def _defaults(function, names):
@@ -516,40 +566,58 @@ def _file_pattern(path):
     return re.sub(r"\d{2,}", "**", name)
 
 
-def simulation_paths(simdir, ndown):
-    """Every output file ndown directories below simdir."""
+def _passes_filters(path, exclude=None, require=None):
+    """Whether matchup() would use a file, given its exclude and require.
+
+    As there, only the file's name is checked: it is left out if it contains
+    any word in exclude, or if it lacks any word in require.
+    """
+    name = os.path.basename(path)
+    return not any(word in name for word in exclude or ()) and all(
+        word in name for word in require or ()
+    )
+
+
+def simulation_paths(simdir, ndown, exclude=None, require=None):
+    """Every output file ndown directories below simdir, leaving out those
+    matchup() would, given its exclude and require."""
     pattern = os.path.join(simdir, *(["*"] * ndown), "*.nc")
     return [
         path
         for path in sorted(glob.glob(pattern))
         if "restart" not in os.path.basename(path)
+        and _passes_filters(path, exclude, require)
     ]
 
 
-def simulation_files(simdir, ndown):
+def simulation_files(simdir, ndown, exclude=None, require=None):
     """One example file per output stream, ndown directories below simdir.
 
     A simulation holds one file per stream per time step, and every step
     writes the same variables, so only one file per stream has to be read.
     """
     examples = {}
-    for path in simulation_paths(simdir, ndown):
+    for path in simulation_paths(simdir, ndown, exclude, require):
         examples.setdefault(_file_pattern(path), path)
     return list(examples.values())
 
 
-def extract_recipe_variable_mapping(simdir, ndown, fvcom=False):
+def extract_recipe_variable_mapping(
+    simdir, ndown, fvcom=False, exclude=None, require=None
+):
     """Work out which model variable holds each recipe variable.
 
     Scans one file per output stream and keeps the model variable that the
     most streams agree on, so a diagnostic file holding a stray copy of a
     variable cannot outvote the stream that is actually reporting it.
-    fvcom=True reads the files as raw FVCOM output.
+    fvcom=True reads the files as raw FVCOM output, and exclude and require
+    leave out the files matchup() would.
     """
-    paths = simulation_files(simdir, ndown)
+    paths = simulation_files(simdir, ndown, exclude, require)
     if not paths:
+        filtered = " that pass the exclude and require filters" if exclude or require else ""
         raise ValueError(
-            f"No netCDF files were found {ndown} directories below {simdir}. "
+            f"No netCDF files were found {ndown} directories below {simdir}{filtered}. "
             "Check the ndown argument and the simulation directory structure."
         )
 
@@ -577,10 +645,10 @@ def extract_recipe_variable_mapping(simdir, ndown, fvcom=False):
     return mapping
 
 
-def _available_variables(simdir, ndown):
+def _available_variables(simdir, ndown, exclude=None, require=None):
     """The names of every variable in the simulation's example files."""
     names = set()
-    for path in simulation_files(simdir, ndown):
+    for path in simulation_files(simdir, ndown, exclude, require):
         # xarray rather than nctoolkit: CDO skips variables on grids it does
         # not support (e.g. raw FVCOM salinity), which would then be refused
         try:
@@ -616,7 +684,7 @@ def _ask_for_missing_variables(mapping, missing, available):
         print(f"{variable} could not be identified in the model output.")
         while True:
             try:
-                answer = input(
+                answer = prompts.ask(
                     f"What is the model variable for {variable}? (press Enter to skip): "
                 ).strip()
             except EOFError:
@@ -654,13 +722,15 @@ def _looks_like_fvcom(path):
 
 def _ask_if_fvcom(simdir):
     """Ask the user to confirm that output which looks like FVCOM is."""
-    print(
+    # in the question itself, as a window shows the question and not what was printed
+    question = (
         f"The output in {simdir} looks like raw FVCOM output "
-        "(an unstructured mesh with node, nele and nv)."
+        "(an unstructured mesh with node, nele and nv).\n"
+        "Is this FVCOM output? (y/n) "
     )
     while True:
         try:
-            answer = input("Is this FVCOM output? (y/n) ").strip().lower()
+            answer = prompts.ask(question, ("y", "n")).strip().lower()
         except EOFError:
             return True
         if answer in ("y", "yes"):
@@ -715,6 +785,38 @@ def _comment(lines):
     return [f"# {line}".rstrip() for line in lines]
 
 
+def _has_vertical_option(entry):
+    """Whether a recipe can be validated through the full water column.
+
+    Only the recipes whose observations are resolved in depth are written
+    with a vertical argument, so that is what says so.
+    """
+    return any(argument.startswith("vertical=") for argument in entry["arguments"])
+
+
+def _option_arguments(options):
+    """The source lines for the options chosen for one recipe in the window,
+    leaving out those not set, which keep add_*_comparison's defaults."""
+    return [
+        f"{name}={_literal(value)}," for name, value in options.items() if value is not None
+    ]
+
+
+def _entry_arguments(entry, vertical, fvcom=False):
+    """The recipe's own arguments, with its vertical=False line made the full
+    water column if that was chosen."""
+    if not vertical:
+        return list(entry["arguments"])
+    note = "the full water column"
+    if not fvcom:
+        # FVCOM output is regridded onto z-levels, so needs none
+        note += ", so matchup also needs thickness"
+    return [
+        f"vertical=True,  # {note}" if argument.startswith("vertical=") else argument
+        for argument in entry["arguments"]
+    ]
+
+
 def _unselected_note(variable, live_entries):
     """Why a recipe that has a model variable is commented out.
 
@@ -738,17 +840,29 @@ def _unselected_note(variable, live_entries):
 
 
 def _recipe_block(
-    entry, model_variable, period, years=None, selected=True, live_entries=()
+    entry,
+    model_variable,
+    period,
+    years=None,
+    selected=True,
+    live_entries=(),
+    options=None,
+    fvcom=False,
 ):
     """The source lines for one recipe.
 
     A recipe is commented out when no model variable was found for it, and
-    when it was not selected - see _unselected_note.
+    when it was not selected - see _unselected_note. options holds any start,
+    end and vertical chosen for it in the window. A WOA23 recipe published
+    per decade given no years of its own gets those of the decade covering
+    the simulation.
     """
     lines = list(_comment(entry["notes"]))
 
-    arguments = list(entry["arguments"])
-    if entry.get("decadal"):
+    options = dict(options or {})
+    vertical = options.pop("vertical", None)
+    arguments = _option_arguments(options)
+    if entry.get("decadal") and not arguments:
         if period is None:
             if years is None:
                 note = [
@@ -765,7 +879,8 @@ def _recipe_block(
             decadal = "start=2005, end=2014,"
         else:
             decadal = f"start={period[0]}, end={period[1]},"
-        arguments.insert(0, decadal)
+        arguments.append(decadal)
+    arguments += _entry_arguments(entry, vertical, fvcom)
 
     call = [
         "oceanval.add_gridded_comparison(",
@@ -795,7 +910,9 @@ def _recipe_block(
     return lines
 
 
-def _point_recipe_block(entry, model_variable, selected=True, options=None):
+def _point_recipe_block(
+    entry, model_variable, selected=True, options=None, fvcom=False
+):
     """The source lines for one ICES point recipe.
 
     Simpler than _recipe_block: ICES is the only point source, so a point
@@ -809,24 +926,13 @@ def _point_recipe_block(entry, model_variable, selected=True, options=None):
 
     options = dict(options or {})
     vertical = options.pop("vertical", None)
-    arguments = [
-        f"{name}={_literal(value)}," for name, value in options.items() if value is not None
-    ]
-    entry_arguments = list(entry["arguments"])
-    if vertical:
-        # the recipe's own vertical=False line becomes the full water column
-        entry_arguments = [
-            "vertical=True,  # the full water column, so matchup also needs thickness"
-            if argument.startswith("vertical=")
-            else argument
-            for argument in entry_arguments
-        ]
+    arguments = _option_arguments(options) + _entry_arguments(entry, vertical, fvcom)
     call = [
         "oceanval.add_point_comparison(",
         f'    name="{entry["variable"]}",',
         f'    model_variable="{model_variable or entry["example_variable"]}",',
         f'    recipe={{"{entry["variable"]}": "{entry["recipe"]}"}},',
-        *[f"    {argument}" for argument in arguments + entry_arguments],
+        *[f"    {argument}" for argument in arguments],
         ")",
     ]
 
@@ -895,7 +1001,22 @@ def _section(title):
     return ["", f"# {rule}", f"# {title}", f"# {rule}", ""]
 
 
-def _footer(simdir, ndown, years, fvcom=False, settings=None):
+def _own_data_block(own_data):
+    """The calls registering the user's own observations, as lines of the
+    script. own_data holds the arguments of each call, under "point" and
+    "gridded"."""
+    lines = []
+    for kind in ("point", "gridded"):
+        order = [field["name"] for field in OWN_DATA_FIELDS[kind]]
+        for arguments in own_data.get(kind) or []:
+            lines.append(f"oceanval.add_{kind}_comparison(")
+            for name in sorted(arguments, key=order.index):
+                lines.append(f"    {name}={_literal(arguments[name])},")
+            lines.extend([")", ""])
+    return lines
+
+
+def _footer(simdir, ndown, years, fvcom=False, settings=None, validate=True):
     start, end = years if years is not None else (1995, 2004)
     suffix = "" if years is not None else "  # set to your simulation's years"
     if fvcom:
@@ -944,8 +1065,20 @@ def _footer(simdir, ndown, years, fvcom=False, settings=None):
         *(["    fvcom=True,"] if fvcom else []),
         ")",
         "",
-        "# word=True and pdf=True also write Word and PDF versions of the report.",
-        *validate_call,
+        *(
+            [
+                "# word=True and pdf=True also write Word and PDF versions of the report,",
+                "# and concise=False builds the full report rather than the concise one.",
+                *validate_call,
+            ]
+            if validate
+            else [
+                "# Build the report once the matchups are made, by running this. word=True",
+                "# and pdf=True also write Word and PDF versions of the report, and",
+                "# concise=False builds the full report rather than the concise one.",
+                *_comment(validate_call),
+            ]
+        ),
         "",
     ]
 
@@ -1004,6 +1137,9 @@ def build_recipe_script(
     selection=None,
     settings=None,
     point_options=None,
+    gridded_options=None,
+    validate=True,
+    own_data=None,
 ):
     """The text of the matchup script for one simulation's variable mapping.
 
@@ -1012,10 +1148,16 @@ def build_recipe_script(
     variable can be validated against as many sources as are selected. The
     rest are still written out, commented. settings holds matchup() and
     validate() arguments, of which those changed from the defaults are
-    written, and point_options the start, end and point_time_res for each
-    (variable, recipe) point recipe that has them.
+    written, point_options the start, end, point_time_res and vertical for
+    each (variable, recipe) point recipe that has them, and gridded_options
+    the start, end and vertical for each gridded one. own_data holds the
+    arguments of the user's own add_point_comparison and
+    add_gridded_comparison calls, under "point" and "gridded", which are
+    written after the recipes. With validate=False, the validate() call is
+    written commented out.
     """
     point_options = point_options or {}
+    gridded_options = gridded_options or {}
     if selection is None:
         selection = default_selection(mapping, domain)
 
@@ -1041,7 +1183,14 @@ def build_recipe_script(
         ]
         lines.extend(
             _recipe_block(
-                entry, mapping.get(variable), period, years, live(entry), live_entries
+                entry,
+                mapping.get(variable),
+                period,
+                years,
+                live(entry),
+                live_entries,
+                gridded_options.get((variable, entry["recipe"])),
+                fvcom,
             )
         )
         lines.append("")
@@ -1052,12 +1201,17 @@ def build_recipe_script(
             model_variable = mapping.get(entry["variable"])
             options = point_options.get((entry["variable"], entry["recipe"]))
             lines.extend(
-                _point_recipe_block(entry, model_variable, live(entry), options)
+                _point_recipe_block(entry, model_variable, live(entry), options, fvcom)
             )
             lines.append("")
 
+    own_lines = _own_data_block(own_data or {})
+    if own_lines:
+        lines.extend(_section("Your own observations"))
+        lines.extend(own_lines)
+
     lines.extend(_section("Matchup and report"))
-    lines.extend(_footer(simdir, ndown, years, fvcom, settings))
+    lines.extend(_footer(simdir, ndown, years, fvcom, settings, validate))
     return "\n".join(lines).rstrip("\n") + "\n"
 
 
@@ -1090,6 +1244,18 @@ def _report(out, mapping, selection, settings=None):
         print(f"  settings: {listed}")
 
 
+def _words(value, name):
+    """exclude or require, as matchup() takes them: a string or a list of
+    strings. None if there are none."""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        value = [value]
+    if not isinstance(value, list) or not all(isinstance(word, str) for word in value):
+        raise TypeError(f"{name} must be a string or a list of strings")
+    return value or None
+
+
 def create_recipes(
     simdir=None,
     ndown=None,
@@ -1099,20 +1265,25 @@ def create_recipes(
     end=None,
     ask=True,
     fvcom=None,
-    gui=False,
+    gui=True,
+    validate=True,
+    exclude=None,
+    require=None,
+    own_data=None,
 ):
     """Write a matchup script for a simulation, with its variables filled in.
 
     Scans the netCDF files in simdir, identifies which model variable holds
     each observational variable OceanVal has a recipe for, and writes out a
-    script registering those recipes. For each variable that could not be
-    identified you are told so and asked for the model variable to use
-    (press Enter to skip). Recipes still without a model variable are
-    written out commented, so you can see what was missed and fill the
-    variable in by hand. If the output looks like raw FVCOM output you are
-    asked to confirm it is, and the script then calls matchup with
-    fvcom=True. With gui=True, what was identified is shown in a page in
-    your web browser, where it can be changed before the script is written.
+    script registering those recipes. By default, what was identified is
+    shown in a page in your web browser, where it can be changed before the
+    script is written. With gui=False, the script is written straight away,
+    and for each variable that could not be identified you are told so and
+    asked for the model variable to use (press Enter to skip). Recipes still
+    without a model variable are written out commented, so you can see what
+    was missed and fill the variable in by hand. If the output looks like
+    raw FVCOM output you are asked to confirm it is, and the script then
+    calls matchup with fvcom=True.
 
     Parameters
     -------------
@@ -1157,11 +1328,33 @@ def create_recipes(
         can change, and the gridded and point datasets available for it as
         tick-boxes, ticked where the script would otherwise use them. Each
         ticked dataset is written out live, so a variable can be validated
-        against several, and the rest commented out. The page is served
-        from this machine only, and its link is printed in case the browser
-        cannot be opened for you (on a remote machine, forward its port).
-        Cancelling, in the page or with Ctrl+C, writes nothing. Defaults to
-        False.
+        against several, and the rest commented out. A ticked dataset can
+        be given years of its own and, if its observations are resolved in
+        depth, be validated through the full water column (Vertical). The
+        page is served from this machine only, and its link is printed in
+        case the browser cannot be opened for you (on a remote machine,
+        forward its port). Cancelling, in the page or with Ctrl+C, writes
+        nothing. create_recipes waits for the page, so pass gui=False
+        where no one can answer it, e.g. in a batch job. Defaults to True.
+    validate : bool
+        Whether the script builds the validation report, with validate(),
+        once matchup() has run. With validate=False the call is still
+        written, commented out, to run once the matchups are made. Defaults
+        to True.
+    exclude : str or list of str
+        Leave out output files whose names contain any of these, as
+        matchup() does. Passed straight through to the script's matchup()
+        call. Defaults to None.
+    require : str or list of str
+        Only use output files whose names contain each of these, as
+        matchup() does. Passed straight through to the script's matchup()
+        call. Defaults to None.
+    own_data : dict
+        Your own observations to register in the script, as the arguments
+        of add_point_comparison calls under "point" and of
+        add_gridded_comparison calls under "gridded", each a list of
+        dictionaries. They are written after the recipes. The oceanval
+        window fills this in. Defaults to None.
 
     Returns
     -------------
@@ -1209,12 +1402,19 @@ def create_recipes(
         raise TypeError("fvcom must be True, False or None")
     if not isinstance(gui, bool):
         raise TypeError("gui must be True or False")
+    if not isinstance(validate, bool):
+        raise TypeError("validate must be True or False")
+    exclude = _words(exclude, "exclude")
+    require = _words(require, "require")
+    filters = {"exclude": exclude, "require": require}
     if not os.path.isdir(simdir):
         raise ValueError(f"{simdir} is not a directory")
 
-    interactive = ask and sys.stdin is not None and sys.stdin.isatty()
+    interactive = ask and prompts.interactive()
     if fvcom is None:
-        fvcom = any(_looks_like_fvcom(path) for path in simulation_files(simdir, ndown))
+        fvcom = any(
+            _looks_like_fvcom(path) for path in simulation_files(simdir, ndown, **filters)
+        )
         if fvcom and interactive:
             fvcom = _ask_if_fvcom(simdir)
         elif fvcom:
@@ -1224,9 +1424,11 @@ def create_recipes(
                 "is not."
             )
 
-    mapping = extract_recipe_variable_mapping(simdir, ndown, fvcom)
+    mapping = extract_recipe_variable_mapping(simdir, ndown, fvcom, **filters)
 
-    def write(mapping, selection, settings=None, point_options=None):
+    def write(
+        mapping, selection, settings=None, point_options=None, gridded_options=None
+    ):
         # the window can change the years along with everything else
         years = (settings["start"], settings["end"]) if settings else (start, end)
         if not mapping:
@@ -1244,6 +1446,9 @@ def create_recipes(
             selection,
             settings,
             point_options,
+            gridded_options,
+            validate,
+            own_data,
         )
         _write_script(out, script)
         return os.path.abspath(out)
@@ -1252,7 +1457,7 @@ def create_recipes(
         # only needed when asked for, and it imports this module
         from oceanval.recipes_gui import choose_recipes
 
-        available = _available_variables(simdir, ndown)
+        available = _available_variables(simdir, ndown, **filters)
         # what was identified is in the output, even where xarray and CDO
         # disagree about a variable's name
         for model_variable in mapping.values():
@@ -1266,23 +1471,30 @@ def create_recipes(
             "end": end,
             "fvcom": fvcom,
             "out": os.path.abspath(out),
+            # the Global settings start with them
+            "exclude": exclude,
+            "require": require,
         }
         chosen = choose_recipes(mapping, domain, available, context, write)
         if chosen is None:
             print("create_recipes was cancelled, so nothing was written.")
             return None
-        mapping, selection, settings, point_options = chosen
+        mapping, selection, settings, _, _ = chosen
     else:
         missing = [
             variable for variable in RECIPE_VARIABLES if mapping.get(variable) is None
         ]
         if missing and interactive:
             mapping = _ask_for_missing_variables(
-                mapping, missing, _available_variables(simdir, ndown)
+                mapping, missing, _available_variables(simdir, ndown, **filters)
             )
         selection = default_selection(mapping, domain)
         settings = None
-        write(mapping, selection)
+        if exclude or require:
+            # so the script's matchup() call is given them
+            settings = dict(matchup_defaults(), **validate_defaults(), start=start, end=end)
+            settings.update(exclude=exclude or [], require=require)
+        write(mapping, selection, settings)
 
     _report(out, mapping, selection, settings)
     return out

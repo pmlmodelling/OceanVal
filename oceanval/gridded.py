@@ -11,6 +11,7 @@ import numpy as np
 import nctoolkit as nc
 import xarray as xr
 
+from oceanval import prompts
 from oceanval.fixers import tidy_warnings
 from oceanval.fvcom import fvcom_matchup_files
 from oceanval.utils import extension_of_directory, loud_warning
@@ -871,7 +872,7 @@ def gridded_matchup(
 def _ask_yes_no(question):
     """Ask a yes/no question, deciding on the first letter of the answer."""
     while True:
-        answer = input(question).strip().lower()
+        answer = prompts.ask(question, ("y", "n")).strip().lower()
         if answer.startswith("y"):
             return True
         if answer.startswith("n"):
@@ -882,7 +883,7 @@ def _ask_yes_no(question):
 def _ask_minutes(question):
     """Ask how many minutes to keep trying for."""
     while True:
-        answer = input(question).strip()
+        answer = prompts.ask(question).strip()
         try:
             minutes = float(answer)
         except ValueError:

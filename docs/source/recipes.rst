@@ -51,20 +51,20 @@ What recipes are available?
 Global datasets
 ~~~~~~~~~~~~~~~
 .. csv-table:: Global built-in recipes
-   :header: "Region", "Variable", "Recipe", "Dataset", "Water-column", "Example"
-   :widths: 12, 16, 16, 32, 14, 24
+   :header: "Region", "Variable", "Recipe", "Dataset", "Water-column", "Units", "Example"
+   :widths: 10, 14, 12, 28, 10, 14, 12
 
-   "Global", "Alkalinity", "``glodap``", "`GLODAPv2.2016b <https://www.glodap.info/>`_", "No", ":doc:`Full details <recipe_examples/alkalinity_glodap>`"
-   "Global", "Chlorophyll", "``occci``", "`Ocean Colour CCI <https://esa-oceancolour-cci.org/>`_", "No", ":doc:`Full details <recipe_examples/chlorophyll_occci>`"
-   "Global", "KD490", "``occci``", "`Ocean Colour CCI <https://esa-oceancolour-cci.org/>`_", "No", ":doc:`Full details <recipe_examples/kd490_occci>`"
-   "Global", "Nitrate", "``woa23``", "`World Ocean Atlas 2023 <https://www.ncei.noaa.gov/products/world-ocean-atlas>`_", "Yes", ":doc:`Full details <recipe_examples/nitrate_woa23>`"
-   "Global", "Oxygen", "``woa23``", "`World Ocean Atlas 2023 <https://www.ncei.noaa.gov/products/world-ocean-atlas>`_", "Yes", ":doc:`Full details <recipe_examples/oxygen_woa23>`"
-   "Global", "pH", "``glodap``", "`GLODAPv2.2016b <https://www.glodap.info/>`_", "No", ":doc:`Full details <recipe_examples/ph_glodap>`"
-   "Global", "Phosphate", "``woa23``", "`World Ocean Atlas 2023 <https://www.ncei.noaa.gov/products/world-ocean-atlas>`_", "Yes", ":doc:`Full details <recipe_examples/phosphate_woa23>`"
-   "Global", "Salinity", "``woa23``", "`World Ocean Atlas 2023 <https://www.ncei.noaa.gov/products/world-ocean-atlas>`_", "Yes", ":doc:`Full details <recipe_examples/salinity_woa23>`"
-   "Global", "Silicate", "``woa23``", "`World Ocean Atlas 2023 <https://www.ncei.noaa.gov/products/world-ocean-atlas>`_", "Yes", ":doc:`Full details <recipe_examples/silicate_woa23>`"
-   "Global", "Temperature", "``cobe2``", "`COBE-SST 2 <https://psl.noaa.gov/data/gridded/data.cobe2.html>`_", "No", ":doc:`Full details <recipe_examples/temperature_cobe2>`"
-   "Global", "Temperature", "``woa23``", "`World Ocean Atlas 2023 <https://www.ncei.noaa.gov/products/world-ocean-atlas>`_", "Yes", ":doc:`Full details <recipe_examples/temperature_woa23>`"
+   "Global", "Alkalinity", "``glodap``", "`GLODAPv2.2016b <https://www.glodap.info/>`_", "No", "``micro-mol kg-1``", ":doc:`Full details <recipe_examples/alkalinity_glodap>`"
+   "Global", "Chlorophyll", "``occci``", "`Ocean Colour CCI <https://esa-oceancolour-cci.org/>`_", "No", "``milligram m-3``", ":doc:`Full details <recipe_examples/chlorophyll_occci>`"
+   "Global", "KD490", "``occci``", "`Ocean Colour CCI <https://esa-oceancolour-cci.org/>`_", "No", "``m-1``", ":doc:`Full details <recipe_examples/kd490_occci>`"
+   "Global", "Nitrate", "``woa23``", "`World Ocean Atlas 2023 <https://www.ncei.noaa.gov/products/world-ocean-atlas>`_", "Yes", "``micromoles_per_kilogram``", ":doc:`Full details <recipe_examples/nitrate_woa23>`"
+   "Global", "Oxygen", "``woa23``", "`World Ocean Atlas 2023 <https://www.ncei.noaa.gov/products/world-ocean-atlas>`_", "Yes", "``micromoles_per_kilogram``", ":doc:`Full details <recipe_examples/oxygen_woa23>`"
+   "Global", "pH", "``glodap``", "`GLODAPv2.2016b <https://www.glodap.info/>`_", "No", "``total scale``", ":doc:`Full details <recipe_examples/ph_glodap>`"
+   "Global", "Phosphate", "``woa23``", "`World Ocean Atlas 2023 <https://www.ncei.noaa.gov/products/world-ocean-atlas>`_", "Yes", "``micromoles_per_kilogram``", ":doc:`Full details <recipe_examples/phosphate_woa23>`"
+   "Global", "Salinity", "``woa23``", "`World Ocean Atlas 2023 <https://www.ncei.noaa.gov/products/world-ocean-atlas>`_", "Yes", "``1``", ":doc:`Full details <recipe_examples/salinity_woa23>`"
+   "Global", "Silicate", "``woa23``", "`World Ocean Atlas 2023 <https://www.ncei.noaa.gov/products/world-ocean-atlas>`_", "Yes", "``micromoles_per_kilogram``", ":doc:`Full details <recipe_examples/silicate_woa23>`"
+   "Global", "Temperature", "``cobe2``", "`COBE-SST 2 <https://psl.noaa.gov/data/gridded/data.cobe2.html>`_", "No", "``degC``", ":doc:`Full details <recipe_examples/temperature_cobe2>`"
+   "Global", "Temperature", "``woa23``", "`World Ocean Atlas 2023 <https://www.ncei.noaa.gov/products/world-ocean-atlas>`_", "Yes", "``degC``", ":doc:`Full details <recipe_examples/temperature_woa23>`"
 
 
 .. toctree::
@@ -102,17 +102,17 @@ The ``nsbc`` recipe provides North Sea Biogeochemical Climatology data for
 chlorophyll, nitrate, phosphate, silicate, oxygen, temperature, and salinity.
 
 .. csv-table:: Northwest European Shelf built-in recipes
-   :header: "Region", "Variable", "Recipe", "Dataset", "Water-column", "Example"
-   :widths: 22, 16, 16, 32, 14, 24
+   :header: "Region", "Variable", "Recipe", "Dataset", "Water-column", "Units", "Example"
+   :widths: 20, 14, 12, 28, 10, 14, 12
 
-   "Northwest European Shelf", "Ammonium", "``nsbc``", "North Sea Biogeochemical Climatology", "Yes", ":doc:`Full details <recipe_examples/ammonium_nsbc>`"
-   "Northwest European Shelf", "Chlorophyll", "``nsbc``", "North Sea Biogeochemical Climatology", "Yes", ":doc:`Full details <recipe_examples/chlorophyll_nsbc>`"
-   "Northwest European Shelf", "Nitrate", "``nsbc``", "North Sea Biogeochemical Climatology", "Yes", ":doc:`Full details <recipe_examples/nitrate_nsbc>`"
-   "Northwest European Shelf", "Oxygen", "``nsbc``", "North Sea Biogeochemical Climatology", "Yes", ":doc:`Full details <recipe_examples/oxygen_nsbc>`"
-   "Northwest European Shelf", "Phosphate", "``nsbc``", "North Sea Biogeochemical Climatology", "Yes", ":doc:`Full details <recipe_examples/phosphate_nsbc>`"
-   "Northwest European Shelf", "Salinity", "``nsbc``", "North Sea Biogeochemical Climatology", "Yes", ":doc:`Full details <recipe_examples/salinity_nsbc>`"
-   "Northwest European Shelf", "Silicate", "``nsbc``", "North Sea Biogeochemical Climatology", "Yes", ":doc:`Full details <recipe_examples/silicate_nsbc>`"
-   "Northwest European Shelf", "Temperature", "``nsbc``", "North Sea Biogeochemical Climatology", "Yes", ":doc:`Full details <recipe_examples/temperature_nsbc>`"
+   "Northwest European Shelf", "Ammonium", "``nsbc``", "North Sea Biogeochemical Climatology", "Yes", "``mmol/m^3``", ":doc:`Full details <recipe_examples/ammonium_nsbc>`"
+   "Northwest European Shelf", "Chlorophyll", "``nsbc``", "North Sea Biogeochemical Climatology", "Yes", "``mg/m^3``", ":doc:`Full details <recipe_examples/chlorophyll_nsbc>`"
+   "Northwest European Shelf", "Nitrate", "``nsbc``", "North Sea Biogeochemical Climatology", "Yes", "``mmol/m^3``", ":doc:`Full details <recipe_examples/nitrate_nsbc>`"
+   "Northwest European Shelf", "Oxygen", "``nsbc``", "North Sea Biogeochemical Climatology", "Yes", "``mmol/m^3``", ":doc:`Full details <recipe_examples/oxygen_nsbc>`"
+   "Northwest European Shelf", "Phosphate", "``nsbc``", "North Sea Biogeochemical Climatology", "Yes", "``mmol/m^3``", ":doc:`Full details <recipe_examples/phosphate_nsbc>`"
+   "Northwest European Shelf", "Salinity", "``nsbc``", "North Sea Biogeochemical Climatology", "Yes", "``1``", ":doc:`Full details <recipe_examples/salinity_nsbc>`"
+   "Northwest European Shelf", "Silicate", "``nsbc``", "North Sea Biogeochemical Climatology", "Yes", "``mmol/m^3``", ":doc:`Full details <recipe_examples/silicate_nsbc>`"
+   "Northwest European Shelf", "Temperature", "``nsbc``", "North Sea Biogeochemical Climatology", "Yes", "``degC``", ":doc:`Full details <recipe_examples/temperature_nsbc>`"
 
 Each Example link opens a separate page containing the corresponding call.
 
@@ -162,6 +162,13 @@ download.
 Dataset notes
 -------------
 
+
+The Units column of the gridded and point recipes tables gives the units of the
+observations as the dataset's files state them. If your model's units differ,
+pass ``obs_multiplier`` and ``obs_adder`` to ``add_gridded_comparison`` or
+``add_point_comparison`` (the observations become *observations × obs_multiplier + obs_adder*); the
+``oceanval`` window's Units step lists both sets of units and writes these for
+you.
 
 Always check the dataset units and climatology period before comparing the
 result with model output. See :doc:`how_to_use` for matching and time-resolution

@@ -719,6 +719,8 @@ tbody td { padding: 0.95em 1.1em; border-bottom: 1px solid var(--line-soft); ver
 tbody tr:last-child td { border-bottom: none; }
 tbody tr.recipe-row { cursor: pointer; transition: background .12s ease; }
 tbody tr.recipe-row:hover { background: var(--teal-50); }
+/* the recipe name stays on one line, however many columns the table has */
+tbody tr.recipe-row td:nth-child(3) code { white-space: nowrap; }
 tbody tr.hidden-row { display: none; }
 
 .badge {

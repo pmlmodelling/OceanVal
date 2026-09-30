@@ -7,120 +7,8 @@
 <title>Create recipes · OceanVal</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%230f8f96'/%3E%3Cstop offset='1' stop-color='%23075c68'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='16' fill='url(%23g)'/%3E%3Cpath d='M10 40c6-8 12-8 18 0s12 8 18 0s8-8 8-8' fill='none' stroke='%23fff' stroke-width='4.5' stroke-linecap='round' opacity='.55'/%3E%3Cpath d='M8 30c6-9 13-9 19 0s13 9 19 0s10-9 10-9' fill='none' stroke='%23fff' stroke-width='5' stroke-linecap='round'/%3E%3C/svg%3E">
 <style>
-  /* OceanVal design tokens, as on pmlmodelling.github.io/OceanVal */
-  :root {
-    --ink: #0b2530;
-    --ink-soft: #123044;
-    --muted: #56717d;
-    --muted-light: #7c94a0;
-    --teal-50: #eafbfb;
-    --teal-100: #d7f0f0;
-    --teal-200: #a9dede;
-    --teal-400: #14a3ac;
-    --teal-500: #0f8f96;
-    --teal-600: #087f8c;
-    --teal-700: #075c68;
-    --teal-900: #0a2f38;
-    --coral: #d76b45;
-    --coral-dark: #b8532f;
-    --red: #c0392b;
-    --line: #dde8ea;
-    --line-soft: #ecf3f4;
-    --bg: #ffffff;
-    --bg-alt: #f4fafa;
-    --shadow-sm: 0 1px 2px rgba(10, 40, 48, 0.06);
-    --shadow-md: 0 8px 24px rgba(10, 40, 48, 0.08);
-    --shadow-lg: 0 20px 48px rgba(9, 41, 49, 0.16);
-    --radius-sm: 8px;
-    --radius-md: 14px;
-    --font-head: "Poppins", "Inter", "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Roboto, "Noto Sans", "Liberation Sans", Arial, sans-serif;
-    --font-body: "Inter", "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Roboto, "Noto Sans", "Liberation Sans", Arial, sans-serif;
-    --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, Consolas, "DejaVu Sans Mono", monospace;
-    --focus: 0 0 0 3px rgba(15, 143, 150, 0.28);
-  }
+  /*__OCEANVAL_GUI_CSS__*/
 
-  * { box-sizing: border-box; }
-  [hidden] { display: none !important; }
-  /* keeps whatever gets focus clear of the sticky action bar */
-  html { -webkit-text-size-adjust: 100%; scroll-padding-bottom: 96px; }
-  body {
-    margin: 0;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    background: var(--bg-alt);
-    color: var(--ink);
-    font: 400 15px/1.5 var(--font-body);
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
-  code { font-family: var(--font-mono); }
-  .wrap { width: 100%; max-width: 1320px; margin: 0 auto; padding: 0 32px; }
-
-  /* ---- header ---- */
-  .masthead {
-    position: relative;
-    overflow: hidden;
-    color: #fff;
-    background: linear-gradient(160deg, #08222a 0%, #0a3f49 45%, #0e6b74 100%);
-  }
-  .masthead__waves {
-    position: absolute;
-    right: -40px;
-    bottom: -30px;
-    width: 560px;
-    height: 220px;
-    opacity: 0.16;
-    pointer-events: none;
-  }
-  .masthead .wrap { position: relative; padding-top: 26px; padding-bottom: 28px; }
-  .brand { display: flex; align-items: center; gap: 10px; }
-  .brand__word {
-    font: 600 40px/1 var(--font-head);
-    letter-spacing: -0.6px;
-    color: #fff;
-  }
-  .brand__word span { color: #7fd6db; }
-  h1 {
-    margin: 18px 0 16px;
-    max-width: 40ch;
-    font: 600 24px/1.25 var(--font-head);
-    letter-spacing: -0.3px;
-  }
-  .meta { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
-  .meta li {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 8px;
-    max-width: 100%;
-    padding: 6px 12px;
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.07);
-    font-size: 13px;
-  }
-  .meta li.is-flag { border-color: rgba(240, 160, 125, 0.55); background: rgba(215, 107, 69, 0.2); }
-  .meta__k {
-    color: rgba(255, 255, 255, 0.62);
-    font-size: 10.5px;
-    font-weight: 600;
-    letter-spacing: 0.09em;
-    text-transform: uppercase;
-  }
-  .meta__v { color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-  .meta__v.is-mono { font-family: var(--font-mono); font-size: 12.5px; }
-
-  /* ---- main ---- */
-  /* main.wrap, as .wrap's own padding would otherwise win */
-  main.wrap { flex: 1; padding-top: 28px; padding-bottom: 32px; }
-  .lede { max-width: 86ch; margin: 0 0 20px; color: var(--muted); text-wrap: pretty; }
-  .lede strong { color: var(--ink); font-weight: 600; }
-  .card {
-    background: var(--bg);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-md);
-    box-shadow: var(--shadow-md);
-  }
   table { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; }
   col.c-obs { width: 156px; }
   col.c-model { width: 26.5%; }
@@ -173,23 +61,9 @@
   .field__msg:empty { display: none; }
   .is-empty .field__msg { color: var(--coral-dark); }
   .is-invalid .field__msg { color: var(--red); }
-  .icon { display: inline-flex; flex: none; width: 15px; height: 15px; margin-top: 1px; }
-  .icon svg { width: 100%; height: 100%; }
-  .link {
-    padding: 0;
-    border: 0;
-    background: none;
-    color: var(--teal-700);
-    font: inherit;
-    font-weight: 600;
-    text-decoration: underline;
-    text-underline-offset: 2px;
-    cursor: pointer;
-  }
-  .link:hover { color: var(--teal-900); }
 
   /* datasets */
-  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chips { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px; }
   .chip {
     display: inline-flex;
     align-items: center;
@@ -207,34 +81,6 @@
   .chip:hover { border-color: var(--teal-200); background: #f8fdfd; }
   .chip.is-on { border-color: var(--teal-400); background: var(--teal-50); color: var(--teal-900); }
   .chip.is-disabled { cursor: not-allowed; opacity: 0.42; background: var(--bg); border-color: var(--line); }
-  .chip input, input.tick {
-    -webkit-appearance: none;
-    appearance: none;
-    display: grid;
-    place-content: center;
-    flex: none;
-    width: 18px;
-    height: 18px;
-    margin: 0;
-    border: 1.5px solid #9db4bb;
-    border-radius: 5px;
-    background: var(--bg);
-    cursor: inherit;
-    transition: background-color 0.12s, border-color 0.12s;
-  }
-  .chip input::after, input.tick::after {
-    content: "";
-    width: 10px;
-    height: 10px;
-    background: #fff;
-    clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
-    transform: scale(0);
-    transition: transform 0.12s ease-in-out;
-  }
-  .chip input:checked, input.tick:checked { border-color: var(--teal-600); background: var(--teal-600); }
-  .chip input:checked::after, input.tick:checked::after { transform: scale(1); }
-  .chip input:focus-visible, input.tick:focus-visible { outline: none; box-shadow: var(--focus); }
-  input.tick { cursor: pointer; }
   .chip__name { font-size: 13.5px; font-weight: 600; letter-spacing: 0.01em; }
   .chip__region {
     padding: 2px 7px;
@@ -249,7 +95,6 @@
   .none { display: inline-block; padding-top: 8px; color: var(--muted-light); }
 
   /* ---- global settings ---- */
-  .section-title { margin: 30px 0 6px; font: 600 18px/1.3 var(--font-head); letter-spacing: -0.2px; }
   .settings > details > summary { list-style: none; }
   .settings > details > summary::-webkit-details-marker { display: none; }
   .settings__head {
@@ -293,65 +138,13 @@
     gap: 26px 30px;
     padding: 20px 22px 24px;
   }
-  .group { min-width: 0; margin: 0; padding: 0; border: 0; }
-  .group legend {
-    margin-bottom: 10px;
-    padding: 0;
-    color: var(--muted);
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.09em;
-    text-transform: uppercase;
-  }
+  .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
   .settings__ticks { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px 24px; padding: 0 22px 20px; }
-  .g-row { display: block; }
-  .g-row + .g-row { margin-top: 10px; }
-  .g-note { color: var(--muted); font-weight: 400; }
-  .g-label { display: block; margin-bottom: 4px; color: var(--ink-soft); font-size: 12.5px; font-weight: 500; }
-  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .span-row { display: flex; align-items: center; gap: 6px; }
-  .span-row__label { flex: none; width: 30px; color: var(--ink-soft); font-size: 12.5px; font-weight: 500; }
-  .dash { flex: none; color: var(--muted-light); }
-  .ticks { display: flex; flex-wrap: wrap; gap: 8px 20px; }
-  .tick-label { display: flex; align-items: center; gap: 8px; color: var(--ink-soft); font-size: 13.5px; cursor: pointer; }
-  /* sized by line-height and padding, like the model variable boxes */
-  .s-input, .s-select {
-    width: 100%;
-    min-width: 0;
-    padding: 6px 10px;
-    border: 1px solid var(--line);
-    border-radius: var(--radius-sm);
-    background-color: var(--bg);
-    color: var(--ink);
-    font: 400 13.5px/20px var(--font-body);
-    transition: border-color 0.15s, box-shadow 0.15s;
-  }
-  .s-input.is-mono { font: 500 13px/20px var(--font-mono); }
-  .s-input.is-num { font-variant-numeric: tabular-nums; }
-  .s-input::placeholder { color: var(--muted-light); opacity: 1; font-family: var(--font-body); }
-  .s-select {
-    padding-right: 26px;
-    -webkit-appearance: none;
-    appearance: none;
-    background: var(--bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%237c94a0' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 9px center / 10px 6px;
-    cursor: pointer;
-    text-overflow: ellipsis;
-  }
-  .s-input:hover, .s-select:hover { border-color: #c5d7da; }
-  .s-input:focus, .s-select:focus { outline: none; border-color: var(--teal-500); box-shadow: var(--focus); }
-  .s-input.is-invalid, .s-select.is-invalid { border-color: var(--red); box-shadow: 0 0 0 3px rgba(192, 57, 43, 0.12); }
-  .s-input:disabled, .s-select:disabled { background-color: var(--bg-alt); color: var(--muted); cursor: not-allowed; }
-  .s-select.is-default { color: var(--muted); }
-  .group__msg { display: grid; gap: 4px; margin: 10px 0 0; color: var(--muted); font-size: 12.5px; line-height: 1.4; }
-  .group__line { display: flex; gap: 6px; align-items: flex-start; }
-  .group__line.is-warn { color: var(--coral-dark); }
-  .group__msg:empty { display: none; }
-  .group__msg.is-error { color: var(--red); }
-  .group__msg.is-warn { color: var(--coral-dark); }
 
-  /* a point dataset's own options, under its tick-box */
-  .point { display: grid; gap: 8px; justify-items: start; }
-  .opts { display: grid; gap: 6px; width: 100%; }
+  /* a dataset's own options, under its tick-box: as wide as the point
+     column, so the gridded ones line up with the point ones */
+  .dataset { display: grid; gap: 8px; justify-items: start; }
+  .opts { display: grid; gap: 6px; width: 188px; max-width: 100%; }
   .opts__row { display: grid; grid-template-columns: 50px minmax(0, 1fr); align-items: center; gap: 6px; }
   .opts__label { color: var(--muted); font-size: 11.5px; font-weight: 500; }
   .opts__years { display: flex; align-items: center; gap: 4px; }
@@ -361,113 +154,6 @@
   .opts__msg { margin: 0; color: var(--red); font-size: 12px; line-height: 1.35; }
   .opts__msg:empty { display: none; }
 
-  /* ---- action bar ---- */
-  .bar {
-    position: sticky;
-    bottom: 0;
-    z-index: 5;
-    border-top: 1px solid var(--line);
-    background: rgba(255, 255, 255, 0.94);
-    box-shadow: 0 -8px 24px rgba(10, 40, 48, 0.06);
-    -webkit-backdrop-filter: saturate(1.4) blur(10px);
-    backdrop-filter: saturate(1.4) blur(10px);
-  }
-  .bar .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 14px; padding-bottom: 14px; }
-  .summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 0; color: var(--muted); font-size: 14px; }
-  .summary b { color: var(--ink); font-weight: 700; }
-  .summary__dot { color: var(--line); }
-  .summary__warn { color: var(--red); font-weight: 600; }
-  .summary__warn.is-soft { color: var(--coral-dark); }
-  .actions { display: flex; flex: none; align-items: center; gap: 10px; }
-  .btn {
-    height: 40px;
-    padding: 0 18px;
-    border: 1px solid transparent;
-    border-radius: 10px;
-    font: 600 14px/1 var(--font-body);
-    cursor: pointer;
-    transition: background-color 0.15s, border-color 0.15s, box-shadow 0.15s, color 0.15s;
-  }
-  .btn:focus-visible { outline: none; box-shadow: var(--focus); }
-  .btn--primary {
-    min-width: 132px;
-    background: var(--teal-600);
-    color: #fff;
-    box-shadow: 0 1px 2px rgba(8, 127, 140, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.14);
-  }
-  .btn--primary:hover { background: var(--teal-700); }
-  .btn--primary:disabled { background: #a9c5c9; box-shadow: none; cursor: not-allowed; }
-  .btn--ghost { border-color: var(--line); background: var(--bg); color: var(--ink-soft); }
-  .btn--ghost:hover { border-color: #c5d7da; background: var(--bg-alt); }
-  .btn--text { padding: 0 10px; background: none; color: var(--teal-700); }
-  .btn--text:hover { color: var(--teal-900); background: var(--teal-50); }
-  .btn:disabled { cursor: not-allowed; }
-
-  /* ---- finished ---- */
-  .done {
-    position: fixed;
-    inset: 0;
-    z-index: 20;
-    display: grid;
-    place-items: center;
-    padding: 24px;
-    background: rgba(236, 245, 246, 0.82);
-    -webkit-backdrop-filter: blur(5px);
-    backdrop-filter: blur(5px);
-  }
-  .done__card {
-    width: 100%;
-    max-width: 580px;
-    padding: 36px 36px 32px;
-    border: 1px solid var(--line);
-    border-radius: 18px;
-    background: var(--bg);
-    box-shadow: var(--shadow-lg);
-    text-align: center;
-  }
-  .done__icon {
-    display: grid;
-    place-items: center;
-    width: 58px;
-    height: 58px;
-    margin: 0 auto 16px;
-    border-radius: 50%;
-    background: var(--teal-50);
-    color: var(--teal-600);
-  }
-  .done__icon svg { width: 28px; height: 28px; }
-  .done__icon.is-off { background: var(--line-soft); color: var(--muted); }
-  .done__icon.is-warn { background: #fdf1ec; color: var(--coral-dark); }
-  .done h2 { margin: 0 0 8px; font: 600 22px/1.3 var(--font-head); }
-  .done p { margin: 0; color: var(--muted); text-wrap: balance; }
-  .done__label { margin-top: 20px !important; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
-  .done code {
-    display: block;
-    margin-top: 6px;
-    padding: 10px 12px;
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    background: var(--bg-alt);
-    color: var(--ink);
-    font-size: 13px;
-    text-align: left;
-    word-break: break-all;
-  }
-
-  .toast {
-    position: fixed;
-    left: 50%;
-    bottom: 88px;
-    z-index: 30;
-    max-width: min(640px, calc(100% - 32px));
-    padding: 12px 16px;
-    border-radius: 10px;
-    background: var(--ink);
-    color: #fff;
-    box-shadow: var(--shadow-lg);
-    font-size: 14px;
-    transform: translateX(-50%);
-  }
 
   @media (max-width: 1000px) {
     .settings__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -476,9 +162,6 @@
     thead th, tbody td { padding-left: 14px; padding-right: 14px; }
   }
   @media (max-width: 760px) {
-    .wrap { padding: 0 16px; }
-    h1 { font-size: 25px; }
-    .meta__v { max-width: 58vw; }
     table, tbody, tr, td { display: block; width: 100%; }
     thead, colgroup { display: none; }
     tbody tr { padding: 14px 16px 10px; border-bottom: 1px solid var(--line-soft); }
@@ -499,24 +182,18 @@
     .obs__title { padding-top: 0; }
     .obs__key { display: inline; margin-left: 8px; }
     .none { padding-top: 0; }
-    .bar .wrap { flex-direction: column; align-items: stretch; }
-    .actions { justify-content: flex-end; }
   }
 </style>
 </head>
 <body>
 
 <header class="masthead">
-  <svg class="masthead__waves" viewBox="0 0 560 220" aria-hidden="true">
-    <path d="M0 150c47-40 93-40 140 0s93 40 140 0 93-40 140 0 93 40 140 0" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round"/>
-    <path d="M0 100c47-40 93-40 140 0s93 40 140 0 93-40 140 0 93 40 140 0" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round" opacity=".55"/>
-    <path d="M0 50c47-40 93-40 140 0s93 40 140 0 93-40 140 0 93 40 140 0" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round" opacity=".3"/>
-  </svg>
   <div class="wrap">
     <div class="brand">
       <span class="brand__word">Ocean<span>Val</span></span>
     </div>
-    <h1>Generate a script that will match up model with observations and then generate a validation report</h1>
+    <ol class="steps" id="steps" aria-label="Steps" hidden></ol>
+    <h1 id="page-title">Generate a script that will match up model with observations and then generate a validation report</h1>
     <ul class="meta" id="meta" aria-label="Simulation"></ul>
   </div>
 </header>
@@ -526,7 +203,7 @@
     <details id="settings" open>
       <summary class="settings__head">
         <span class="settings__title" id="settings-title">Global settings</span>
-        <span class="settings__sub">Written into the script's <code>matchup()</code> and <code>validate()</code> calls</span>
+        <span class="settings__sub" id="settings-sub">Written into the script's <code>matchup()</code> and <code>validate()</code> calls</span>
         <span class="settings__changed" id="settings-changed" hidden></span>
         <span class="settings__chevron" aria-hidden="true"></span>
       </summary>
@@ -583,17 +260,18 @@
           <label class="g-row"><span class="g-label">Cores</span><input class="s-input is-num" id="s-cores" inputmode="numeric" spellcheck="false" autocomplete="off" autocapitalize="off"></label>
           <p class="group__msg" id="g-matchup"></p>
         </fieldset>
-        <fieldset class="group">
+        <fieldset class="group" id="group-files">
           <legend>File filters</legend>
           <label class="g-row"><span class="g-label">Skip file names containing <span class="g-note">(separate words with a space)</span></span><input class="s-input is-mono" id="s-exclude" placeholder="e.g. restart 5d" spellcheck="false" autocomplete="off" autocapitalize="off"></label>
           <label class="g-row"><span class="g-label">Only file names containing <span class="g-note">(separate words with a space)</span></span><input class="s-input is-mono" id="s-require" placeholder="e.g. grid_T" spellcheck="false" autocomplete="off" autocapitalize="off"></label>
           <p class="group__msg" id="g-files"></p>
         </fieldset>
-        <fieldset class="group">
+        <fieldset class="group" id="group-report">
           <legend>Additional reports</legend>
           <div class="g-row ticks">
             <label class="tick-label"><input type="checkbox" class="tick" id="s-pdf">PDF</label>
             <label class="tick-label"><input type="checkbox" class="tick" id="s-word">Word</label>
+            <label class="tick-label"><input type="checkbox" class="tick" id="s-concise">Concise report</label>
           </div>
           <label class="g-row"><span class="g-label">Regional summaries</span>
             <select class="s-select" id="s-subregions">
@@ -614,7 +292,10 @@
     </details>
   </section>
 
-  <h2 class="section-title">Variables</h2>
+  <div class="section-head">
+    <h2 class="section-title">Variables</h2>
+    <button type="button" class="btn btn--text btn--small" id="clear-selections">Clear all selections</button>
+  </div>
   <p class="lede" id="lede"></p>
   <div class="card">
     <table>
@@ -658,6 +339,9 @@
 
 <script type="application/json" id="state">__OCEANVAL_STATE__</script>
 <script>
+/*__OCEANVAL_GUI_JS__*/
+</script>
+<script>
 (() => {
   "use strict";
 
@@ -665,45 +349,26 @@
   const context = state.context;
   const available = new Set(state.available);
 
-  const ICONS = {
-    warn: '<svg viewBox="0 0 20 20"><path d="M10 2.6 1.9 16.8h16.2L10 2.6Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M10 8v3.8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="10" cy="14.2" r="1" fill="currentColor"/></svg>',
-    error: '<svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="7.6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="m7.4 7.4 5.2 5.2m0-5.2-5.2 5.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
-    check: '<svg viewBox="0 0 24 24"><path d="m5 12.5 4.3 4.3L19 7.2" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    cross: '<svg viewBox="0 0 24 24"><path d="m7 7 10 10M17 7 7 17" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>',
-  };
-
-  const $ = (id) => document.getElementById(id);
-
-  function el(tag, props, ...children) {
-    const node = document.createElement(tag);
-    for (const [key, value] of Object.entries(props || {})) {
-      if (value === null || value === undefined || value === false) continue;
-      if (key === "class") node.className = value;
-      else if (key === "text") node.textContent = value;
-      else if (key === "html") node.innerHTML = value; // only ever one of ICONS
-      else if (key.startsWith("on")) node.addEventListener(key.slice(2), value);
-      else node.setAttribute(key, value === true ? "" : String(value));
-    }
-    for (const child of children) {
-      if (child !== null && child !== undefined && child !== false) node.append(child);
-    }
-    return node;
-  }
-
-  const icon = (name) => el("span", { class: "icon", "aria-hidden": "true", html: ICONS[name] });
-
-  // long paths keep their start and their file name
-  function shorten(text, max = 56) {
-    if (text.length <= max) return text;
-    const head = Math.floor((max - 1) * 0.35);
-    return text.slice(0, head) + "…" + text.slice(text.length - (max - 1 - head));
-  }
-
-  function plural(count, word) {
-    return `${count} ${word}${count === 1 ? "" : "s"}`;
-  }
+  const { ICONS, $, el, icon, shorten, plural, toast } = OceanValGUI;
+  // in the oceanval app the window is one of its steps, and writing the
+  // script also starts the matchup
+  const app = context.app || null;
+  const home = "../?token=" + encodeURIComponent(state.token);
 
   // ---- header ----
+  if (app) {
+    OceanValGUI.steps($("steps"), OceanValGUI.STEPS[app.action], 3);
+    // chosen with the simulation, in the step before
+    $("group-files").hidden = true;
+    $("page-title").textContent = app.action === "matchup"
+      ? "Choose what to match up"
+      : "Choose what to match up and validate";
+    if (app.action === "matchup") {
+      // the report is built later, so validate's settings can wait until then
+      $("group-report").hidden = true;
+      $("settings-sub").replaceChildren("Written into the script's ", el("code", { text: "matchup()" }), " call");
+    }
+  }
   const meta = $("meta");
   function metaItem(key, value, options = {}) {
     meta.append(
@@ -722,6 +387,13 @@
       flag: true,
       title: "Read with xarray, and the script's matchup call is given fvcom=True",
     });
+  }
+  if (app && (context.exclude || context.require)) {
+    // chosen in the step before, so shown rather than asked for here
+    const filters = [];
+    if (context.exclude) filters.push(`skip ${context.exclude.join(" ")}`);
+    if (context.require) filters.push(`only ${context.require.join(" ")}`);
+    metaItem("File filters", filters.join(" · "));
   }
   metaItem("Output", context.out, { mono: true });
 
@@ -748,7 +420,7 @@
     point: ["point_time_res"],
     matchup: ["cores", "ask"],
     files: ["exclude", "require"],
-    report: ["pdf", "word", "subregions", "subregions_file"],
+    report: ["pdf", "word", "concise", "subregions", "subregions_file"],
   };
   const FIELDS = Object.values(GROUPS).flat();
   // each setting as the boxes it is made of, so changes and problems are
@@ -756,9 +428,9 @@
   const SETTINGS = [
     ["start"], ["end"], GROUPS.subset, ["out_dir"], ["overwrite"], ["thickness"],
     ["missing_from", "missing_to"], ["point_time_res"], ["cores"], ["ask"],
-    ["exclude"], ["require"], ["pdf"], ["word"], ["subregions", "subregions_file"],
+    ["exclude"], ["require"], ["pdf"], ["word"], ["concise"], ["subregions", "subregions_file"],
   ];
-  const BOOLEANS = new Set(["overwrite", "ask", "pdf", "word"]);
+  const BOOLEANS = new Set(["overwrite", "ask", "pdf", "word", "concise"]);
   const timeRes = new Map(state.time_res_options.map((option) => [option.value, option]));
   const field = (name) => $(`s-${name}`);
 
@@ -805,6 +477,10 @@
   const knownYears = () =>
     isInteger(form.start) && isInteger(form.end) && +form.start <= +form.end
       ? [+form.start, +form.end] : null;
+  // the WOA23 decade the years sit inside, if they sit inside one
+  const woa23Period = (years) =>
+    state.woa23_periods.find(([first, last]) => years[0] >= first && years[1] <= last);
+  const hasOwnYears = (dataset) => ["start", "end"].some((name) => String(dataset.opts[name]).trim());
 
   // the same rules create_recipes applies, so most problems show as you type
   function settingErrors() {
@@ -860,14 +536,18 @@
   }
 
   function woa23Hint() {
-    const used = rows.some((row) => row.status === "ok" && ["temperature", "salinity"].includes(row.variable)
-      && row.datasets.some((dataset) => dataset.recipe === "woa23" && dataset.checked));
+    // the ticked WOA23 datasets published per decade, left to take theirs from these years
+    const names = rows.filter((row) => row.status === "ok").flatMap((row) => row.datasets
+      .filter((dataset) => dataset.decadal && dataset.checked && !hasOwnYears(dataset))
+      .map(() => row.title.toLowerCase()));
     const years = knownYears();
-    if (!used || !years) return null;
-    const period = state.woa23_periods.find(([first, last]) => years[0] >= first && years[1] <= last);
-    if (period) return { text: `WOA23 temperature and salinity use its ${period[0]}–${period[1]} climatology.` };
+    if (!names.length || !years) return null;
+    const period = woa23Period(years);
+    if (period) {
+      return { text: `WOA23 ${names.join(" and ")} use${names.length === 1 ? "s" : ""} its ${period[0]}–${period[1]} climatology.` };
+    }
     return {
-      text: `No WOA23 decade covers ${years[0]}–${years[1]}, so the script asks you to choose one for temperature and salinity.`,
+      text: `No WOA23 decade covers ${years[0]}–${years[1]}, so give WOA23 ${names.join(" and ")} years inside one below, or the script asks you to choose one.`,
       warn: true,
     };
   }
@@ -876,7 +556,7 @@
   function groupHints(group) {
     switch (group) {
       case "years": {
-        const hints = [{ text: "This can be overridden for each point observation below." }];
+        const hints = [{ text: "This can be overridden for each dataset below." }];
         const warning = woa23Hint();
         return warning ? [...hints, warning] : hints;
       }
@@ -890,9 +570,9 @@
           ? "FVCOM output is regridded onto z-levels, so no thickness is needed. Treat as missing: one value, or everything in a range."
           : "Thickness: z_level, a cell thickness variable or a file, only used by recipes with vertical=True. Treat as missing: one value, or everything in a range." }];
         const vertical = rows.some((row) => row.status === "ok" && row.datasets.some(
-          (dataset) => dataset.kind === "point" && dataset.checked && dataset.opts.vertical));
+          (dataset) => dataset.checked && dataset.opts.vertical));
         if (vertical && !context.fvcom && !String(form.thickness).trim()) {
-          hints.push({ text: "A point dataset is set to Vertical, so matchup needs a thickness.", warn: true });
+          hints.push({ text: "A dataset is set to Vertical, so matchup needs a thickness.", warn: true });
         }
         return hints;
       }
@@ -939,6 +619,11 @@
   }
 
   // ---- rows ----
+  // a dataset's options before anything is typed in them: the global settings,
+  // and surface-only
+  const blankOptions = (kind) => kind === "point"
+    ? { point_time_res: "", start: "", end: "", vertical: false }
+    : { start: "", end: "", vertical: false };
   const rows = state.rows.map((row) => ({
     ...row,
     original: row.model_variable,
@@ -947,15 +632,15 @@
     message: "",
     // an unidentified row takes its default ticks once it is filled in
     needsDefaults: !row.model_variable,
-    datasets: row.gridded
-      .map((dataset) => ({ ...dataset, kind: "gridded", checked: dataset.ticked }))
-      .concat(row.point.map((dataset) => ({
-        ...dataset,
-        kind: "point",
-        checked: dataset.ticked,
-        opts: { point_time_res: "", start: "", end: "", vertical: false },
-        serverErrors: {},
-      }))),
+    datasets: [
+      ...row.gridded.map((dataset) => ({ ...dataset, kind: "gridded" })),
+      ...row.point.map((dataset) => ({ ...dataset, kind: "point" })),
+    ].map((dataset) => ({
+      ...dataset,
+      checked: dataset.ticked,
+      opts: blankOptions(dataset.kind),
+      serverErrors: {},
+    })),
   }));
 
   function check(value) {
@@ -1028,12 +713,12 @@
       chip.box.disabled = locked;
       chip.label.classList.toggle("is-on", chip.dataset.checked && !locked);
       chip.label.classList.toggle("is-disabled", locked);
-      if (chip.opts) refreshOptions(row, chip);
+      refreshOptions(row, chip);
     }
     msg.replaceChildren(...message(row));
   }
 
-  function pointErrors(dataset) {
+  function optionErrors(dataset) {
     const errors = { ...dataset.serverErrors };
     const opts = dataset.opts;
     for (const name of ["start", "end"]) {
@@ -1044,13 +729,19 @@
     const end = String(opts.end).trim() ? +opts.end : null;
     const years = knownYears();
     const missed = years ? `These years miss the ${years[0]}–${years[1]} being matched up.` : "";
+    const both = "WOA23 publishes this per decade, so give both years.";
     if (start !== null && end !== null && start > end) errors.end = "To must not be before From.";
     else if (years && start !== null && start > years[1]) errors.start = missed;
     else if (years && end !== null && end < years[0]) errors.end = missed;
+    else if (dataset.decadal && start === null && end !== null) errors.start = both;
+    else if (dataset.decadal && end === null && start !== null) errors.end = both;
+    else if (dataset.decadal && start !== null && !woa23Period([start, end])) {
+      errors.end = "These years must sit inside one WOA23 decade, e.g. 2005–2014.";
+    }
     return errors;
   }
 
-  // shows a ticked point dataset's options; returns whether they need fixing
+  // shows a ticked dataset's options; returns whether they need fixing
   function refreshOptions(row, chip) {
     const { dataset, opts } = chip;
     const shown = row.status === "ok" && dataset.checked;
@@ -1060,11 +751,23 @@
       else if (control.value !== dataset.opts[name]) control.value = dataset.opts[name];
     }
     const select = opts.controls.point_time_res;
-    const own = timeRes.get(dataset.opts.point_time_res);
-    const global = timeRes.get(form.point_time_res);
-    select.classList.toggle("is-default", !own);
-    select.title = own ? own.hint : `As in the global settings: ${global ? global.label : ""}`;
-    const errors = shown ? pointErrors(dataset) : {};
+    if (select) {
+      const own = timeRes.get(dataset.opts.point_time_res);
+      const global = timeRes.get(form.point_time_res);
+      select.classList.toggle("is-default", !own);
+      select.title = own ? own.hint : `As in the global settings: ${global ? global.label : ""}`;
+    }
+    if (dataset.decadal) {
+      // left empty, the script uses the decade the global years sit inside
+      const years = knownYears();
+      const period = years && woa23Period(years);
+      opts.controls.start.placeholder = period ? String(period[0]) : "from";
+      opts.controls.end.placeholder = period ? String(period[1]) : "to";
+      opts.years.title = period
+        ? `Empty: WOA23's ${period[0]}–${period[1]} decade, which covers the years in the global settings.`
+        : "WOA23 publishes this per decade, so give years inside one.";
+    }
+    const errors = shown ? optionErrors(dataset) : {};
     for (const [name, control] of Object.entries(opts.controls)) {
       control.classList.toggle("is-invalid", Boolean(errors[name]));
     }
@@ -1072,12 +775,20 @@
     return Object.keys(errors).length > 0;
   }
 
+  // a dataset's own options: how point observations are matched, the years,
+  // and Vertical where the observations are resolved in depth
   function buildOptions(row, dataset) {
     const name = `${dataset.label} observations for ${row.title}`;
-    const select = el("select", { class: "s-select is-small", "aria-label": `Match ${name} by` },
-      el("option", { value: "", text: "Global setting" }),
-      ...state.time_res_options.map((option) => el("option", { value: option.value, text: option.label })));
-    const [from, to] = ["start", "end"].map((key) => el("input", {
+    const controls = {};
+    const parts = [];
+    if (dataset.kind === "point") {
+      controls.point_time_res = el("select", { class: "s-select is-small", "aria-label": `Match ${name} by` },
+        el("option", { value: "", text: "Global setting" }),
+        ...state.time_res_options.map((option) => el("option", { value: option.value, text: option.label })));
+      parts.push(el("div", { class: "opts__row" },
+        el("span", { class: "opts__label", text: "Match by" }), controls.point_time_res));
+    }
+    [controls.start, controls.end] = ["start", "end"].map((key) => el("input", {
       class: "s-input is-num is-small",
       inputmode: "numeric",
       placeholder: key === "start" ? "from" : "to",
@@ -1085,30 +796,31 @@
       autocomplete: "off",
       "aria-label": `${key === "start" ? "First" : "Last"} year of ${name}`,
     }));
-    const vertical = el("input", {
-      type: "checkbox",
-      class: "tick",
-      "aria-label": `Validate ${name} through the full water column`,
-    });
-    const controls = { point_time_res: select, start: from, end: to, vertical };
+    const years = el("span", { class: "opts__years" },
+      controls.start, el("span", { class: "dash", text: "–" }), controls.end);
+    parts.push(el("div", { class: "opts__row" }, el("span", { class: "opts__label", text: "Years" }), years));
+    if (dataset.vertical_option) {
+      controls.vertical = el("input", {
+        type: "checkbox",
+        class: "tick",
+        "aria-label": `Validate ${name} through the full water column`,
+      });
+      parts.push(el("label", {
+        class: "tick-label opts__vertical",
+        title: "Validate the full water column. Unticked is surface-only.",
+      }, controls.vertical, "Vertical"));
+    }
     for (const [key, control] of Object.entries(controls)) {
-      control.addEventListener(control === select || control === vertical ? "change" : "input", () => {
-        dataset.opts[key] = control === vertical ? control.checked : control.value;
+      const tick = key === "vertical";
+      control.addEventListener(tick || control.tagName === "SELECT" ? "change" : "input", () => {
+        dataset.opts[key] = tick ? control.checked : control.value;
         delete dataset.serverErrors[key];
         summarise();
       });
     }
     const msg = el("p", { class: "opts__msg" });
-    const block = el("div", { class: "opts" },
-      el("div", { class: "opts__row" }, el("span", { class: "opts__label", text: "Match by" }), select),
-      el("div", { class: "opts__row" }, el("span", { class: "opts__label", text: "Years" }),
-        el("span", { class: "opts__years" }, from, el("span", { class: "dash", text: "–" }), to)),
-      el("label", {
-        class: "tick-label opts__vertical",
-        title: "Validate the full water column. Unticked is surface-only.",
-      }, vertical, "Vertical"),
-      msg);
-    return { block, controls, msg };
+    const block = el("div", { class: "opts" }, ...parts, msg);
+    return { block, controls, years, msg };
   }
 
   function buildChip(row, dataset) {
@@ -1131,15 +843,14 @@
         class: "chip__region" + (dataset.region_name === context.region ? " is-domain" : ""),
         text: dataset.region,
       }));
-    const opts = dataset.kind === "point" ? buildOptions(row, dataset) : null;
-    return { dataset, box, label, opts };
+    return { dataset, box, label, opts: buildOptions(row, dataset) };
   }
 
   function datasetsCell(label, chips, emptyTitle) {
     return el("td", { "data-label": label },
       chips.length
         ? el("div", { class: "chips" }, ...chips.map((chip) =>
-          chip.opts ? el("div", { class: "point" }, chip.label, chip.opts.block) : chip.label))
+          el("div", { class: "dataset" }, chip.label, chip.opts.block)))
         : el("span", { class: "none", title: emptyTitle, "aria-label": emptyTitle, text: "—" }));
   }
 
@@ -1184,23 +895,27 @@
   const cancelButton = $("cancel");
   const resetButton = $("reset");
   let busy = false;
+  const writeLabel = !app ? "Write script" : app.action === "matchup" ? "Match up" : "Match up and validate";
+  writeButton.textContent = writeLabel;
+  if (app) cancelButton.textContent = "Back";
 
   const changed = () =>
     FIELDS.some((name) => form[name] !== initialForm[name])
     || rows.some((row) => row.value.trim() !== row.original || row.datasets.some((dataset) =>
       dataset.checked !== dataset.ticked
-      || (dataset.opts && Object.values(dataset.opts).some(
-        (value) => value === true || (typeof value === "string" && value.trim())))));
+      || Object.values(dataset.opts).some(
+        (value) => value === true || (typeof value === "string" && value.trim()))));
 
   function summarise() {
     const matched = rows.filter((row) => row.status === "ok");
     const comparisons = matched.reduce(
       (count, row) => count + row.datasets.filter((dataset) => dataset.checked).length, 0);
     const invalid = rows.filter((row) => row.status === "invalid").length;
+    $("clear-selections").disabled = !rows.some((row) => row.datasets.some((dataset) => dataset.checked));
     let settingsToFix = refreshSettings();
     for (const row of rows) {
       for (const chip of row.dom.chips) {
-        if (chip.opts && refreshOptions(row, chip)) settingsToFix += 1;
+        if (refreshOptions(row, chip)) settingsToFix += 1;
       }
     }
     const parts = [
@@ -1223,24 +938,16 @@
       summary.append(part);
     });
     writeButton.disabled = busy || invalid > 0 || settingsToFix > 0;
-    writeButton.title = invalid || settingsToFix ? "Fix what is marked in red first" : `Write ${context.out}`;
+    writeButton.title = invalid || settingsToFix ? "Fix what is marked in red first"
+      : app ? `Write ${context.out}, and run it` : `Write ${context.out}`;
     resetButton.hidden = busy || !changed();
   }
 
   function setBusy(value) {
     busy = value;
     cancelButton.disabled = value;
-    writeButton.textContent = value ? "Writing…" : "Write script";
+    writeButton.textContent = value ? (app ? "Starting…" : "Writing…") : writeLabel;
     summarise();
-  }
-
-  let toastTimer = null;
-  function toast(text) {
-    const node = $("toast");
-    node.textContent = text;
-    node.hidden = false;
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => { node.hidden = true; }, 7000);
   }
 
   async function post(path, body) {
@@ -1298,40 +1005,44 @@
       settings: form,
       rows: rows.map((row) => {
         const ok = row.status === "ok";
-        const point = {};
+        const options = { gridded: {}, point: {} };
         for (const dataset of row.datasets) {
-          if (ok && dataset.kind === "point" && dataset.checked) point[dataset.recipe] = dataset.opts;
+          if (ok && dataset.checked) options[dataset.kind][dataset.recipe] = dataset.opts;
         }
         return {
           variable: row.variable,
           model_variable: ok ? row.value.trim() : "",
           selected: ok ? row.datasets.filter((dataset) => dataset.checked).map((dataset) => dataset.recipe) : [],
-          point,
+          ...options,
         };
       }),
     };
     let reply;
     try {
-      reply = await post("/write", payload);
+      reply = await post("write", payload);
     } catch (error) {
       finish("gone");
       return;
     }
     if (reply.ok) {
-      finish("written", reply.out);
+      // the app shows the run
+      if (app) location.assign(home);
+      else finish("written", reply.out);
       return;
     }
     setBusy(false);
     const rowErrors = reply.errors || {};
     const settingProblems = reply.setting_errors || {};
-    const pointProblems = reply.point_errors || {};
-    if ([rowErrors, settingProblems, pointProblems].some((errors) => Object.keys(errors).length)) {
+    const optionProblems = { gridded: reply.gridded_errors || {}, point: reply.point_errors || {} };
+    if ([rowErrors, settingProblems, ...Object.values(optionProblems)].some((errors) => Object.keys(errors).length)) {
       Object.assign(serverErrors, settingProblems);
-      for (const [variable, byRecipe] of Object.entries(pointProblems)) {
-        const row = rows.find((candidate) => candidate.variable === variable);
-        for (const [recipe, problems] of Object.entries(byRecipe)) {
-          const dataset = row && row.datasets.find((item) => item.kind === "point" && item.recipe === recipe);
-          if (dataset) dataset.serverErrors = { ...problems };
+      for (const [kind, byVariable] of Object.entries(optionProblems)) {
+        for (const [variable, byRecipe] of Object.entries(byVariable)) {
+          const row = rows.find((candidate) => candidate.variable === variable);
+          for (const [recipe, problems] of Object.entries(byRecipe)) {
+            const dataset = row && row.datasets.find((item) => item.kind === kind && item.recipe === recipe);
+            if (dataset) dataset.serverErrors = { ...problems };
+          }
         }
       }
       let first = null;
@@ -1359,12 +1070,22 @@
     if (busy) return;
     setBusy(true);
     try {
-      await post("/cancel", {});
+      await post("cancel", {});
     } catch (error) {
       finish("gone");
       return;
     }
-    finish("cancelled");
+    // back to the app's simulation step
+    if (app) location.assign(home);
+    else finish("cancelled");
+  });
+
+  $("clear-selections").addEventListener("click", () => {
+    for (const row of rows) {
+      row.datasets.forEach((dataset) => { dataset.checked = false; });
+      update(row);
+    }
+    summarise();
   });
 
   resetButton.addEventListener("click", () => {
@@ -1374,10 +1095,8 @@
     for (const row of rows) {
       row.datasets.forEach((dataset) => {
         dataset.checked = dataset.ticked;
-        if (dataset.kind === "point") {
-          dataset.opts = { point_time_res: "", start: "", end: "", vertical: false };
-          dataset.serverErrors = {};
-        }
+        dataset.opts = blankOptions(dataset.kind);
+        dataset.serverErrors = {};
       });
       row.needsDefaults = !row.original;
       setValue(row, row.original);

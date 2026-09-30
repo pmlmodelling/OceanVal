@@ -55,6 +55,13 @@ setup(name='oceanval',
       'oceanval': ['data/*', 'data/_static/*'] },
 
       packages = ["oceanval"],
+      # both spellings open the OceanVal window (oceanval/app.py)
+      entry_points = {
+          "console_scripts": [
+              "oceanval = oceanval.app:main",
+              "OceanVal = oceanval.app:main",
+          ],
+      },
       install_requires = REQUIREMENTS,
       extras_require = extras_require,
       zip_safe=False)

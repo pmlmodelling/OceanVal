@@ -12,6 +12,7 @@ from oceanval.matchall import matchup
 from oceanval.create_recipes import create_recipes
 import dill
 
+from oceanval import prompts
 from oceanval.session import session_info
 from oceanval.utils import restrict_r_to_conda
 restrict_r_to_conda()
@@ -1728,8 +1729,9 @@ def compare(model_dict=None, view=True, ask=True, pdf=False, word=False):
 
     if os.path.exists("oceanval_comparison"):
         if ask:
-            user_input = input(
-                "oceanval_comparison directory already exists. This will be emptied and replaced. Do you want to proceed? (y/n): "
+            user_input = prompts.ask(
+                "oceanval_comparison directory already exists. This will be emptied and replaced. Do you want to proceed? (y/n): ",
+                ("y", "n"),
             )
             if user_input.lower() != "y":
                 print("Exiting")

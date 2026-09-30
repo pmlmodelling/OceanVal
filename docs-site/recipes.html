@@ -126,14 +126,16 @@
             <th>Recipe</th>
             <th>Dataset</th>
             <th>Water-column</th>
+            <th>Units</th>
           </tr>
         </thead>
         <tbody>
 
           <tr class="recipe-row" data-region="global">
             <td>Global</td><td>Alkalinity</td><td><code>glodap</code></td><td><a href="https://www.glodap.info/" target="_blank" rel="noopener" onclick="event.stopPropagation()">GLODAPv2.2016b</a></td><td><span class="badge badge-no">No</span></td>
+          <td><code>micro-mol kg-1</code></td>
           </tr>
-          <tr class="recipe-detail"><td colspan="5"><div class="recipe-detail__inner">
+          <tr class="recipe-detail"><td colspan="6"><div class="recipe-detail__inner">
             <div class="code-block"><div class="code-card__bar"><div class="code-card__dots"><span></span><span></span><span></span></div><span class="code-card__label">python</span></div><pre>oceanval.<a href="api.html#add_gridded_comparison"><span class="tok-fn">add_gridded_comparison</span></a>(
     name=<span class="tok-str">"alkalinity"</span>,
     model_variable=<span class="tok-str">"talk"</span>,
@@ -145,8 +147,9 @@
 
           <tr class="recipe-row" data-region="global">
             <td>Global</td><td>Chlorophyll</td><td><code>occci</code></td><td><a href="https://esa-oceancolour-cci.org/" target="_blank" rel="noopener" onclick="event.stopPropagation()">Ocean Colour CCI</a></td><td><span class="badge badge-no">No</span></td>
+          <td><code>milligram m-3</code></td>
           </tr>
-          <tr class="recipe-detail"><td colspan="5"><div class="recipe-detail__inner">
+          <tr class="recipe-detail"><td colspan="6"><div class="recipe-detail__inner">
             <div class="code-block"><div class="code-card__bar"><div class="code-card__dots"><span></span><span></span><span></span></div><span class="code-card__label">python</span></div><pre>oceanval.<a href="api.html#add_gridded_comparison"><span class="tok-fn">add_gridded_comparison</span></a>(
     name=<span class="tok-str">"chlorophyll"</span>,
     model_variable=<span class="tok-str">"chl"</span>,
@@ -158,8 +161,9 @@
 
           <tr class="recipe-row" data-region="global">
             <td>Global</td><td>KD490</td><td><code>occci</code></td><td><a href="https://esa-oceancolour-cci.org/" target="_blank" rel="noopener" onclick="event.stopPropagation()">Ocean Colour CCI</a></td><td><span class="badge badge-no">No</span></td>
+          <td><code>m-1</code></td>
           </tr>
-          <tr class="recipe-detail"><td colspan="5"><div class="recipe-detail__inner">
+          <tr class="recipe-detail"><td colspan="6"><div class="recipe-detail__inner">
             <div class="code-block"><div class="code-card__bar"><div class="code-card__dots"><span></span><span></span><span></span></div><span class="code-card__label">python</span></div><pre>oceanval.<a href="api.html#add_gridded_comparison"><span class="tok-fn">add_gridded_comparison</span></a>(
     name=<span class="tok-str">"kd490"</span>,
     model_variable=<span class="tok-str">"kd490"</span>,
@@ -171,8 +175,9 @@
 
           <tr class="recipe-row" data-region="global">
             <td>Global</td><td>Nitrate</td><td><code>woa23</code></td><td><a href="https://www.ncei.noaa.gov/products/world-ocean-atlas" target="_blank" rel="noopener" onclick="event.stopPropagation()">World Ocean Atlas 2023</a></td><td><span class="badge badge-yes">Yes</span></td>
+          <td><code>micromoles_per_<wbr>kilogram</code></td>
           </tr>
-          <tr class="recipe-detail"><td colspan="5"><div class="recipe-detail__inner">
+          <tr class="recipe-detail"><td colspan="6"><div class="recipe-detail__inner">
             <div class="code-block"><div class="code-card__bar"><div class="code-card__dots"><span></span><span></span><span></span></div><span class="code-card__label">python</span></div><pre>oceanval.<a href="api.html#add_gridded_comparison"><span class="tok-fn">add_gridded_comparison</span></a>(
     name=<span class="tok-str">"nitrate"</span>,
     model_variable=<span class="tok-str">"no3"</span>,
@@ -184,8 +189,9 @@
 
           <tr class="recipe-row" data-region="global">
             <td>Global</td><td>Oxygen</td><td><code>woa23</code></td><td><a href="https://www.ncei.noaa.gov/products/world-ocean-atlas" target="_blank" rel="noopener" onclick="event.stopPropagation()">World Ocean Atlas 2023</a></td><td><span class="badge badge-yes">Yes</span></td>
+          <td><code>micromoles_per_<wbr>kilogram</code></td>
           </tr>
-          <tr class="recipe-detail"><td colspan="5"><div class="recipe-detail__inner">
+          <tr class="recipe-detail"><td colspan="6"><div class="recipe-detail__inner">
             <div class="code-block"><div class="code-card__bar"><div class="code-card__dots"><span></span><span></span><span></span></div><span class="code-card__label">python</span></div><pre>oceanval.<a href="api.html#add_gridded_comparison"><span class="tok-fn">add_gridded_comparison</span></a>(
     name=<span class="tok-str">"oxygen"</span>,
     model_variable=<span class="tok-str">"o2"</span>,
@@ -197,8 +203,9 @@
 
           <tr class="recipe-row" data-region="global">
             <td>Global</td><td>pH</td><td><code>glodap</code></td><td><a href="https://www.glodap.info/" target="_blank" rel="noopener" onclick="event.stopPropagation()">GLODAPv2.2016b</a></td><td><span class="badge badge-no">No</span></td>
+          <td><code>total scale</code></td>
           </tr>
-          <tr class="recipe-detail"><td colspan="5"><div class="recipe-detail__inner">
+          <tr class="recipe-detail"><td colspan="6"><div class="recipe-detail__inner">
             <div class="code-block"><div class="code-card__bar"><div class="code-card__dots"><span></span><span></span><span></span></div><span class="code-card__label">python</span></div><pre>oceanval.<a href="api.html#add_gridded_comparison"><span class="tok-fn">add_gridded_comparison</span></a>(
     name=<span class="tok-str">"ph"</span>,
     model_variable=<span class="tok-str">"ph"</span>,
@@ -210,8 +217,9 @@
 
           <tr class="recipe-row" data-region="global">
             <td>Global</td><td>Phosphate</td><td><code>woa23</code></td><td><a href="https://www.ncei.noaa.gov/products/world-ocean-atlas" target="_blank" rel="noopener" onclick="event.stopPropagation()">World Ocean Atlas 2023</a></td><td><span class="badge badge-yes">Yes</span></td>
+          <td><code>micromoles_per_<wbr>kilogram</code></td>
           </tr>
-          <tr class="recipe-detail"><td colspan="5"><div class="recipe-detail__inner">
+          <tr class="recipe-detail"><td colspan="6"><div class="recipe-detail__inner">
             <div class="code-block"><div class="code-card__bar"><div class="code-card__dots"><span></span><span></span><span></span></div><span class="code-card__label">python</span></div><pre>oceanval.<a href="api.html#add_gridded_comparison"><span class="tok-fn">add_gridded_comparison</span></a>(
     name=<span class="tok-str">"phosphate"</span>,
     model_variable=<span class="tok-str">"po4"</span>,
@@ -223,8 +231,9 @@
 
           <tr class="recipe-row" data-region="global">
             <td>Global</td><td>Salinity</td><td><code>woa23</code></td><td><a href="https://www.ncei.noaa.gov/products/world-ocean-atlas" target="_blank" rel="noopener" onclick="event.stopPropagation()">World Ocean Atlas 2023</a></td><td><span class="badge badge-yes">Yes</span></td>
+          <td><code>1</code></td>
           </tr>
-          <tr class="recipe-detail"><td colspan="5"><div class="recipe-detail__inner">
+          <tr class="recipe-detail"><td colspan="6"><div class="recipe-detail__inner">
             <div class="code-block"><div class="code-card__bar"><div class="code-card__dots"><span></span><span></span><span></span></div><span class="code-card__label">python</span></div><pre>oceanval.<a href="api.html#add_gridded_comparison"><span class="tok-fn">add_gridded_comparison</span></a>(
     name=<span class="tok-str">"salinity"</span>,
     model_variable=<span class="tok-str">"so"</span>,
@@ -237,8 +246,9 @@
 
           <tr class="recipe-row" data-region="global">
             <td>Global</td><td>Silicate</td><td><code>woa23</code></td><td><a href="https://www.ncei.noaa.gov/products/world-ocean-atlas" target="_blank" rel="noopener" onclick="event.stopPropagation()">World Ocean Atlas 2023</a></td><td><span class="badge badge-yes">Yes</span></td>
+          <td><code>micromoles_per_<wbr>kilogram</code></td>
           </tr>
-          <tr class="recipe-detail"><td colspan="5"><div class="recipe-detail__inner">
+          <tr class="recipe-detail"><td colspan="6"><div class="recipe-detail__inner">
             <div class="code-block"><div class="code-card__bar"><div class="code-card__dots"><span></span><span></span><span></span></div><span class="code-card__label">python</span></div><pre>oceanval.<a href="api.html#add_gridded_comparison"><span class="tok-fn">add_gridded_comparison</span></a>(
     name=<span class="tok-str">"silicate"</span>,
     model_variable=<span class="tok-str">"si"</span>,
@@ -250,8 +260,9 @@
 
           <tr class="recipe-row" data-region="global">
             <td>Global</td><td>Temperature</td><td><code>cobe2</code></td><td><a href="https://psl.noaa.gov/data/gridded/data.cobe2.html" target="_blank" rel="noopener" onclick="event.stopPropagation()">COBE-SST 2</a></td><td><span class="badge badge-no">No</span></td>
+          <td><code>degC</code></td>
           </tr>
-          <tr class="recipe-detail"><td colspan="5"><div class="recipe-detail__inner">
+          <tr class="recipe-detail"><td colspan="6"><div class="recipe-detail__inner">
             <div class="code-block"><div class="code-card__bar"><div class="code-card__dots"><span></span><span></span><span></span></div><span class="code-card__label">python</span></div><pre>oceanval.<a href="api.html#add_gridded_comparison"><span class="tok-fn">add_gridded_comparison</span></a>(
     name=<span class="tok-str">"temperature"</span>,
     model_variable=<span class="tok-str">"thetao"</span>,
@@ -263,8 +274,9 @@
 
           <tr class="recipe-row" data-region="global">
             <td>Global</td><td>Temperature</td><td><code>woa23</code></td><td><a href="https://www.ncei.noaa.gov/products/world-ocean-atlas" target="_blank" rel="noopener" onclick="event.stopPropagation()">World Ocean Atlas 2023</a></td><td><span class="badge badge-yes">Yes</span></td>
+          <td><code>degC</code></td>
           </tr>
-          <tr class="recipe-detail"><td colspan="5"><div class="recipe-detail__inner">
+          <tr class="recipe-detail"><td colspan="6"><div class="recipe-detail__inner">
             <div class="code-block"><div class="code-card__bar"><div class="code-card__dots"><span></span><span></span><span></span></div><span class="code-card__label">python</span></div><pre>oceanval.<a href="api.html#add_gridded_comparison"><span class="tok-fn">add_gridded_comparison</span></a>(
     name=<span class="tok-str">"temperature"</span>,
     model_variable=<span class="tok-str">"thetao"</span>,
@@ -277,8 +289,9 @@
 
           <tr class="recipe-row" data-region="nwes">
             <td>NW European Shelf</td><td>Ammonium</td><td><code>nsbc</code></td><td>North Sea Biogeochemical Climatology</td><td><span class="badge badge-yes">Yes</span></td>
+          <td><code>mmol/m^3</code></td>
           </tr>
-          <tr class="recipe-detail"><td colspan="5"><div class="recipe-detail__inner">
+          <tr class="recipe-detail"><td colspan="6"><div class="recipe-detail__inner">
             <div class="code-block"><div class="code-card__bar"><div class="code-card__dots"><span></span><span></span><span></span></div><span class="code-card__label">python</span></div><pre>oceanval.<a href="api.html#add_gridded_comparison"><span class="tok-fn">add_gridded_comparison</span></a>(
     name=<span class="tok-str">"ammonium"</span>,
     model_variable=<span class="tok-str">"ammonium"</span>,
@@ -289,8 +302,9 @@
 
           <tr class="recipe-row" data-region="nwes">
             <td>NW European Shelf</td><td>Chlorophyll</td><td><code>nsbc</code></td><td>North Sea Biogeochemical Climatology</td><td><span class="badge badge-yes">Yes</span></td>
+          <td><code>mg/m^3</code></td>
           </tr>
-          <tr class="recipe-detail"><td colspan="5"><div class="recipe-detail__inner">
+          <tr class="recipe-detail"><td colspan="6"><div class="recipe-detail__inner">
             <div class="code-block"><div class="code-card__bar"><div class="code-card__dots"><span></span><span></span><span></span></div><span class="code-card__label">python</span></div><pre>oceanval.<a href="api.html#add_gridded_comparison"><span class="tok-fn">add_gridded_comparison</span></a>(
     name=<span class="tok-str">"chlorophyll"</span>,
     model_variable=<span class="tok-str">"chlorophyll"</span>,
@@ -301,8 +315,9 @@
 
           <tr class="recipe-row" data-region="nwes">
             <td>NW European Shelf</td><td>Nitrate</td><td><code>nsbc</code></td><td>North Sea Biogeochemical Climatology</td><td><span class="badge badge-yes">Yes</span></td>
+          <td><code>mmol/m^3</code></td>
           </tr>
-          <tr class="recipe-detail"><td colspan="5"><div class="recipe-detail__inner">
+          <tr class="recipe-detail"><td colspan="6"><div class="recipe-detail__inner">
             <div class="code-block"><div class="code-card__bar"><div class="code-card__dots"><span></span><span></span><span></span></div><span class="code-card__label">python</span></div><pre>oceanval.<a href="api.html#add_gridded_comparison"><span class="tok-fn">add_gridded_comparison</span></a>(
     name=<span class="tok-str">"nitrate"</span>,
     model_variable=<span class="tok-str">"nitrate"</span>,
@@ -313,8 +328,9 @@
 
           <tr class="recipe-row" data-region="nwes">
             <td>NW European Shelf</td><td>Oxygen</td><td><code>nsbc</code></td><td>North Sea Biogeochemical Climatology</td><td><span class="badge badge-yes">Yes</span></td>
+          <td><code>mmol/m^3</code></td>
           </tr>
-          <tr class="recipe-detail"><td colspan="5"><div class="recipe-detail__inner">
+          <tr class="recipe-detail"><td colspan="6"><div class="recipe-detail__inner">
             <div class="code-block"><div class="code-card__bar"><div class="code-card__dots"><span></span><span></span><span></span></div><span class="code-card__label">python</span></div><pre>oceanval.<a href="api.html#add_gridded_comparison"><span class="tok-fn">add_gridded_comparison</span></a>(
     name=<span class="tok-str">"oxygen"</span>,
     model_variable=<span class="tok-str">"oxygen"</span>,
@@ -325,8 +341,9 @@
 
           <tr class="recipe-row" data-region="nwes">
             <td>NW European Shelf</td><td>Phosphate</td><td><code>nsbc</code></td><td>North Sea Biogeochemical Climatology</td><td><span class="badge badge-yes">Yes</span></td>
+          <td><code>mmol/m^3</code></td>
           </tr>
-          <tr class="recipe-detail"><td colspan="5"><div class="recipe-detail__inner">
+          <tr class="recipe-detail"><td colspan="6"><div class="recipe-detail__inner">
             <div class="code-block"><div class="code-card__bar"><div class="code-card__dots"><span></span><span></span><span></span></div><span class="code-card__label">python</span></div><pre>oceanval.<a href="api.html#add_gridded_comparison"><span class="tok-fn">add_gridded_comparison</span></a>(
     name=<span class="tok-str">"phosphate"</span>,
     model_variable=<span class="tok-str">"phosphate"</span>,
@@ -337,8 +354,9 @@
 
           <tr class="recipe-row" data-region="nwes">
             <td>NW European Shelf</td><td>Salinity</td><td><code>nsbc</code></td><td>North Sea Biogeochemical Climatology</td><td><span class="badge badge-yes">Yes</span></td>
+          <td><code>1</code></td>
           </tr>
-          <tr class="recipe-detail"><td colspan="5"><div class="recipe-detail__inner">
+          <tr class="recipe-detail"><td colspan="6"><div class="recipe-detail__inner">
             <div class="code-block"><div class="code-card__bar"><div class="code-card__dots"><span></span><span></span><span></span></div><span class="code-card__label">python</span></div><pre>oceanval.<a href="api.html#add_gridded_comparison"><span class="tok-fn">add_gridded_comparison</span></a>(
     name=<span class="tok-str">"salinity"</span>,
     model_variable=<span class="tok-str">"salinity"</span>,
@@ -349,8 +367,9 @@
 
           <tr class="recipe-row" data-region="nwes">
             <td>NW European Shelf</td><td>Silicate</td><td><code>nsbc</code></td><td>North Sea Biogeochemical Climatology</td><td><span class="badge badge-yes">Yes</span></td>
+          <td><code>mmol/m^3</code></td>
           </tr>
-          <tr class="recipe-detail"><td colspan="5"><div class="recipe-detail__inner">
+          <tr class="recipe-detail"><td colspan="6"><div class="recipe-detail__inner">
             <div class="code-block"><div class="code-card__bar"><div class="code-card__dots"><span></span><span></span><span></span></div><span class="code-card__label">python</span></div><pre>oceanval.<a href="api.html#add_gridded_comparison"><span class="tok-fn">add_gridded_comparison</span></a>(
     name=<span class="tok-str">"silicate"</span>,
     model_variable=<span class="tok-str">"silicate"</span>,
@@ -361,8 +380,9 @@
 
           <tr class="recipe-row" data-region="nwes">
             <td>NW European Shelf</td><td>Temperature</td><td><code>nsbc</code></td><td>North Sea Biogeochemical Climatology</td><td><span class="badge badge-yes">Yes</span></td>
+          <td><code>degC</code></td>
           </tr>
-          <tr class="recipe-detail"><td colspan="5"><div class="recipe-detail__inner">
+          <tr class="recipe-detail"><td colspan="6"><div class="recipe-detail__inner">
             <div class="code-block"><div class="code-card__bar"><div class="code-card__dots"><span></span><span></span><span></span></div><span class="code-card__label">python</span></div><pre>oceanval.<a href="api.html#add_gridded_comparison"><span class="tok-fn">add_gridded_comparison</span></a>(
     name=<span class="tok-str">"temperature"</span>,
     model_variable=<span class="tok-str">"temperature"</span>,
@@ -460,7 +480,7 @@ oceanval.<a href="api.html#validate"><span class="tok-fn">validate</span></a>()<
       <p>Both years must sit inside the same period. <code>start=2000, end=2008</code> straddles 1995–2004 and 2005–2014, so it is rejected — as is any range longer than a decade. Validate one period at a time instead.</p>
     </div>
 
-    <p style="margin-top:2rem;">Always check dataset units and the climatology period before comparing with model output — see <a href="how-to-use.html">How to use OceanVal</a> for matching and time-resolution guidance.</p>
+    <p style="margin-top:2rem;">The Units column of the gridded and point recipes tables gives the units of the observations as the dataset's files state them. If your model's units differ, pass <code>obs_multiplier</code> and <code>obs_adder</code> to <code>add_gridded_comparison</code> or <code>add_point_comparison</code> (the observations become <em>observations × obs_multiplier + obs_adder</em>); the <code>oceanval</code> window's Units step lists both sets of units and writes these for you. Always check dataset units and the climatology period before comparing with model output — see <a href="how-to-use.html">How to use OceanVal</a> for matching and time-resolution guidance.</p>
   </div>
 </div>
 

@@ -69,6 +69,7 @@
   <aside class="docs-toc">
     <div class="docs-toc-title">On this page</div>
     <ul>
+      <li><a href="#app">The OceanVal window</a></li>
       <li><a href="#register">Step 1: Register</a></li>
       <li><a href="#match">Step 2: Matchup</a></li>
       <li><a href="#report">Step 3: Build the validation report</a></li>
@@ -79,6 +80,35 @@
 
   <div class="docs-content">
     <p>Validating ecosystem models with OceanVal is a three step process. First you register the model-observation mappings you want to validate against. Next, you matchup your model output with those observations. Finally, you build the validation report, which computes statistics and generates the HTML report you can view in your browser.</p>
+
+    <h2 id="app">The OceanVal window</h2>
+    <p>The quickest way needs no Python at all. In a terminal, in the directory to work in, run:</p>
+    <div class="code-block">
+      <div class="code-card__bar">
+        <div class="code-card__dots"><span></span><span></span><span></span></div>
+        <span class="code-card__label">bash</span>
+        <button class="code-card__copy" data-copy-target="#qs-code-0">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          <span class="copy-label">Copy</span>
+        </button>
+      </div>
+      <pre id="qs-code-0">oceanval</pre>
+    </div>
+    <p><code>OceanVal</code> works too. A page opens in your web browser that takes you through six steps:</p>
+    <ol>
+      <li><strong>Choose</strong> to match up new data and validate it, to match up only, or to validate matchups made earlier.</li>
+      <li><strong>Simulation</strong> &mdash; where the model output is, how many directories down its files are, which files to skip or keep (the file filters), the domain and the years. Type the directory, with folders suggested as you go, or pick it with <strong>Browse…</strong>, which looks through the folders on the machine OceanVal runs on, so it works on a remote machine too. As you type, the page counts the files that pass the filters, and fills in the years from their names. To validate matchups made earlier, you choose the report's options instead.</li>
+      <li><strong>Own data</strong> &mdash; whether you have observations of your own, as well as OceanVal's built-in datasets. If you do, a page for point data (csv files) and one for gridded data (netCDF) let you add them one at a time, with every argument of <code>add_point_comparison</code> or <code>add_gridded_comparison</code>; the ones that have to be given are marked in red. Skip a page if you have none of that kind. The calls are written into the matchup script.</li>
+      <li><strong>Recipes</strong> &mdash; the <a href="create-recipes.html#gui">create_recipes window</a>, to check the model variables found and choose the observations to validate against.</li>
+      <li><strong>Units</strong> &mdash; whether the model's and the observations' units match up. If you are not sure, a table lists the units of every gridded and point matchup, read from the model's netCDF files and, for the observations, from the recipes (the Units column of the <a href="recipes.html">recipes page</a>) or from your own netCDF file. Your own point data is csv files, which have no units, so it is up to you to make sure they match the model's. Where they differ, set a multiplier and an adder for the observations; they are written into the matchup script as <code>obs_multiplier</code> and <code>obs_adder</code>. Its button then starts the matchup.</li>
+      <li><strong>Run</strong> &mdash; the output appears as it comes, in the page and in the terminal. Anything OceanVal asks, such as whether the matchups look right, or whether to try again for observations a server could not supply, is asked in the page.</li>
+    </ol>
+    <p>The script it runs is written first, to <code>matchup.py</code> unless you choose another name, so you can read it, and run it again later with <code>python matchup.py</code>.</p>
+    <div class="callout">
+      <div class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>On a remote machine</div>
+      <p>If <code>oceanval</code> cannot open a browser for you, it prints the link to open. VS Code forwards its port for you; over plain SSH, choose the port with <code>--port</code> and forward it first &mdash; <code>oceanval --port 8765</code>, with <code>ssh -L 8765:127.0.0.1:8765 you@server</code>.</p>
+    </div>
+    <p>The steps below do the same in Python.</p>
 
     <h2 id="register">Step 1: Register the model-observation mappings</h2>
     <p>Work from a fresh, empty directory: OceanVal writes its matchup files and report there. Register the observations you need:</p>

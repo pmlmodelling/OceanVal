@@ -12,6 +12,48 @@ To learn more about the package, visit the [OceanVal website](https://pmlmodelli
 
 OceanVal is designed for the automated creation of validation reports. You provide the model and validation data. OceanVal does the rest. A short example of what the report looks like can be found [here](https://pmlmodelling.github.io/oceanval_example/index.html). 
 
+## Running OceanVal from the terminal
+
+The quickest way needs no Python at all. In a terminal, in the directory to
+work in, run `oceanval` (or `OceanVal`). A page opens in your web browser
+that takes you through six steps:
+
+1. **Choose** to match up new data and validate it, to match up only, or to
+   validate matchups made earlier.
+2. **Simulation**: where the model output is, how many directories down its
+   files are, which files to skip or keep (the file filters), the domain and
+   the years. Type the directory, with folders suggested as you go, or pick
+   it with **Browse…**, which looks through the folders on the machine
+   OceanVal runs on, so it works on a remote machine too. As you type, the
+   page counts the files that pass the filters, and fills in the years from
+   their names. To validate matchups made earlier, you choose the report's
+   options instead.
+3. **Own data**: whether you have observations of your own, as well as
+   OceanVal's built-in datasets. If you do, a page for point data (csv
+   files) and one for gridded data (netCDF) let you add them one at a time,
+   with every argument of `add_point_comparison` or `add_gridded_comparison`;
+   the ones that have to be given are marked in red. Skip a page if you have
+   none of that kind. The calls are written into the matchup script.
+4. **Recipes**: the `create_recipes` window (see below), to check the model
+   variables found and choose the observations to validate against.
+5. **Units**: whether the model's and the observations' units match up. If
+   you are not sure, a table lists the units of every gridded and point
+   matchup, read from the model's netCDF files and, for the observations, from
+   the recipes (the Units column of the recipes page) or from your own netCDF
+   file. Your own point data is csv files, which have no units, so it is up to
+   you to make sure they match the model's. Where they differ, set a multiplier and an adder for the observations; they are
+   written into the matchup script as `obs_multiplier` and `obs_adder`. Its
+   button then starts the matchup.
+6. **Run**: the output appears as it comes, in the page and in the terminal.
+   Anything OceanVal asks, such as whether the matchups look right, or
+   whether to try again for observations a server could not supply, is asked
+   in the page.
+
+The script it runs is written first, to `matchup.py` unless you choose
+another name, so you can run it again later with `python matchup.py`. On a
+remote machine, open the link `oceanval` prints: VS Code forwards its port
+for you, and over plain SSH, `oceanval --port 8765` picks a port to forward.
+
 ## Using built-in recipes
 
 You can register a standard observation climatology without manually listing all metadata:
@@ -56,13 +98,12 @@ works out which model variable holds each observational variable — matching
 on the netCDF `long_name` attributes, so your variables need not be named
 after the observations — and writes out every built-in gridded recipe.
 Recipes it found a model variable for are live, with that variable filled
-in. For any it could not identify, it tells you and asks which model
-variable to use (press Enter to skip, or pass `ask=False`); skipped ones
-are commented out for you to complete by hand. If your output looks like
-raw FVCOM output (an unstructured mesh), it first asks you to confirm
-that, then writes `fvcom=True` into the script's `matchup()` call — pass
-`fvcom=True` or `fvcom=False` to skip the question. Where a
-variable has a recipe in more than one region (e.g. temperature), `domain`
+in; any it could not identify are commented out for you to complete by
+hand, unless you fill them in first in the window described below. If
+your output looks like raw FVCOM output (an unstructured mesh), it first
+asks you to confirm that, then writes `fvcom=True` into the script's
+`matchup()` call — pass `fvcom=True` or `fvcom=False` to skip the
+question. Where a variable has a recipe in more than one region (e.g. temperature), `domain`
 picks which one is left live — `"global"` or `"nwes"` (Northwest European
 Shelf) — and a variable with a recipe only outside that domain still gets
 that one. `domain="nwes"` also adds the ICES point recipes (see above) —
@@ -82,12 +123,24 @@ oceanval.create_recipes(
 )
 ```
 
-Pass `gui=True` to check and change all of this before the script is
-written: a page opens in your web browser with a row for each
-observational variable, holding the model variable identified for it
-(which you can change) and tick-boxes for the gridded and point datasets
-available for it. They start ticked as the script would otherwise be
-written; tick several to validate a variable against each of them.
+Before the script is written, a page opens in your web browser so you can
+check and change all of this. It has a row for each observational
+variable, holding the model variable identified for it (which you can
+change) and tick-boxes for the gridded and point datasets available for
+it. They start ticked as the script would otherwise be written; tick
+several to validate a variable against each of them, or use **Clear all
+selections** to untick everything and start from none. Each ticked dataset
+can be given years of its own, and the ones whose observations are
+resolved in depth (WOA23, NSBC and ICES) can be set to Vertical, to
+validate the full water column rather than the surface alone.
+
+Pass `gui=False` to write the script straight away, e.g. in a batch job.
+`create_recipes` then asks in the terminal for the model variable of
+anything it could not identify (press Enter to skip, or pass `ask=False`).
+With `validate=False`, the script's `validate()` call is written commented
+out, to build the report once the matchups are made. `exclude` and `require`
+leave out output files by name, as `matchup()` does (e.g. `exclude="5d"`),
+and are passed on to the script's `matchup()` call.
 
 ## Comparing multiple validation outputs
 

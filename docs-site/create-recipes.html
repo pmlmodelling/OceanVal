@@ -87,6 +87,8 @@
 
     <p><a href="api.html#create_recipes"><code>oceanval.create_recipes</code></a> does that for you. It scans your model output, works out which model variable holds each observational variable, and writes a complete, runnable matchup script. Validating a global or Northwest European Shelf model is then two steps: generate the script, then run it.</p>
 
+    <p>To do all of this without writing any Python, run <code>oceanval</code> in a terminal: it takes you through the same steps in a window in your web browser, and runs the script for you. See <a href="quickstart.html#app">the OceanVal window</a>.</p>
+
     <div class="callout">
       <div class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Note</div>
       <p>This approach involves downloading observational data over the internet. In cases where this data is temporarily not available, OceanVal will let you know.</p>
@@ -120,8 +122,10 @@ oceanval.<a href="api.html#create_recipes"><span class="tok-fn">create_recipes</
       <li><code>out</code> — the Python file to write.</li>
       <li><code>domain</code> — <code>"global"</code> or <code>"nwes"</code>. See <a href="#domain">Choosing the domain</a> below.</li>
       <li><code>start</code> / <code>end</code> — first and last year of the simulation to validate. Passed straight through to the generated script's <code>matchup()</code> call, and used to pick the WOA23 decadal period for temperature and salinity below.</li>
+      <li><code>exclude</code> / <code>require</code> — optional: leave out output files whose names contain any of these words, or use only those whose names contain each of them, as <a href="api.html#matchup"><code>matchup</code></a> does. Also passed straight through to its call in the script.</li>
     </ul>
     <p>Only one file per output stream is read, not every file in the simulation, so this takes seconds rather than minutes even for a long run.</p>
+    <p>Before the script is written, a page opens in your web browser showing what was found, where you can change it and choose the datasets to validate against &mdash; see <a href="#gui">Choosing recipes in a window</a>. The script is written when you click <strong>Write script</strong> there.</p>
 
     <div class="callout">
       <div class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>FVCOM output</div>
@@ -154,7 +158,7 @@ oceanval.<a href="api.html#create_recipes"><span class="tok-fn">create_recipes</
     </div>
     <p>A name joined with <code>+</code> is a sum — here the four ERSEM phytoplankton chlorophyll variables, which together are what the satellite observes.</p>
     <p>The last line is what OceanVal could not find. This run has no carbonate chemistry or optics, so alkalinity, pH and KD490 were left out. Nothing is silently dropped: those recipes are still written into the script, commented out and ready for you to complete. See <a href="#gaps">Filling in the gaps</a>.</p>
-    <p>To check all of this, and change it, before the script is written, pass <code>gui=True</code> &mdash; see <a href="#gui">Choosing recipes in a window</a>.</p>
+    <p>If any of this is wrong, change it in the <a href="#gui">window</a> before the script is written, or in the script afterwards.</p>
 
     <h2 id="run">Step 3: Run it</h2>
     <p>The generated file is an ordinary Python script. Read it, adjust anything you want to change, and run it:</p>
@@ -207,12 +211,28 @@ oceanval.<a href="api.html#create_recipes"><span class="tok-fn">create_recipes</
         </tbody>
       </table>
     </div>
-    <p>So a shelf model run with <code>domain="nwes"</code> still gets pH, alkalinity and KD490 from the global datasets, and a global model run with <code>domain="global"</code> still gets ammonium from NSBC. The recipe that loses out is written into the script as a commented alternative: uncomment it to validate against that source as well, or comment out the other to use it instead. With <code>gui=True</code> you can make the same choice with <a href="#gui">tick-boxes</a>.</p>
+    <p>So a shelf model run with <code>domain="nwes"</code> still gets pH, alkalinity and KD490 from the global datasets, and a global model run with <code>domain="global"</code> still gets ammonium from NSBC. The recipe that loses out is written into the script as a commented alternative: uncomment it to validate against that source as well, or comment out the other to use it instead. In the window you can make the same choice with <a href="#gui">tick-boxes</a>.</p>
 
     <p><code>domain="nwes"</code> also adds a further section to the script: the ten <a href="recipes.html#point-recipes">ICES point (in-situ) recipes</a>, registered with <a href="api.html#add_point_comparison"><code>add_point_comparison</code></a> rather than <code>add_gridded_comparison</code>. Unlike the gridded recipes above, these have no global counterpart, so <code>domain="global"</code> leaves them out of the script entirely rather than writing them in commented out &mdash; unless you tick one in the <a href="#gui">window</a>.</p>
 
     <h2 id="gui">Choosing recipes in a window</h2>
-    <p>To check, and change, what <code>create_recipes</code> found before the script is written, pass <code>gui=True</code>:</p>
+    <p>Before the script is written, <code>create_recipes</code> shows what it found in a page in your web browser, with a row for each observational variable OceanVal has a recipe for:</p>
+    <figure class="docs-figure">
+      <img src="assets/img/create_recipes_gui.png" width="1843" height="2073" loading="lazy" alt="The create_recipes window: a row for each observational variable, with the model variable identified for it and tick-boxes for the gridded and point datasets available">
+      <figcaption>A NEMO-ERSEM shelf run with <code>domain="nwes"</code>. The shelf datasets start ticked, and alkalinity, KD490 and pH, which this run does not produce, are left blank.</figcaption>
+    </figure>
+    <ul>
+      <li><strong>Model variable</strong> &mdash; the model variable identified, which you can change, or blank if none was. Type a name, or pick one from every variable in your output; join several with <code>+</code> to sum them. A name that is not in the output is flagged, and must be fixed before the script can be written.</li>
+      <li><strong>Gridded datasets</strong> and <strong>point datasets</strong> &mdash; every dataset OceanVal has for the variable, as tick-boxes. They start ticked as the script would be written without the window: the datasets for your <code>domain</code> ticked, the other region's alternatives not. Tick more than one to validate a variable against several sources &mdash; each is registered as a comparison of its own. <strong>Clear all selections</strong>, beside the Variables heading, unticks every dataset at once.</li>
+      <li><strong>A dataset's own options</strong> &mdash; under each ticked dataset. <strong>Years</strong> validates it over fewer years than the global Start and End; for WOA23 temperature and salinity, which WOA23 publishes per decade, they pick the decade and must sit inside one. <strong>Vertical</strong> validates the full water column rather than the surface alone, and needs a thickness in the global settings; it is only offered for the datasets resolved in depth &mdash; WOA23, NSBC and ICES. Point datasets can also be <strong>matched by</strong> a different time resolution from the global one.</li>
+    </ul>
+    <p>Run <code>oceanval</code> in a terminal, and this window is one of its steps: its button then reads <strong>Match up</strong> or <strong>Match up and validate</strong>, and starts the script once it is written. See <a href="quickstart.html#app">the OceanVal window</a>.</p>
+    <p>Filling in a blank row unlocks its datasets and ticks the ones for your domain. <strong>Write script</strong> writes the script, with each ticked dataset live and everything else commented out as usual. <strong>Cancel</strong>, or Ctrl+C where <code>create_recipes</code> is running, writes nothing, and <code>create_recipes</code> returns <code>None</code>.</p>
+    <div class="callout">
+      <div class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>On a remote machine</div>
+      <p>The page is served by <code>create_recipes</code> itself, on the machine it runs on, and only answers the private link it prints. If it cannot open a browser for you, open that link yourself. VS Code forwards the port for you; over plain SSH, forward the port in the link first &mdash; for port 8765, <code>ssh -L 8765:127.0.0.1:8765 you@server</code>.</p>
+    </div>
+    <p><code>create_recipes</code> waits for the page, so where no one can answer it &mdash; in a batch job, say &mdash; pass <code>gui=False</code> to write the script straight away. It then asks in the terminal for the model variable of anything it could not identify, when run from one (press Enter to skip, or pass <code>ask=False</code>):</p>
     <div class="code-block">
       <div class="code-card__bar">
         <div class="code-card__dots"><span></span><span></span><span></span></div>
@@ -231,22 +251,8 @@ oceanval.<a href="api.html#create_recipes"><span class="tok-fn">create_recipes</
     domain=<span class="tok-str">"nwes"</span>,
     start=<span class="tok-num">2005</span>,
     end=<span class="tok-num">2014</span>,
-    gui=<span class="tok-kw">True</span>,
+    gui=<span class="tok-kw">False</span>,
 )</pre>
-    </div>
-    <p>This opens a page in your web browser, with a row for each observational variable OceanVal has a recipe for:</p>
-    <figure class="docs-figure">
-      <img src="assets/img/create_recipes_gui.png" width="1843" height="2073" loading="lazy" alt="The create_recipes window: a row for each observational variable, with the model variable identified for it and tick-boxes for the gridded and point datasets available">
-      <figcaption>A NEMO-ERSEM shelf run with <code>domain="nwes"</code>. The shelf datasets start ticked, and alkalinity, KD490 and pH, which this run does not produce, are left blank.</figcaption>
-    </figure>
-    <ul>
-      <li><strong>Model variable</strong> &mdash; the model variable identified, which you can change, or blank if none was. Type a name, or pick one from every variable in your output; join several with <code>+</code> to sum them. A name that is not in the output is flagged, and must be fixed before the script can be written.</li>
-      <li><strong>Gridded datasets</strong> and <strong>point datasets</strong> &mdash; every dataset OceanVal has for the variable, as tick-boxes. They start ticked as the script would be written without the window: the datasets for your <code>domain</code> ticked, the other region's alternatives not. Tick more than one to validate a variable against several sources &mdash; each is registered as a comparison of its own.</li>
-    </ul>
-    <p>Filling in a blank row unlocks its datasets and ticks the ones for your domain. <strong>Write script</strong> writes the script, with each ticked dataset live and everything else commented out as usual. <strong>Cancel</strong>, or Ctrl+C where <code>create_recipes</code> is running, writes nothing, and <code>create_recipes</code> returns <code>None</code>.</p>
-    <div class="callout">
-      <div class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>On a remote machine</div>
-      <p>The page is served by <code>create_recipes</code> itself, on the machine it runs on, and only answers the private link it prints. If it cannot open a browser for you, open that link yourself. VS Code forwards the port for you; over plain SSH, forward the port in the link first &mdash; for port 8765, <code>ssh -L 8765:127.0.0.1:8765 you@server</code>.</p>
     </div>
 
     <h2 id="inside">Inside the generated script</h2>

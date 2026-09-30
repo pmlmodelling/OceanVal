@@ -1,0 +1,265 @@
+"""The units of each gridded and point matchup, for the oceanval window's units
+step.
+
+The model's units are read from the netCDF files of the simulation, and the
+observations' from RECIPE_CATALOGUE and POINT_RECIPE_CATALOGUE for the recipes
+OceanVal ships with, which the Units column of
+https://pmlmodelling.github.io/OceanVal/recipes.html repeats, or, for the
+user's own gridded data, from the netCDF file they supplied. Their own point
+data is csv files, which have no units, so those are left to them.
+"""
+
+import glob
+import math
+import os
+
+import xarray as xr
+
+from oceanval.create_recipes import (
+    POINT_RECIPE_CATALOGUE,
+    RECIPE_CATALOGUE,
+    _model_variable_names,
+    _WOA23_PERIODS,
+    simulation_files,
+)
+from oceanval.parsers import find_recipe
+
+# what to show where the units are not known
+NOT_AVAILABLE = None
+# what to tell the user about their own point data's units
+POINT_NOTE = "csv files have no units: make sure they match the model's"
+
+
+def model_units(simdir, ndown, names, exclude=None, require=None):
+    """The units attribute of each of the model variables in names.
+
+    Returned as {name: units}, with None for a variable whose files do not
+    give units. One file per output stream is read, as only one has to be.
+    """
+    wanted = set(names)
+    found = {}
+    for path in simulation_files(simdir, ndown, exclude, require):
+        if wanted <= set(found):
+            break
+        try:
+            # xarray, as raw FVCOM has variables CDO cannot read
+            with xr.open_dataset(
+                path,
+                drop_variables=["siglay", "siglev"],
+                decode_times=False,
+                decode_cf=False,
+            ) as ds:
+                for name in wanted - set(found):
+                    if name in ds.variables:
+                        units = ds[name].attrs.get("units")
+                        found[name] = str(units) if units is not None else None
+        except Exception:
+            continue
+    return {name: found.get(name) for name in names}
+
+
+def _local_files(obs_path, cwd="."):
+    """The files a path or glob names, if they are on this machine."""
+    if not isinstance(obs_path, str) or "://" in obs_path:
+        return []
+    return sorted(glob.glob(os.path.join(cwd, os.path.expanduser(obs_path))))
+
+
+def own_obs_units(arguments, cwd="."):
+    """The units of the observations in one of the user's own gridded
+    datasets, read from its netCDF file, or None where that cannot be done
+    (a URL, a THREDDS server, "auto", or a file that cannot be read). A
+    relative path is relative to cwd."""
+    variable = arguments.get("obs_variable")
+    files = _local_files(arguments.get("obs_path"), cwd)
+    if not variable or not files:
+        return NOT_AVAILABLE
+    try:
+        with xr.open_dataset(files[0], decode_times=False, decode_cf=False) as ds:
+            units = ds[variable].attrs.get("units")
+    except Exception:
+        return NOT_AVAILABLE
+    return str(units) if units is not None else None
+
+
+def _recipe_entry(variable, recipe, point=False):
+    catalogue = POINT_RECIPE_CATALOGUE if point else RECIPE_CATALOGUE
+    for entry in catalogue:
+        if entry["variable"] == variable and entry["recipe"] == recipe:
+            return entry
+    return None
+
+
+def _recipe_obs_variable(variable, recipe):
+    """The variable in a recipe's observation files, without the network."""
+    # WOA23 temperature and salinity need a decade to name their variable
+    years = {"start": _WOA23_PERIODS[-2][0], "end": _WOA23_PERIODS[-2][1]}
+    try:
+        found = find_recipe({variable: recipe}, **years)
+    except Exception:
+        return None
+    # ICES observations are named by their parameter code
+    return found.get("obs_variable") or found.get("ices_parameter")
+
+
+def _model_side(model_variable, units):
+    names = _model_variable_names(model_variable)
+    return {
+        "variable": model_variable,
+        "parts": [{"name": name, "units": units.get(name)} for name in names],
+    }
+
+
+def _recipe_rows(point, mapping, selection, options, model_unit_lookup):
+    """The rows for the selected recipes of one kind, point or gridded, that
+    have a model variable."""
+    catalogue = POINT_RECIPE_CATALOGUE if point else RECIPE_CATALOGUE
+    order = {entry["variable"]: index for index, entry in enumerate(catalogue)}
+    rows = []
+    for variable, recipe in sorted(
+        selection, key=lambda pair: (order.get(pair[0], 99), pair)
+    ):
+        entry = _recipe_entry(variable, recipe, point)
+        if entry is None or variable not in mapping:
+            # the other kind of recipe, or one with no model variable
+            continue
+        chosen = options.get((variable, recipe)) or {}
+        rows.append(
+            {
+                "kind": "point" if point else "gridded",
+                "key": f"{'point' if point else 'recipe'}:{variable}:{recipe}",
+                "title": f"{variable} ({recipe}{', point' if point else ''})",
+                "model": _model_side(mapping[variable], model_unit_lookup),
+                "obs_variable": _recipe_obs_variable(variable, recipe),
+                "obs_units": entry["units"],
+                "obs_multiplier": chosen.get("obs_multiplier", 1),
+                "obs_adder": chosen.get("obs_adder", 0),
+            }
+        )
+    return rows
+
+
+def matchups(
+    mapping,
+    selection,
+    gridded_options,
+    point_options,
+    own_data,
+    model_unit_lookup,
+    cwd=".",
+):
+    """One row for each gridded and point matchup the script makes.
+
+    mapping, selection, gridded_options and point_options are what the
+    recipes window gave create_recipes, own_data the arguments of the user's
+    own calls, and model_unit_lookup {model variable: units}. Each row holds a
+    kind ("gridded" or "point"), a key the page sends the conversion back
+    under, the matchup's title, the
+    model variable with its units (several if it is a sum), the observation
+    variable and its units, and the obs_multiplier and obs_adder it already
+    has. The gridded recipes come first, then the point recipes, then the
+    user's own gridded and point data. The units of the user's own point data
+    are None, with a note saying so, as csv files have none, and their
+    observation variable is the csv's observation column.
+    """
+    rows = _recipe_rows(False, mapping, selection, gridded_options, model_unit_lookup)
+    rows += _recipe_rows(True, mapping, selection, point_options, model_unit_lookup)
+    for kind, prefix in (("gridded", "own"), ("point", "ownpoint")):
+        point = kind == "point"
+        for index, arguments in enumerate(own_data.get(kind) or []):
+            what = "your own point data" if point else "your own data"
+            rows.append(
+                {
+                    "kind": kind,
+                    "key": f"{prefix}:{index}",
+                    "title": f"{arguments.get('name')} ({what})",
+                    "model": _model_side(
+                        arguments.get("model_variable", ""), model_unit_lookup
+                    ),
+                    "obs_variable": "observation" if point else arguments.get("obs_variable"),
+                    "obs_units": None if point else own_obs_units(arguments, cwd),
+                    "obs_note": POINT_NOTE if point else None,
+                    "obs_multiplier": arguments.get("obs_multiplier", 1),
+                    "obs_adder": arguments.get("obs_adder", 0),
+                }
+            )
+    return rows
+
+
+def model_variables(mapping, selection, own_data):
+    """Every model variable named by a gridded or point matchup, so their
+    units can be read in one go."""
+    names = []
+    for variable, recipe in selection:
+        if variable in mapping and (
+            _recipe_entry(variable, recipe) is not None
+            or _recipe_entry(variable, recipe, point=True) is not None
+        ):
+            names.extend(_model_variable_names(mapping[variable]))
+    for kind in ("gridded", "point"):
+        for arguments in own_data.get(kind) or []:
+            if arguments.get("model_variable"):
+                names.extend(_model_variable_names(arguments["model_variable"]))
+    return list(dict.fromkeys(names))
+
+
+def check_conversions(sent):
+    """Turn what the page sent for each matchup into numbers.
+
+    sent is {key: {"multiplier": text, "adder": text}}; a blank box leaves
+    the default, 1 and 0. Returns ({key: (multiplier, adder)}, {key: message}).
+    """
+    conversions, errors = {}, {}
+    sent = sent if isinstance(sent, dict) else {}
+    for key, boxes in sent.items():
+        boxes = boxes if isinstance(boxes, dict) else {}
+        values = {}
+        for name, default in (("multiplier", 1), ("adder", 0)):
+            text = str(boxes.get(name, "")).strip()
+            if not text:
+                values[name] = default
+                continue
+            try:
+                value = float(text)
+            except ValueError:
+                value = math.nan
+            if not math.isfinite(value) or (name == "multiplier" and value == 0):
+                errors[key] = (
+                    "Multiply by a number that is not 0, and add a number."
+                )
+                break
+            values[name] = int(value) if value == int(value) else value
+        else:
+            conversions[key] = (values["multiplier"], values["adder"])
+    return conversions, errors
+
+
+def apply_conversions(conversions, gridded_options, own_data, point_options=None):
+    """Put the conversions into the gridded and point options and the own
+    data they belong to, in place. A conversion of 1 and 0 leaves the
+    argument out."""
+    point_options = {} if point_options is None else point_options
+    for key, (multiplier, adder) in conversions.items():
+        kind, _, rest = key.partition(":")
+        all_options = None
+        if kind in ("recipe", "point"):
+            variable, _, recipe = rest.partition(":")
+            all_options = gridded_options if kind == "recipe" else point_options
+            options = all_options.setdefault((variable, recipe), {})
+        elif kind in ("own", "ownpoint"):
+            entries = own_data.get("gridded" if kind == "own" else "point") or []
+            if not rest.isdigit() or int(rest) >= len(entries):
+                continue
+            options = entries[int(rest)]
+        else:
+            continue
+        for name, value, default in (
+            ("obs_multiplier", multiplier, 1),
+            ("obs_adder", adder, 0),
+        ):
+            if value == default:
+                options.pop(name, None)
+            else:
+                options[name] = value
+        if all_options is not None and all(value is None for value in options.values()):
+            del all_options[(variable, recipe)]

@@ -17,6 +17,62 @@ Install the released package from conda-forge:
 
 For full installation options, see :doc:`installing`.
 
+The OceanVal window
+-------------------
+
+The quickest way needs no Python at all. In a terminal, in the directory to
+work in, run:
+
+.. code-block:: console
+
+   oceanval
+
+``OceanVal`` works too. A page opens in your web browser that takes you
+through six steps:
+
+1. **Choose** to match up new data and validate it, to match up only, or to
+   validate matchups made earlier.
+2. **Simulation**: where the model output is, how many directories down its
+   files are, which files to skip or keep (the file filters), the domain and
+   the years. Type the directory, with folders suggested as you go, or pick
+   it with **Browse…**, which looks through the folders on the machine
+   OceanVal runs on, so it works on a remote machine too. As you type, the
+   page counts the files that pass the filters, and fills in the years from
+   their names. To validate matchups made earlier, you choose the report's
+   options instead.
+3. **Own data**: whether you have observations of your own, as well as
+   OceanVal's built-in datasets. If you do, a page for point data (csv
+   files) and one for gridded data (netCDF) let you add them one at a time,
+   with every argument of ``add_point_comparison`` or
+   ``add_gridded_comparison``; the ones that have to be given are marked in
+   red. Skip a page if you have none of that kind. The calls are written
+   into the matchup script.
+4. **Recipes**: the ``create_recipes`` window, to check the model variables
+   found and choose the observations to validate against.
+5. **Units**: whether the model's and the observations' units match up. If
+   you are not sure, a table lists the units of every gridded and point
+   matchup, read from the model's netCDF files and, for the observations, from
+   the recipes (the Units column on the recipes page) or from your own netCDF
+   file. Your own point data is csv files, which have no units, so it is up to
+   you to make sure they match the model's. Where they differ, set a multiplier and an adder for the observations; they are
+   written into the matchup script as ``obs_multiplier`` and ``obs_adder``.
+   Its button then starts the matchup.
+6. **Run**: the output appears as it comes, in the page and in the terminal.
+   Anything OceanVal asks, such as whether the matchups look right, or
+   whether to try again for observations a server could not supply, is asked
+   in the page.
+
+The script it runs is written first, to ``matchup.py`` unless you choose
+another name, so you can read it, and run it again later with
+``python matchup.py``.
+
+If ``oceanval`` cannot open a browser for you, it prints the link to open.
+VS Code forwards its port for you; over plain SSH, choose the port with
+``--port`` and forward it first: ``oceanval --port 8765``, with
+``ssh -L 8765:127.0.0.1:8765 you@server``.
+
+The sections below do the same in Python.
+
 Match model output with observations
 ------------------------------------
 
