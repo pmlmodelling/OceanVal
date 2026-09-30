@@ -167,8 +167,8 @@ The Units column of the gridded and point recipes tables gives the units of the
 observations as the dataset's files state them. If your model's units differ,
 pass ``obs_multiplier`` and ``obs_adder`` to ``add_gridded_comparison`` or
 ``add_point_comparison`` (the observations become *observations × obs_multiplier + obs_adder*); the
-``oceanval`` window's Units step lists both sets of units and writes these for
-you.
+``oceanval`` window's Units step lists both sets of units, fills these in where
+it can tell how to convert one into the other, and writes them for you.
 
 Always check the dataset units and climatology period before comparing the
 result with model output. See :doc:`how_to_use` for matching and time-resolution

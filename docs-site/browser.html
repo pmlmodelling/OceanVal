@@ -124,18 +124,26 @@
     <h3>4. Recipes</h3>
     <p>OceanVal reads one file of each kind from the simulation, works out which model variable holds each observational variable, and shows the <a href="create-recipes.html#gui">create_recipes window</a>. Check the variables it found, tick the datasets to validate against, and set the global settings (years, spatial subset, cores, PDF or Word reports, regional summaries and whether the report is concise). <strong>Clear all selections</strong> unticks everything so you can start from none.</p>
     <h3>5. Units</h3>
-    <p>Whether the model&rsquo;s and the observations&rsquo; units match. See <a href="#units">below</a>.</p>
+    <p>The model&rsquo;s and the observations&rsquo; units, with a conversion filled in where they differ, to check and always confirm. See <a href="#units">below</a>.</p>
     <h3>6. Run</h3>
     <p>The matchup runs and its output appears as it comes, in the page and in the terminal. Anything OceanVal asks, such as whether the matchups look right, is asked in the page. When a matchup and validate run finishes, the page shows where the HTML report is and opens it in your browser, where one can be opened. After a match up only run, <strong>Validate these matchups</strong> builds the report from them.</p>
 
     <h2 id="units">Checking the units</h2>
-    <p>A model and its observations can report the same quantity in different units, for example nutrients in mmol/m&sup3; against &micro;mol/kg. OceanVal compares the values as they are, so a difference shows up as a large error in the report. After the recipes, the window asks whether you are sure the units match. If you are not, it lists every matchup in two sections, <strong>Gridded datasets</strong> and <strong>Point datasets</strong>, each with:</p>
+    <p>A model and its observations can report the same quantity in different units, for example nutrients in mmol/m&sup3; against &micro;mol/kg. OceanVal compares the values as they are, so a difference shows up as a large error in the report. After the recipes, the window reads the units of every matchup and lists them in two sections, <strong>Gridded datasets</strong> and <strong>Point datasets</strong>, each with:</p>
     <ul>
       <li>the model variable and its units, read from the simulation&rsquo;s netCDF files (for a sum of variables, each one);</li>
       <li>the observation variable and its units: for OceanVal&rsquo;s recipes, the Units column of the <a href="recipes.html">recipes page</a>; for your own gridded data, the units in your netCDF file;</li>
-      <li>a <strong>Multiply by</strong> and an <strong>Add</strong> box.</li>
+      <li>a <strong>Multiply by</strong> and an <strong>Add</strong> box;</li>
+      <li>underneath, what OceanVal made of the units: the same, converted, or not checked.</li>
     </ul>
-    <p>The observations become <em>observations &times; multiply by + add</em> before they are compared with the model, for example adding 273.15 to observations in &deg;C when the model is in kelvin. Leave the boxes empty if no conversion is needed. Any you set are written into the matchup script as <code>obs_multiplier</code> and <code>obs_adder</code>.</p>
+    <p>The observations become <em>observations &times; multiply by + add</em> before they are compared with the model, for example adding 273.15 to observations in &deg;C when the model is in kelvin. Where the units differ and OceanVal can tell how to convert one into the other, it fills in the boxes and says what it assumed:</p>
+    <ul>
+      <li>between per kilogram and per volume, such as the World Ocean Atlas&rsquo;s &micro;mol/kg against a model&rsquo;s mmol/m&sup3;, a seawater density of 1025&nbsp;kg/m&sup3;;</li>
+      <li>for oxygen in ml/l, as ICES gives it, 44.661&nbsp;&micro;mol in a millilitre of oxygen;</li>
+      <li>for alkalinity in mEq/l, as ICES gives it, an equivalent as a mole.</li>
+    </ul>
+    <p>Salinity and pH are never converted: psu, 1 and 1e-3 are the same scale of salinity, and pH has no units. Units OceanVal does not recognise, or that measure different things, such as moles and grams, are marked <strong>Not checked</strong>, for you to look at. Check the conversions it filled in, and leave the boxes empty where no conversion is needed. Anything OceanVal has filled in, and the note under it, is in <strong style="color:#c0392b">red and bold</strong>, so that none of it is missed. If you change a number OceanVal filled in, it is yours, and no longer red. The conversions are written into the matchup script as <code>obs_multiplier</code> and <code>obs_adder</code>, and one you gave with your own data is kept.</p>
+    <p>The units always have to be confirmed. Under the tables, tick the box saying that you have checked the units of every matchup and that, with these conversions, the observations are in the same units as the model. <strong>Continue</strong> stays disabled until you have, and OceanVal refuses to carry on without it, whatever is sent to it. You confirm the units every time you reach this step, however many of them OceanVal found to match, and changing a conversion after you have ticked the box clears the tick, so that what you confirmed is what is used.</p>
     <div class="callout">
       <div class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Your own point data</div>
       <p>Point data is csv files, which have no units, so OceanVal cannot tell you what they are. It is up to you to make sure they match the model&rsquo;s, and to convert them with the boxes if they do not.</p>

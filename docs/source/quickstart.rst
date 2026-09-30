@@ -49,14 +49,17 @@ through six steps:
    into the matchup script.
 4. **Recipes**: the ``create_recipes`` window, to check the model variables
    found and choose the observations to validate against.
-5. **Units**: whether the model's and the observations' units match up. If
-   you are not sure, a table lists the units of every gridded and point
-   matchup, read from the model's netCDF files and, for the observations, from
-   the recipes (the Units column on the recipes page) or from your own netCDF
-   file. Your own point data is csv files, which have no units, so it is up to
-   you to make sure they match the model's. Where they differ, set a multiplier and an adder for the observations; they are
-   written into the matchup script as ``obs_multiplier`` and ``obs_adder``.
-   Its button then starts the matchup.
+5. **Units**: a table of the units of every gridded and point matchup, read
+   from the model's netCDF files and, for the observations, from the recipes
+   (the Units column on the recipes page) or from your own netCDF file. Where
+   they differ, OceanVal fills in a multiplier and an adder for the
+   observations, in red and bold, and says what it assumed, such as a seawater
+   density of 1025 kg/m³ between per kilogram and per volume. Check them, and
+   fill in any it could not work out. Your own point data is csv files, which
+   have no units, so it is up to you to make sure they match the model's. The
+   units always have to be confirmed, with a box under the tables, before the
+   button starts the matchup. The conversions are written into the matchup
+   script as ``obs_multiplier`` and ``obs_adder``.
 6. **Run**: the output appears as it comes, in the page and in the terminal.
    Anything OceanVal asks, such as whether the matchups look right, or
    whether to try again for observations a server could not supply, is asked
