@@ -24,11 +24,16 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install setuptools wheel twine
+        pip install build twine
     - name: Build and publish
       env:
         TWINE_USERNAME: __token__ 
         TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
       run: |
-        python setup.py sdist bdist_wheel
+        python -m build
+        twine check dist/*
+        # Fail if repo-only material leaks into the sdist
+        if tar tzf dist/*.tar.gz | grep -E '^[^/]+/(docs-site|data|docs|tests)/|claude_updates|CLAUDE\.md|\.trackers'; then
+          echo "Unexpected files in sdist"; exit 1
+        fi
         twine upload dist/*

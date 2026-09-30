@@ -26,13 +26,15 @@ PROJECT_URLS = {
 extras_require: dict() = dict()
 
 
-REQUIREMENTS = [i.strip() for i in open("requirements.txt").readlines()]
+with open("requirements.txt") as f:
+    REQUIREMENTS = [i.strip() for i in f if i.strip()]
 
 setup(name='oceanval',
       version='0.5.8',
       description=DESCRIPTION,
       long_description=LONG_DESCRIPTION,
-      python_requires='>=3.6.1',
+      long_description_content_type="text/markdown",
+      python_requires='>=3.10',
       classifiers=[
         "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
         "Operating System :: POSIX :: Linux",
@@ -53,11 +55,6 @@ setup(name='oceanval',
       'oceanval': ['data/*', 'data/_static/*'] },
 
       packages = ["oceanval"],
-      setup_requires=[
-        'setuptools',
-        'setuptools-git',
-        'wheel',
-    ],
       install_requires = REQUIREMENTS,
       extras_require = extras_require,
       zip_safe=False)
