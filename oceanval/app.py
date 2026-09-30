@@ -21,11 +21,13 @@ link, and loads nothing from anywhere else.
 import argparse
 import codecs
 import contextlib
+import glob
 import io
 import itertools
 import json
 import os
 import queue
+import random
 import secrets
 import signal
 import subprocess
@@ -55,6 +57,9 @@ _SEARCH_DEPTHS = range(4)
 
 # the folder browser lists at most this many folders, and counts the rest
 _MOST_FOLDERS = 2000
+
+# the sample of a simulation's files lists at most this many, and counts the rest
+_MOST_FILES = 500
 
 
 def default_setup_form():
@@ -966,6 +971,58 @@ class App:
                 break
         return found
 
+    def sample_files(self, simdir, ndown, avoid=""):
+        """The netCDF files in one directory of the simulation, chosen at
+        random from those ndown directories below simdir that hold any, for
+        the page to show what the file names look like - the names the file
+        filters are made of. avoid is a directory not to choose again, if
+        there is another.
+
+        Every file is listed, whatever the file filters say, and none is left
+        out for being a restart file, so the page can show what there is to
+        filter.
+        """
+        found = {
+            "directory": "empty",
+            "ndown": None,
+            "path": None,
+            "directories": 0,
+            "files": [],
+            "more": 0,
+        }
+        if not simdir.strip():
+            return found
+        path = _path(simdir.strip(), self.cwd)
+        if not os.path.isdir(path):
+            found["directory"] = "missing"
+            return found
+        found["directory"] = "found"
+        try:
+            depth = int(ndown)
+            if depth < 0:
+                raise ValueError
+        except ValueError:
+            return found
+        found["ndown"] = depth
+        pattern = os.path.join(path, *(["*"] * depth), "*.nc")
+        directories = sorted({os.path.dirname(file) for file in glob.glob(pattern)})
+        found["directories"] = len(directories)
+        if not directories:
+            return found
+        avoided = _path(avoid, self.cwd) if avoid.strip() else None
+        chosen = random.choice(
+            [directory for directory in directories if directory != avoided]
+            or directories
+        )
+        files = sorted(
+            (name for name in os.listdir(chosen) if name.endswith(".nc")),
+            key=lambda name: (name.lower(), name),
+        )
+        found["path"] = _shown(chosen, self.cwd)
+        found["files"] = files[:_MOST_FILES]
+        found["more"] = max(0, len(files) - _MOST_FILES)
+        return found
+
     def browse(self, path):
         """What one directory holds, for the page's folder browser and the
         folders it suggests as a path is typed: its folders, how many netCDF
@@ -1184,6 +1241,7 @@ class _Handler(recipes_gui._Handler):
             "/api/state",
             "/api/probe",
             "/api/browse",
+            "/api/files",
         ):
             self._reply(404, "Not found", "text/plain; charset=utf-8")
         elif not self.app.authorised(query.get("token", "")):
@@ -1212,6 +1270,15 @@ class _Handler(recipes_gui._Handler):
             )
         elif url.path == "/api/browse":
             self._reply_json(200, self.app.browse(query.get("path", "")))
+        elif url.path == "/api/files":
+            self._reply_json(
+                200,
+                self.app.sample_files(
+                    query.get("simdir", ""),
+                    query.get("ndown", ""),
+                    query.get("avoid", ""),
+                ),
+            )
         else:
             self._reply_json(
                 200,

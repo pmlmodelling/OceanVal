@@ -410,6 +410,28 @@ class TestBrowsing:
         assert not app.browse("run/2011/0")["exact"]
         assert app.browse("run/x.nc")["path"] == str(tmp_path / "run")
 
+    def test_a_random_directory_of_files(self, app, tmp_path):
+        for year in ("2001", "2002"):
+            (tmp_path / "sim" / year).mkdir(parents=True)
+            for name in ("a_grid_T.nc", "a_restart.nc", "notes.txt"):
+                (tmp_path / "sim" / year / name).write_text("")
+
+        found = app.sample_files("sim", "1")
+        assert found["directory"] == "found"
+        assert found["path"] in ("sim/2001", "sim/2002")
+        assert found["directories"] == 2
+        # every netCDF file, restart files too, and nothing else
+        assert found["files"] == ["a_grid_T.nc", "a_restart.nc"]
+        # asking again for another directory
+        other = app.sample_files("sim", "1", found["path"])
+        assert other["path"] != found["path"]
+
+        assert app.sample_files("", "1")["directory"] == "empty"
+        assert app.sample_files("nowhere", "1")["directory"] == "missing"
+        assert app.sample_files("sim", "x")["ndown"] is None
+        assert app.sample_files("sim", "0")["files"] == []
+        assert get_json(app, "/api/files", simdir="sim", ndown="1")[1]["directories"] == 2
+
     def test_the_top_of_the_file_system(self, tmp_path):
         found = App(cwd=str(tmp_path)).browse("/")
         assert (found["path"], found["parent"]) == ("/", None)
@@ -1355,5 +1377,47 @@ def test_choosing_directories_in_a_browser(browser, tmp_path):
         page.click("#picker-choose")
         assert page.input_value("#v-data_dir") == "run"
         assert page.is_hidden("#picker")
+    finally:
+        app.close()
+
+
+def test_viewing_files_in_a_random_directory_in_a_browser(browser, tmp_path):
+    """The pop-up on the simulation step that lists the file names in one
+    directory of the simulation, chosen at random."""
+    for year in ("2001", "2002"):
+        (tmp_path / "sim" / year).mkdir(parents=True)
+        for name in ("a_grid_T.nc", "a_ptrc_T.nc"):
+            (tmp_path / "sim" / year / name).write_text("")
+    app = App(cwd=str(tmp_path))
+    url = app.start()
+    try:
+        page = browser.new_page()
+        page.goto(url)
+        page.click('button.choice[data-action="matchup"]')
+
+        # nothing to look in yet
+        page.click("#view-files")
+        page.wait_for_selector("#sample-list .picker__empty")
+        assert "Enter the directory" in page.text_content("#sample-list")
+        page.keyboard.press("Escape")
+        assert page.is_hidden("#sample")
+
+        page.fill("#f-simdir", "sim")
+        page.fill("#f-ndown", "1")
+        page.click("#view-files")
+        page.wait_for_selector("#sample-list .picker__file")
+        assert page.eval_on_selector_all(
+            "#sample-list .picker__file", "nodes => nodes.map(n => n.textContent)"
+        ) == ["a_grid_T.nc", "a_ptrc_T.nc"]
+        first = page.text_content("#sample-intro")
+        assert first in ("sim/2001", "sim/2002")
+
+        # another directory, never the same one twice running
+        page.click("#sample-another")
+        page.wait_for_function(
+            "text => document.querySelector('#sample-intro').textContent !== text", arg=first
+        )
+        page.click("#sample-close")
+        assert page.is_hidden("#sample")
     finally:
         app.close()

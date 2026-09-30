@@ -209,6 +209,8 @@
   .picker__info.is-ok { color: var(--teal-700); }
   .picker__info.is-warn { color: var(--coral-dark); }
   .picker__info.is-error { color: var(--red); }
+  .picker__file { margin: 0; padding: 6px 12px; border-bottom: 1px solid var(--line-soft); font: 400 13px/1.4 var(--font-mono); overflow-wrap: anywhere; }
+  .picker__file:last-child { border-bottom: 0; }
   .picker__foot { display: flex; justify-content: flex-end; gap: 10px; padding: 16px 22px 20px; }
 
   /* ---- the run ---- */
@@ -405,6 +407,8 @@
           <div class="g-row"><label class="g-label" for="f-simdir">Directory with the model output</label><div class="path-field"><input class="s-input is-mono" id="f-simdir" list="f-simdir-folders" placeholder="/path/to/model/output" spellcheck="false" autocapitalize="off"><button type="button" class="btn btn--ghost btn--field" data-browse="f-simdir">Browse…</button></div><datalist id="f-simdir-folders"></datalist></div>
           <label class="g-row"><span class="g-label">Files are this many directories below it</span><input class="s-input is-num" id="f-ndown" inputmode="numeric" placeholder="e.g. 2" spellcheck="false" autocapitalize="off"></label>
         </div>
+        <p class="group__intro">Once you have told OceanVal the names of model variables it will be able to identify which files contain them, and it will use the files with the highest temporal resolution. However, sometimes you have files that could trip up OceanVal's file identifier. For example, you might have files covering the entire simulation, but others covering a spatial subregion. In this case, OceanVal needs to be told some further details to dig down.</p>
+        <p class="group__intro"><button type="button" class="link" id="view-files" aria-haspopup="dialog">View files in a random subdirectory in the listed directory</button></p>
         <div class="form__row is-pair">
           <label class="g-row"><span class="g-label">Skip file names containing <span class="g-note">(separate words with a space)</span></span><input class="s-input is-mono" id="f-exclude" placeholder="e.g. restart 5d" spellcheck="false" autocapitalize="off"></label>
           <label class="g-row"><span class="g-label">Only file names containing <span class="g-note">(separate words with a space)</span></span><input class="s-input is-mono" id="f-require" placeholder="e.g. grid_T" spellcheck="false" autocapitalize="off"></label>
@@ -612,6 +616,21 @@
     <div class="picker__foot">
       <button type="button" class="btn btn--ghost" id="picker-cancel">Cancel</button>
       <button type="button" class="btn btn--primary" id="picker-choose">Choose this directory</button>
+    </div>
+  </div>
+</div>
+
+<div class="picker" id="sample" hidden>
+  <div class="picker__card" role="dialog" aria-modal="true" aria-labelledby="sample-title">
+    <div class="picker__head">
+      <h2 id="sample-title">Files in a random subdirectory</h2>
+    </div>
+    <p class="picker__info" id="sample-intro"></p>
+    <div class="picker__list" id="sample-list" tabindex="-1" aria-label="Files"></div>
+    <p class="picker__info" id="sample-info"></p>
+    <div class="picker__foot">
+      <button type="button" class="btn btn--ghost" id="sample-another">Show another directory</button>
+      <button type="button" class="btn btn--primary" id="sample-close">Close</button>
     </div>
   </div>
 </div>
@@ -1488,6 +1507,72 @@
 
   document.querySelectorAll("[data-browse]").forEach((opener) => {
     opener.addEventListener("click", () => openPicker($(opener.dataset.browse), opener));
+  });
+
+  // ---- a look at the simulation's file names, in a directory chosen at random ----
+  const sample = { opener: null, path: null, number: 0 };
+
+  async function showSample(avoid) {
+    const number = ++sample.number;
+    $("sample-list").replaceChildren(el("p", { class: "picker__empty", text: "Looking…" }));
+    $("sample-info").replaceChildren();
+    $("sample-intro").replaceChildren();
+    $("sample-another").disabled = true;
+    let found;
+    try {
+      const response = await fetch(`api/files?${query({ simdir: setup.simdir, ndown: setup.ndown, avoid: avoid || "" })}`, { cache: "no-store" });
+      found = await response.json();
+    } catch (error) {
+      return;
+    }
+    // closed, or another directory asked for since
+    if (number !== sample.number || $("sample").hidden) return;
+    sample.path = found.path;
+    let problem = null;
+    if (found.directory === "empty") problem = "Enter the directory with the model output first.";
+    else if (found.directory === "missing") problem = "There is no directory at this path.";
+    else if (found.ndown === null) problem = "Enter how many directories below it the files are first: a whole number, 0 or more.";
+    else if (!found.files.length) problem = `There are no netCDF files ${depthText(found.ndown)}.`;
+    if (problem) {
+      $("sample-list").replaceChildren(el("p", { class: "picker__empty", text: problem }));
+      return;
+    }
+    $("sample-intro").replaceChildren(el("span", { class: "is-mono", text: found.path }));
+    $("sample-list").replaceChildren(...found.files.map((name) => el("p", { class: "picker__file", text: name })),
+      ...(found.more ? [el("p", { class: "picker__empty", text: `…and ${found.more} more files, not listed.` })] : []));
+    $("sample-list").scrollTop = 0;
+    $("sample-info").replaceChildren(el("span", {
+      text: found.directories === 1
+        ? "This is the only directory with netCDF files. Use words from these names to skip or keep files."
+        : `One of the ${found.directories} directories with netCDF files. Use words from these names to skip or keep files.`,
+    }));
+    $("sample-another").disabled = found.directories < 2;
+  }
+
+  function openSample() {
+    sample.opener = $("view-files");
+    $("sample").hidden = false;
+    BEHIND.forEach((node) => { node.inert = true; });
+    showSample("");
+    $("sample-close").focus();
+  }
+
+  function closeSample() {
+    $("sample").hidden = true;
+    BEHIND.forEach((node) => { node.inert = false; });
+    sample.number += 1;
+    if (sample.opener) sample.opener.focus();
+  }
+
+  $("view-files").addEventListener("click", openSample);
+  $("sample-another").addEventListener("click", () => showSample(sample.path));
+  $("sample-close").addEventListener("click", closeSample);
+  $("sample").addEventListener("click", (event) => { if (event.target === $("sample")) closeSample(); });
+  $("sample").addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeSample();
+    }
   });
 
   // the folders in what has been typed so far, like a terminal's tab completion
