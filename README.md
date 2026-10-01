@@ -29,8 +29,9 @@ that takes you through six steps:
    it with **Browse…**, which looks through the folders on the machine
    OceanVal runs on, so it works on a remote machine too. As you type, the
    page counts the files that pass the filters, and fills in the years from
-   their names. To validate matchups made earlier, you choose the report's
-   options instead.
+   their names. It also asks where to save the matchups and the report: the
+   directory you started `oceanval` in, unless you choose another. To
+   validate matchups made earlier, you choose the report's options instead.
 3. **Own data**: whether you have observations of your own, as well as
    OceanVal's built-in datasets. If you do, a page for point data (csv
    files) and one for gridded data (netCDF) let you add them one at a time,
@@ -38,22 +39,29 @@ that takes you through six steps:
    the ones that have to be given are marked in red. Skip a page if you have
    none of that kind. The calls are written into the matchup script.
 4. **Recipes**: the `create_recipes` window (see below), to check the model
-   variables found and choose the observations to validate against.
+   variables found and choose the observations to validate against. A
+   dataset validated through the water column (Vertical) needs a thickness
+   before you can carry on.
 5. **Units**: a table of the units of every gridded and point matchup, read
    from the model's netCDF files and, for the observations, from the recipes
    (the Units column of the recipes page) or from your own netCDF file. Where
-   they differ, OceanVal fills in a multiplier and an adder for the
+   OceanVal thinks they differ, it suggests a multiplier and an adder for the
    observations, in red and bold, and says what it assumed, such as a seawater
-   density of 1025 kg/m³ between per kilogram and per volume. Check them, and
-   fill in any it could not work out. Your own point data is csv files, which
-   have no units, so it is up to you to make sure they match the model's. The
-   units always have to be confirmed, with a box under the tables, before the
-   button starts the matchup. The conversions are written into the matchup
-   script as `obs_multiplier` and `obs_adder`.
-6. **Run**: the output appears as it comes, in the page and in the terminal.
-   Anything OceanVal asks, such as whether the matchups look right, or
-   whether to try again for observations a server could not supply, is asked
-   in the page.
+   density of 1025 kg/m³ between per kilogram and per volume. It can get this
+   wrong, so check every row, and fill in any it could not work out. Your own
+   point data is csv files, which have no units, so it is up to you to make
+   sure they match the model's. The units always have to be confirmed, with a
+   box under the tables, before the button starts the matchup. The
+   conversions are written into the matchup script as `obs_multiplier` and
+   `obs_adder`.
+6. **Run**: the page says it is identifying the files that meet your
+   criteria, then shows what it found as a table: each variable, its model
+   variable, the observations it is compared with and the files it is in,
+   with **List all files** for each (OceanVal applies temporal subsetting to
+   them). Carry on if the matchups are right; No stops the run. The output
+   appears as it comes, in the page and in the terminal, and anything else
+   OceanVal asks, such as whether to try again for observations a server
+   could not supply, is asked in the page.
 
 The script it runs is written first, to `matchup.py` unless you choose
 another name, so you can run it again later with `python matchup.py`. On a

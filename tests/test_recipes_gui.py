@@ -572,6 +572,47 @@ class TestHosting:
         assert page.context == CONTEXT
         assert recipes_gui._host is None
 
+    VERTICAL = [{
+        "variable": "temperature",
+        "model_variable": "thetao",
+        "selected": ["nsbc"],
+        "gridded": {"nsbc": {"start": "", "end": "", "vertical": True}},
+    }]
+
+    def app_page(self, own_vertical=False, fvcom=False):
+        """The window as the oceanval app shows it."""
+        written = []
+        page = RecipePage(
+            recipe_rows({"temperature": "thetao"}, "nwes"),
+            {"thetao"},
+            dict(CONTEXT, fvcom=fvcom, app={"action": "matchup", "own_vertical": own_vertical}),
+            lambda *chosen: written.append(chosen) or "/out/matchup.py",
+        )
+        page.written = written
+        return page
+
+    def test_the_app_always_asks(self):
+        page = self.app_page()
+        status, _ = page.submit({"rows": [], "settings": dict(page.form, ask=False)})
+
+        assert status == 200
+        assert page.written[0][2]["ask"] is True
+
+    def test_in_the_app_vertical_needs_a_thickness(self):
+        page = self.app_page()
+        status, reply = page.submit({"rows": self.VERTICAL})
+
+        assert status == 400
+        assert reply["setting_errors"] == {"thickness": recipes_gui.THICKNESS_NEEDED}
+        assert page.written == []
+        settings = dict(page.form, thickness="z_level")
+        assert page.submit({"rows": self.VERTICAL, "settings": settings})[0] == 200
+
+    def test_so_does_your_own_data_through_the_water_column(self):
+        assert "thickness" in self.app_page(own_vertical=True).submit({"rows": []})[1]["setting_errors"]
+        # FVCOM output is regridded onto z-levels
+        assert self.app_page(own_vertical=True, fvcom=True).submit({"rows": []})[0] == 200
+
 
 class TestChooseRecipes:
     def test_it_waits_for_the_page_to_be_written(self, monkeypatch, capsys):

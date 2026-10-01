@@ -72,6 +72,7 @@ def default_setup_form():
         "end": "",
         "exclude": "",
         "require": "",
+        "out_dir": "",
         "out": "matchup.py",
     }
 
@@ -120,7 +121,8 @@ def _form(form, defaults):
 
 
 def check_setup(form, cwd):
-    """Turn the simulation step's boxes into create_recipes arguments.
+    """Turn the simulation step's boxes into create_recipes arguments, and
+    out_dir, the directory the matchups and the report are saved in.
 
     Returns (arguments, errors), where errors maps each box that cannot be
     used to the reason.
@@ -159,6 +161,12 @@ def check_setup(form, cwd):
     # the file filters, as words separated by spaces
     arguments["exclude"] = form["exclude"].split() or None
     arguments["require"] = form["require"].split() or None
+    # empty is the directory worked in
+    out_dir = _path(form["out_dir"] or ".", cwd)
+    if os.path.isfile(out_dir):
+        errors["out_dir"] = "This is a file, not a directory."
+    else:
+        arguments["out_dir"] = out_dir
     if not form["out"]:
         errors["out"] = "Enter the file to write the script to."
     elif os.path.isdir(_path(form["out"], cwd)):
@@ -322,26 +330,48 @@ class _ConsoleStream(io.TextIOBase):
 
 
 class Question:
-    """A question put in the page, and what to do with its answer."""
+    """A question put in the page, what to show with it, and what to do with
+    its answer."""
 
     _numbers = itertools.count(1)
 
-    def __init__(self, text, choices, respond):
+    def __init__(self, text, choices, respond, details=None):
         self.id = next(Question._numbers)
         self.text = text
         self.choices = list(choices) if choices else None
         self.respond = respond
+        self.details = details if isinstance(details, dict) else None
+
+    @property
+    def matchups(self):
+        """Whether it is matchup's, of whether the matchups are right."""
+        return bool(self.details) and self.details.get("kind") == "matchups"
+
+    def files(self, pattern):
+        """The files the details list for one file pattern, or None."""
+        files = (self.details or {}).get("files")
+        found = files.get(pattern) if isinstance(files, dict) else None
+        return found if isinstance(found, list) else None
 
     def as_dict(self):
-        return {"id": self.id, "text": self.text, "choices": self.choices}
+        # the files can be many, so the page asks for them a pattern at a time
+        details = self.details and {
+            key: value for key, value in self.details.items() if key != "files"
+        }
+        return {
+            "id": self.id,
+            "text": self.text,
+            "choices": self.choices,
+            "details": details,
+        }
 
 
 class Run:
     """matchup or validate, running in a process of its own.
 
     args are oceanval.app_child's. Its output goes to console, each question
-    it asks to ask(question, choices, respond), and finished(run) is called
-    once it has stopped.
+    it asks to ask(question, choices, respond, details), and finished(run) is
+    called once it has stopped.
     """
 
     def __init__(self, args, cwd, console, ask, finished):
@@ -410,7 +440,12 @@ class Run:
                 return text[start:]
             try:
                 question = json.loads(text[start + len(QUESTION_MARKER) : end])
-                self._ask(question["question"], question.get("choices"), self.answer)
+                self._ask(
+                    question["question"],
+                    question.get("choices"),
+                    self.answer,
+                    question.get("details"),
+                )
             except (ValueError, KeyError, TypeError):
                 # printed by something else, then
                 self.console.write(text[start : end + 1])
@@ -485,9 +520,11 @@ class App:
         self.console = Console(self._notify)
         self.view = "start"
         self.action = None
-        self.setup_form = default_setup_form()
+        self.setup_form = dict(default_setup_form(), out_dir=self.cwd)
         self.setup_error = None
         self.setup_arguments = None
+        # where the matchups and the report are saved
+        self.out_dir = self.cwd
         # the user's own observations, as the arguments of the calls to
         # register them
         self.own_data = {"point": [], "gridded": []}
@@ -505,6 +542,9 @@ class App:
         self.status = None
         self.returncode = None
         self.results_dir = None
+        # whether a matchup is still finding the files to ask about
+        self.identifying = False
+        self.matchups_rejected = False
         self._server = None
 
     # ---- state ----
@@ -558,6 +598,8 @@ class App:
                     ),
                     "report": report,
                     "report_exists": bool(report and os.path.exists(report)),
+                    "identifying": self.identifying,
+                    "rejected": self.matchups_rejected,
                 },
                 "console": (
                     self.console.since(after, epoch)
@@ -639,6 +681,7 @@ class App:
                 self._notify()
                 return 400, {"ok": False, "errors": errors}
             self.setup_error = None
+            self.out_dir = arguments.pop("out_dir")
             self.setup_arguments = arguments
             self.view = "own_data"
             self._notify()
@@ -765,7 +808,17 @@ class App:
         """Show the create_recipes window as the recipes step, and wait for
         it to be finished with (see recipes_gui.hosted_by)."""
         page.token = self.token
-        page.context["app"] = {"action": self.action}
+        page.context["app"] = {
+            "action": self.action,
+            # matchup needs a thickness for these, as for Vertical in the window
+            "own_vertical": any(
+                arguments.get("vertical")
+                for entries in self.own_data.values()
+                for arguments in entries
+            ),
+        }
+        # chosen in the simulation step; the directory worked in is matchup's default
+        page.form["out_dir"] = "" if self.out_dir == self.cwd else self.out_dir
         with self._lock:
             if self.closed.is_set():
                 return None
@@ -779,8 +832,8 @@ class App:
                 self.view = self._before_recipes()
                 self._notify()
                 return result
-            # the matchups, and the report, go where the settings say
-            self.results_dir = _path(result[2].get("out_dir") or ".", self.cwd)
+            # the matchups, and the report, go where the simulation step said
+            self.results_dir = self.out_dir
             self.units_choices = result
             # the page says they are being read until they have been
             self.units_rows = None
@@ -806,6 +859,8 @@ class App:
             self.units_choices = None
             self.view = "running"
             self.status = "starting"
+            # the script, once written, starts by finding the files
+            self.identifying = True
             self._notify()
         return result
 
@@ -901,13 +956,14 @@ class App:
         )
         return 200, {"ok": True}
 
-    def probe(self, simdir, ndown, out, exclude="", require=""):
+    def probe(self, simdir, ndown, out, exclude="", require="", out_dir=""):
         """What the simulation step says about the simulation as it is typed
         in: whether the directory is there, how many output files are ndown
         directories below it that pass the file filters (exclude and
         require, as words separated by spaces) - and how many there are
         without them - the years their names cover, and, if there are none
-        there at all, a depth that has some."""
+        there at all, a depth that has some. Also whether out_dir, where the
+        matchups are saved, is a directory, and has matchups already."""
         filters = {
             "exclude": exclude.split() or None,
             "require": require.split() or None,
@@ -923,6 +979,15 @@ class App:
         }
         found["out_exists"] = bool(out.strip()) and os.path.isfile(
             _path(out.strip(), self.cwd)
+        )
+        results = _path(out_dir.strip() or ".", self.cwd)
+        found["out_dir"] = (
+            "file"
+            if os.path.isfile(results)
+            else "found" if os.path.isdir(results) else "missing"
+        )
+        found["out_dir_has_matchups"] = os.path.isdir(
+            os.path.join(results, "oceanval_matchups")
         )
         if not simdir.strip():
             return found
@@ -1092,6 +1157,8 @@ class App:
             self.status = "running"
             self.returncode = None
             self.question = None
+            self.identifying = args[:1] == ["script"]
+            self.matchups_rejected = False
             self.view = "running"
             self._notify()
         # set apart from what create_recipes printed before it
@@ -1114,6 +1181,7 @@ class App:
                 self.status = "finished" if run.returncode == 0 else "failed"
             self.returncode = run.returncode
             self.question = None
+            self.identifying = False
             self.view = "finished"
             self._notify()
         self.console.note(
@@ -1134,19 +1202,21 @@ class App:
 
     # ---- questions ----
 
-    def _put_question(self, text, choices, respond):
+    def _put_question(self, text, choices, respond, details=None):
         with self._lock:
-            self.question = Question(text, choices, respond)
+            self.question = Question(text, choices, respond, details)
+            if self.question.matchups:
+                self.identifying = False
             self._notify()
         # as a terminal shows a question: at the end of the output, which the
         # answer then follows
         self.console.write(text)
         self.console.note("(answer this in the OceanVal window) ")
 
-    def _ask_in_window(self, text, choices):
+    def _ask_in_window(self, text, choices, details=None):
         """Ask a question in the page, for prompts.answered_by."""
         answers = queue.Queue()
-        self._put_question(text, choices, answers.put)
+        self._put_question(text, choices, answers.put, details)
         while True:
             try:
                 return answers.get(timeout=0.25)
@@ -1157,7 +1227,9 @@ class App:
                     )
 
     def answer(self, number, text):
-        """Answer the question numbered number, if it is still being asked."""
+        """Answer the question numbered number, if it is still being asked.
+        No to whether the matchups are right stops the run instead, as
+        there is then nothing for it to do."""
         # one line, as typed at a terminal
         text = str(text).replace("\r", " ").replace("\n", " ")
         with self._lock:
@@ -1165,10 +1237,24 @@ class App:
             if question is None or question.id != number:
                 return False
             self.question = None
+            rejected = question.matchups and text.strip().lower().startswith("n")
+            if rejected:
+                self.matchups_rejected = True
             self._notify()
         self.console.write(text + "\n")
+        if rejected and self.stop():
+            return True
         question.respond(text)
         return True
+
+    def question_files(self, number, pattern):
+        """The files the question numbered number lists for one file
+        pattern, or None if it is no longer being asked."""
+        with self._lock:
+            question = self.question
+        if question is None or question.id != number:
+            return None
+        return question.files(pattern)
 
     # ---- the server ----
 
@@ -1236,6 +1322,7 @@ class _Handler(recipes_gui._Handler):
             "/api/probe",
             "/api/browse",
             "/api/files",
+            "/api/question_files",
         ):
             self._reply(404, "Not found", "text/plain; charset=utf-8")
         elif not self.app.authorised(query.get("token", "")):
@@ -1273,6 +1360,16 @@ class _Handler(recipes_gui._Handler):
                     query.get("avoid", ""),
                 ),
             )
+        elif url.path == "/api/question_files":
+            files = self.app.question_files(
+                _number(query.get("id")), query.get("pattern", "")
+            )
+            if files is None:
+                self._reply_json(
+                    409, {"ok": False, "error": "That question has been answered."}
+                )
+            else:
+                self._reply_json(200, {"ok": True, "files": files})
         else:
             self._reply_json(
                 200,
@@ -1282,6 +1379,7 @@ class _Handler(recipes_gui._Handler):
                     query.get("out", ""),
                     query.get("exclude", ""),
                     query.get("require", ""),
+                    query.get("out_dir", ""),
                 ),
             )
 

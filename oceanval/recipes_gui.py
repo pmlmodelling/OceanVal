@@ -71,6 +71,12 @@ _TIME_RES = {",".join(value): list(value) for value, _, _ in POINT_TIME_RES_OPTI
 
 _LIMITS = ("lon_min", "lon_max", "lat_min", "lat_max")
 
+# why the oceanval app's window cannot carry on without a thickness
+THICKNESS_NEEDED = (
+    "A dataset is set to Vertical, so a thickness is needed: z_level, a cell "
+    "thickness variable or a file."
+)
+
 
 def default_settings(start, end):
     """What the Global settings start as: start and end as create_recipes was
@@ -702,6 +708,22 @@ class RecipePage:
                             kind_errors.setdefault(variable, {})[recipe] = problems
                         elif any(value is not None for value in options.values()):
                             chosen_options[(variable, recipe)] = options
+
+            app = self.context.get("app")
+            if app:
+                # the app answers matchup's questions in its window
+                settings["ask"] = True
+                vertical = app.get("own_vertical") or any(
+                    options.get("vertical")
+                    for options in [*gridded_options.values(), *point_options.values()]
+                )
+                if (
+                    vertical
+                    and not self.context.get("fvcom")
+                    and settings["thickness"] is None
+                    and "thickness" not in setting_errors
+                ):
+                    setting_errors["thickness"] = THICKNESS_NEEDED
 
             if errors or setting_errors or point_errors or gridded_errors:
                 return 400, {

@@ -359,6 +359,25 @@ random_files = []
 raw_options = []
 
 
+def _files_found(sim_dir, patterns, exclude, require, strict_names):
+    """The model output files matchup reads for each file pattern: those
+    matching it that the file filters keep, sorted."""
+    final_extension = extension_of_directory(sim_dir)
+    found = dict()
+    for pattern in patterns:
+        paths = glob.glob(sim_dir + final_extension + pattern)
+        if require is not None:
+            for req in require:
+                paths = [x for x in paths if f"{req}" in os.path.basename(x)]
+        for exc in exclude:
+            paths = [x for x in paths if f"{exc}" not in os.path.basename(x)]
+        if strict_names:
+            len_example = len(os.path.basename(example_files[pattern]))
+            paths = [x for x in paths if len(os.path.basename(x)) == len_example]
+        found[pattern] = sorted(x for x in paths if "restart" not in x)
+    return found
+
+
 def extract_variable_mapping(folder, exclude=[], n_check=None):
     """
     Find paths to netCDF files
@@ -1109,16 +1128,47 @@ def matchup(
 
     print(all_df_print.to_string(index=False))
 
+    chosen = all_df.query("variable in @var_chosen").dropna()
+    files = _files_found(
+        sim_dir, sorted(set(chosen.pattern)), exclude, session_info["require"], strict_names
+    )
+    observations = dict()
+    for vv, source in gridded:
+        observations.setdefault(vv, []).append(source)
+    for vv, source in point["all"] + point["surface"]:
+        observations.setdefault(vv, []).append(f"{source} (point)")
+    # what the oceanval window shows in place of the table printed above
+    details = {
+        "kind": "matchups",
+        "sim_dir": sim_dir,
+        "years": [sim_start, sim_end],
+        "rows": [
+            {
+                "variable": row.variable,
+                "title": definitions[row.variable].short_title,
+                "model_variable": row.model_variable,
+                "pattern": row.pattern,
+                "observations": observations.get(row.variable, []),
+                "files": len(files[row.pattern]),
+            }
+            for row in chosen.itertuples()
+        ],
+        "files": {
+            pattern: [os.path.relpath(path, sim_dir) for path in paths]
+            for pattern, paths in files.items()
+        },
+    }
+
     question = "Are you happy with these matchups? (y/n) "
     if ask:
-        x = prompts.ask(question, ("y", "n"))
+        x = prompts.ask(question, ("y", "n"), details=details)
     else:
         print("Are you happy with these matchups? Y/N")
         x = "y"
 
     if x.lower() not in ["y", "n"]:
         print("Provide Y or N")
-        x = prompts.ask(question, ("y", "n"))
+        x = prompts.ask(question, ("y", "n"), details=details)
 
     if x.lower() == "n":
         print("Please adjust your variable names and try again")
@@ -1155,18 +1205,8 @@ def matchup(
     print("*************************************")
     for pattern in patterns:
         print(f"Indexing file time information for {pattern} files")
-        final_extension = extension_of_directory(sim_dir)
-        ensemble = glob.glob(sim_dir + final_extension + pattern)
-        # handle required
-        if session_info["require"] is not None:
-            for req in session_info["require"]:
-                ensemble = [x for x in ensemble if f"{req}" in os.path.basename(x)]
-        for exc in exclude:
-            ensemble = [x for x in ensemble if f"{exc}" not in os.path.basename(x)]
-        # find length of example file
-        if strict_names:
-            len_example = len(os.path.basename(example_files[pattern]))
-            ensemble = [x for x in ensemble if len(os.path.basename(x)) == len_example]
+        # the files listed with the question
+        ensemble = files[pattern]
 
         if not fvcom:
             try:

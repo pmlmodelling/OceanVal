@@ -270,7 +270,7 @@
     50% { opacity: 0.35; transform: scale(0.7); }
   }
   @media (prefers-reduced-motion: reduce) {
-    .status__dot { animation: none !important; }
+    .status__dot, .identify__spinner { animation: none !important; }
     .choice { transition: none; }
   }
   .console-wrap { position: relative; }
@@ -328,6 +328,33 @@
   .btn--danger { border-color: var(--red); background: var(--red); color: #fff; }
   .btn--danger:hover { background: #a93226; }
 
+  /* ---- finding the files, and the matchups to check before matching up ---- */
+  .identify { display: flex; gap: 20px; align-items: center; margin: 0 0 18px; padding: 26px 28px; border: 2px solid var(--teal-200); background: var(--teal-50); }
+  .identify__spinner { flex: none; width: 40px; height: 40px; border: 4px solid var(--teal-200); border-top-color: var(--teal-600); border-radius: 50%; animation: spin 0.9s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .identify__title { margin: 0 0 4px; color: var(--teal-900); font: 600 26px/1.25 var(--font-head); letter-spacing: -0.3px; }
+  .identify__text { margin: 0; color: var(--ink-soft); font-size: 14.5px; }
+  .review { margin: 0 0 18px; overflow: hidden; }
+  .review__head { padding: 22px 24px 0; }
+  .review__title { margin: 0 0 6px; font: 600 22px/1.3 var(--font-head); letter-spacing: -0.2px; }
+  .review__title:focus { outline: none; }
+  .review__lede { margin: 0; color: var(--muted); }
+  .review__lede code { color: var(--ink); font-size: 13px; overflow-wrap: anywhere; }
+  .review__time-note { display: flex; gap: 8px; align-items: flex-start; margin: 14px 24px 0; padding: 10px 12px; border: 1px solid #f3d5c8; border-radius: 8px; background: #fff8f4; color: var(--coral-dark); font-size: 13.5px; font-weight: 500; line-height: 1.45; }
+  .review__table { overflow-x: auto; margin-top: 16px; border-top: 1px solid var(--line); }
+  .review table { width: 100%; min-width: 760px; table-layout: fixed; border-collapse: collapse; font-size: 14px; }
+  .review th, .review td { padding: 12px 16px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
+  .review th { background: var(--bg-alt); color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap; }
+  .review th:first-child, .review td:first-child { padding-left: 24px; }
+  .review .is-mono { font: 500 13px/20px var(--font-mono); overflow-wrap: anywhere; }
+  .review td small { display: block; color: var(--muted); font-size: 12.5px; }
+  .review__files { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-top: 4px; }
+  .review__files small { display: inline; }
+  .review__actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; padding: 18px 24px 22px; }
+  .files__notice { display: flex; gap: 8px; align-items: flex-start; margin: 0 22px; padding: 10px 12px; border: 1px solid #f3d5c8; border-radius: 10px; background: #fff8f4; color: var(--coral-dark); font-size: 13.5px; font-weight: 500; line-height: 1.45; }
+  .picker__info code { overflow-wrap: anywhere; }
+  #files-intro { margin-bottom: 10px; }
+
   @media (max-width: 1000px) {
     .choices { grid-template-columns: 1fr; }
     .choice { min-height: 0; }
@@ -336,7 +363,7 @@
     .picker { padding: 10px; }
     .picker__card { max-height: calc(100vh - 20px); }
     .picker__head, .picker__crumbs, .picker__foot { padding-left: 16px; padding-right: 16px; }
-    .picker__filter, .picker__list, .picker__info { margin-left: 16px; margin-right: 16px; }
+    .picker__filter, .picker__list, .picker__info, .files__notice { margin-left: 16px; margin-right: 16px; }
     .form { grid-template-columns: 1fr; padding: 20px 16px 22px; }
     .form__row, .form__row.is-pair { grid-template-columns: 1fr; }
     .form__row > .g-row + .g-row { margin-top: 10px; }
@@ -439,6 +466,11 @@
         <p class="group__msg" id="m-years"></p>
       </fieldset>
       <fieldset class="group form__wide">
+        <legend>Output</legend>
+        <div class="g-row"><label class="g-label" for="f-out_dir" id="f-out_dir-label">Where do you want matchups and validation output to be saved?</label><div class="path-field"><input class="s-input is-mono" id="f-out_dir" list="f-out_dir-folders" spellcheck="false" autocapitalize="off"><button type="button" class="btn btn--ghost btn--field" data-browse="f-out_dir">Browse…</button></div><datalist id="f-out_dir-folders"></datalist></div>
+        <p class="group__msg" id="m-out_dir"></p>
+      </fieldset>
+      <fieldset class="group form__wide">
         <legend>Matchup script</legend>
         <p class="group__intro">This is created to produce a fully reproducible version of this validation that can be run from the command line. You will not need to run this, and the file is saved for completeness.</p>
         <label class="g-row"><span class="g-label">Write the script to</span><input class="s-input is-mono" id="f-out" spellcheck="false" autocapitalize="off"></label>
@@ -468,8 +500,8 @@
   <section id="view-gridded" hidden data-own="gridded"></section>
 
   <section id="view-units-table" hidden>
-    <p class="lede">A model and its observations can report the same quantity in different units, for example nutrients in mmol/m3 against µmol/kg, and OceanVal compares the values as they are. So it has checked the units of each matchup, and filled in a conversion where they differ: the observations become <strong>observations × multiply by + add</strong> before they are compared with the model.</p>
-    <p class="lede">The model's units are read from its netCDF files, and the observations' from OceanVal's recipes (as on the recipes page of the documentation) or from the netCDF file you supplied. Check the conversions OceanVal filled in, which are <strong class="oceanval-change">in red and bold</strong>, and fill in any it could not work out. Leave the boxes empty where no conversion is needed. The units always have to be confirmed, at the bottom of the page, before the matchup starts.</p>
+    <p class="lede">A model and its observations can report the same quantity in different units, for example nutrients in mmol/m3 against µmol/kg, and OceanVal compares the values as they are. So OceanVal has compared the units of each matchup. Where it thinks they are the same, it has left the boxes empty, and where it thinks they differ, it has suggested a conversion: the observations become <strong>observations × multiply by + add</strong> before they are compared with the model.</p>
+    <p class="lede">The model's units are read from its netCDF files, and the observations' from OceanVal's recipes (as on the recipes page of the documentation) or from the netCDF file you supplied. OceanVal can get this wrong, so check every row, not only the conversions it suggests, which are <strong class="oceanval-change">in red and bold</strong>, and fill in any it could not work out. Leave the boxes empty where you agree that no conversion is needed. The units always have to be confirmed, at the bottom of the page, before the matchup starts.</p>
     <p class="group__msg units-reading" id="units-reading" hidden>Reading the model's units from the simulation…</p>
     <section class="units-section" id="units-section-gridded" aria-labelledby="units-title-gridded">
       <h2 class="section-title" id="units-title-gridded">Gridded datasets</h2>
@@ -565,6 +597,28 @@
 
   <section id="view-run" hidden>
     <div class="result card" id="result" hidden></div>
+    <div class="identify card" id="identify" role="status" hidden>
+      <span class="identify__spinner" aria-hidden="true"></span>
+      <div>
+        <h2 class="identify__title">Identifying files that meet criteria. Please wait!</h2>
+        <p class="identify__text">OceanVal is finding the model output files that hold each variable. It then shows you what it found, to check before anything is matched up.</p>
+      </div>
+    </div>
+    <section class="review card" id="review" aria-labelledby="review-title" hidden>
+      <div class="review__head">
+        <h2 class="review__title" id="review-title" tabindex="-1">Are you happy with these matchups?</h2>
+        <p class="review__lede" id="review-lede"></p>
+      </div>
+      <p class="review__time-note" id="review-time-note"></p>
+      <div class="review__table"><table>
+        <colgroup><col style="width:20%"><col style="width:24%"><col style="width:18%"><col style="width:38%"></colgroup>
+        <thead><tr>
+        <th scope="col">Variable</th><th scope="col">Model variable</th><th scope="col">Observations</th><th scope="col">Files</th>
+        </tr></thead>
+        <tbody id="review-body"></tbody>
+      </table></div>
+      <div class="review__actions" id="review-actions"></div>
+    </section>
     <div class="run card">
       <div class="run__head">
         <span class="status" id="status"><span class="status__dot" aria-hidden="true"></span><span id="status-text"></span></span>
@@ -633,6 +687,20 @@
     <div class="picker__foot">
       <button type="button" class="btn btn--ghost" id="sample-another">Show another directory</button>
       <button type="button" class="btn btn--primary" id="sample-close">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="picker" id="files" hidden>
+  <div class="picker__card" role="dialog" aria-modal="true" aria-labelledby="files-title">
+    <div class="picker__head">
+      <h2 id="files-title"></h2>
+    </div>
+    <p class="files__notice" id="files-notice"></p>
+    <p class="picker__info" id="files-intro"></p>
+    <div class="picker__list" id="files-list" tabindex="-1" aria-label="Files"></div>
+    <div class="picker__foot">
+      <button type="button" class="btn btn--primary" id="files-close">Close</button>
     </div>
   </div>
 </div>
@@ -875,9 +943,9 @@
     global: "World Ocean Atlas 2023, Ocean Colour CCI, GLODAP and COBE-SST 2 start ticked.",
     nwes: "The North Sea Biogeochemical Climatology and ICES in-situ observations start ticked.",
   };
-  const SETUP_FIELDS = ["simdir", "ndown", "exclude", "require", "start", "end", "out"];
+  const SETUP_FIELDS = ["simdir", "ndown", "exclude", "require", "start", "end", "out_dir", "out"];
   // the boxes the live check depends on
-  const PROBED = new Set(["simdir", "ndown", "exclude", "require", "out"]);
+  const PROBED = new Set(["simdir", "ndown", "exclude", "require", "out_dir", "out"]);
   const setup = {};
   let setupErrors = {};
   let probe = null;
@@ -898,6 +966,10 @@
     Object.assign(setup, state.setup.form);
     for (const name of SETUP_FIELDS) $(`f-${name}`).value = setup[name];
     segmented.querySelectorAll("input").forEach((input) => { input.checked = input.value === setup.domain; });
+    $("f-out_dir").placeholder = state.cwd;
+    $("f-out_dir-label").textContent = state.action === "matchup"
+      ? "Where do you want matchups to be saved?"
+      : "Where do you want matchups and validation output to be saved?";
     setupErrors = {};
     autoDepth = autoYears = false;
     probe = null;
@@ -924,6 +996,7 @@
       try {
         const response = await fetch(`api/probe?${query({
           simdir: setup.simdir, ndown: setup.ndown, out: setup.out, exclude: setup.exclude, require: setup.require,
+          out_dir: setup.out_dir,
         })}`, { cache: "no-store" });
         found = await response.json();
       } catch (error) {
@@ -969,6 +1042,7 @@
       if (!isInteger(setup[name])) errors[name] = errors[name] || (text(name) ? `${name === "start" ? "Start" : "End"} must be a year, e.g. 2011.` : "");
     }
     if (!errors.start && !errors.end && +setup.end < +setup.start) errors.end = "End must not be before start.";
+    if (!errors.out_dir && probe && probe.out_dir === "file") errors.out_dir = "This is a file, not a directory.";
     if (!text("out")) errors.out = errors.out || "";
     return errors;
   }
@@ -1039,6 +1113,20 @@
       message("m-years", [line(autoYears
         ? "Filled in from the file names. They can be changed in the next step too."
         : "The first and last years to match up. They can be changed in the next step too.")]);
+    }
+
+    if (errors.out_dir) {
+      message("m-out_dir", [line(errors.out_dir, "error")], true);
+    } else {
+      const saved = state.action === "matchup"
+        ? "The matchups are saved in oceanval_matchups, inside this directory."
+        : "The matchups are saved in oceanval_matchups, and the report in oceanval_report, inside this directory.";
+      const lines = [line(String(setup.out_dir).trim() ? saved : `${saved} Empty: the directory you started oceanval in.`)];
+      if (probe && probe.out_dir === "missing") lines.push(line("It does not exist yet, so OceanVal will create it."));
+      if (probe && probe.out_dir_has_matchups) {
+        lines.push(line("There are matchups here already, from an earlier run. Choose another directory to keep them apart.", "warn"));
+      }
+      message("m-out_dir", lines);
     }
 
     if (errors.out) message("m-out", [line(errors.out, "error")], true);
@@ -1339,7 +1427,8 @@
         && (check.multiplier !== row.obs_multiplier || check.adder !== row.obs_adder)) {
       return line(`OceanVal would multiply by ${check.multiplier} and add ${check.adder}, but the conversion you gave is kept.`, "ok");
     }
-    return line(check.note, check.status === "unknown" ? "warn" : "ok");
+    // what OceanVal thinks are the same units is a suggestion, so it gets no tick
+    return line(check.note, { unknown: "warn", same: "" }[check.status] ?? "ok");
   }
 
   function unitsRow(row) {
@@ -1438,6 +1527,12 @@
       describe: (listing) => listing.nc_files
         ? [`${listing.nc_files} netCDF file${listing.nc_files === 1 ? "" : "s"} directly in here, e.g. ${listing.example}.`, "ok"]
         : ["No netCDF files directly in here, which is fine if they are in folders below it.", ""],
+    },
+    "f-out_dir": {
+      title: "Choose where to save the output",
+      describe: (listing) => listing.has_matchups
+        ? ["There are matchups here already, from an earlier run.", "warn"]
+        : ["The matchups are saved in oceanval_matchups, inside it.", ""],
     },
     "v-data_dir": {
       title: "Choose the directory the matchups were made in",
@@ -1767,6 +1862,7 @@
     $("status-text").textContent = text;
     $("run-label").textContent = state.view === "preparing" ? "create_recipes(...)" : run.label || "";
     $("run-label").title = $("run-label").textContent;
+    $("identify").hidden = !(state.view === "running" && run.identifying && !state.question);
     renderQuestion();
     renderResult();
     document.title = (state.question ? "Question · " : "") + "OceanVal";
@@ -1792,6 +1888,11 @@
       heading = run.report_exists ? "The validation report is ready" : "The run has finished";
       text = run.report_exists ? "It opens in your web browser, where one can be opened. It is here:" : "The output above says what was made.";
       path = run.report_exists ? run.report : null;
+    } else if (run.status === "stopped" && run.rejected) {
+      heading = "The run was stopped";
+      text = `You said the matchups were not right, so nothing was ${state.action === "matchup" ? "matched up" : "matched up or validated"}. Start again to change the model variables or the file filters.`;
+      picture = "cross";
+      tone = " is-off";
     } else if (run.status === "stopped") {
       heading = "The run was stopped";
       text = "Anything it had not finished was left undone.";
@@ -1819,11 +1920,21 @@
     const box = $("ask");
     if (!question) {
       box.hidden = true;
+      $("review").hidden = true;
+      closeFiles();
       shownQuestion = null;
       return;
     }
     if (shownQuestion === question.id) return;
     shownQuestion = question.id;
+    closeFiles();
+    if (question.details && question.details.kind === "matchups") {
+      // a table above the output, with its own answers, rather than at its foot
+      box.hidden = true;
+      renderReview(question);
+      return;
+    }
+    $("review").hidden = true;
     let text = question.text.trim();
     // the buttons say it
     if (question.choices) text = text.replace(/\s*\(?\b[yY]\s*\/\s*[nN]\b\)?\s*:?$/, "");
@@ -1850,10 +1961,93 @@
   }
 
   async function send(id, text) {
-    $("ask-answer").querySelectorAll("input, button").forEach((control) => { control.disabled = true; });
+    document.querySelectorAll("#ask-answer input, #ask-answer button, #review-actions button")
+      .forEach((control) => { control.disabled = true; });
     const reply = await post("api/answer", { id, answer: text });
     if (!reply.ok) toast("That question has been answered already.");
   }
+
+  // ---- the matchups matchup asks about: each variable, and the files it is in ----
+  function renderReview(question) {
+    const details = question.details;
+    $("review-lede").replaceChildren(
+      "OceanVal found these model variables, and the files that hold them, in ",
+      el("code", { text: details.sim_dir }),
+      `. Check them before anything is ${state.action === "matchup" ? "matched up" : "matched up or validated"}.`);
+    $("review-time-note").replaceChildren(icon("warn"), el("span", {
+      text: "Temporal subsetting will be applied to the files listed below, based on the time criteria you provided on the previous pages. Any year limits set for an individual dataset will also apply.",
+    }));
+    $("review-body").replaceChildren(...details.rows.map((row) => el("tr", { "data-variable": row.variable },
+      el("td", {}, el("strong", { text: row.title }),
+        row.title.toLowerCase() === row.variable ? null : el("small", { class: "is-mono", text: row.variable })),
+      el("td", {}, el("span", { class: "is-mono", text: row.model_variable })),
+      el("td", { text: row.observations.join(", ") || "—" }),
+      el("td", {}, el("span", { class: "is-mono", text: row.pattern }),
+        el("div", { class: "review__files" },
+          el("small", { text: plural(row.files, "file") }),
+          button("List all files", "text", () => openFiles(question, row),
+            { class: "btn btn--text btn--small", "aria-haspopup": "dialog", "aria-label": `List all files for ${row.title}` }))))));
+    $("review-actions").replaceChildren(
+      button("No, stop the run", "ghost", () => send(question.id, "n")),
+      button("Yes, carry on", "primary", () => send(question.id, "y")));
+    $("review").hidden = false;
+    $("review").scrollIntoView({ block: "start" });
+    $("review-title").focus({ preventScroll: true });
+  }
+
+  const filesDialog = { opener: null, number: 0 };
+
+  async function openFiles(question, row) {
+    filesDialog.opener = document.activeElement;
+    const number = ++filesDialog.number;
+    const [start, end] = question.details.years;
+    const years = start === end ? `in ${start}` : `from ${start} to ${end}`;
+    $("files-title").textContent = `${row.title}: all files`;
+    $("files-notice").replaceChildren(icon("warn"), el("span", {
+      text: `Temporal subsetting will be applied to these files by OceanVal: only their times ${years}, or the years a dataset was given, are matched up.`,
+    }));
+    $("files-intro").replaceChildren(el("span", {}, `${plural(row.files, "file")} in `,
+      el("code", { text: question.details.sim_dir }), ` ${row.files === 1 ? "matches" : "match"} `,
+      el("code", { text: row.pattern }), "."));
+    $("files-list").replaceChildren(el("p", { class: "picker__empty", text: "Loading…" }));
+    $("files").hidden = false;
+    BEHIND.forEach((node) => { node.inert = true; });
+    $("files-close").focus();
+    let reply;
+    try {
+      const response = await fetch(`api/question_files?${query({ id: question.id, pattern: row.pattern })}`, { cache: "no-store" });
+      reply = await response.json();
+    } catch (error) {
+      return;
+    }
+    // closed, or another list asked for since
+    if (number !== filesDialog.number || $("files").hidden) return;
+    if (!reply.ok) {
+      $("files-list").replaceChildren(el("p", { class: "picker__empty", text: "The question has been answered, so the files are no longer listed." }));
+    } else if (!reply.files.length) {
+      $("files-list").replaceChildren(el("p", { class: "picker__empty", text: "No files match this pattern." }));
+    } else {
+      $("files-list").replaceChildren(...reply.files.map((name) => el("p", { class: "picker__file", text: name })));
+    }
+    $("files-list").scrollTop = 0;
+  }
+
+  function closeFiles() {
+    if ($("files").hidden) return;
+    $("files").hidden = true;
+    BEHIND.forEach((node) => { node.inert = false; });
+    filesDialog.number += 1;
+    if (filesDialog.opener && document.contains(filesDialog.opener)) filesDialog.opener.focus();
+  }
+
+  $("files-close").addEventListener("click", closeFiles);
+  $("files").addEventListener("click", (event) => { if (event.target === $("files")) closeFiles(); });
+  $("files").addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeFiles();
+    }
+  });
 
   // ---- keeping up with oceanval ----
   let version = null;

@@ -1,8 +1,12 @@
 import oceanval 
+import glob
 import os
 import pytest
 import tempfile
 import shutil
+
+from oceanval import matchall, prompts
+from oceanval.session import session_info
 
 
 class TestMatchup:
@@ -319,3 +323,79 @@ class TestMatchup:
                             
         
     shutil.rmtree("oceanval_matchups", ignore_errors=True)
+
+
+class TestMatchupsQuestion:
+    """What matchup sends with its question of whether the matchups are right,
+    for the oceanval window to show as a table."""
+
+    def test_the_files_matchup_reads(self, tmp_path, monkeypatch):
+        names = [
+            "2011/x_2011_grid_T.nc",
+            "2012/x_2012_grid_T.nc",
+            # a longer name than the example's, a skipped word, and a restart directory
+            "2012/x_20121_grid_T.nc",
+            "2012/x_2012_bad_grid_T.nc",
+            "restart/x_2013_grid_T.nc",
+            "2012/y_2012_grid_T.nc",
+        ]
+        for name in names:
+            (tmp_path / name).parent.mkdir(exist_ok=True)
+            (tmp_path / name).write_text("")
+        pattern = "x_**_grid_T.nc"
+        monkeypatch.setitem(session_info, "levels_down", 1)
+        monkeypatch.setitem(matchall.example_files, pattern, str(tmp_path / names[0]))
+
+        found = matchall._files_found(str(tmp_path), [pattern], ["bad"], ["grid_T"], True)
+        assert found == {pattern: [str(tmp_path / names[0]), str(tmp_path / names[1])]}
+        found = matchall._files_found(str(tmp_path), [pattern], ["bad"], ["nothing"], False)
+        assert found == {pattern: []}
+
+    def test_each_variable_and_its_files_go_with_the_question(self, tmp_path):
+        oceanval.reset()
+        oceanval.add_gridded_comparison(
+            name="temperature",
+            obs_path="data/evaldata/gridded/nws/temperature",
+            source="foo",
+            model_variable="votemper",
+            obs_variable="votemper",
+            climatology=True,
+        )
+        asked = []
+
+        def answerer(question, choices, details):
+            asked.append((question, choices, details))
+            return "n"
+
+        with prompts.answered_by(answerer):
+            result = oceanval.matchup(
+                sim_dir="data/example", start=2004, end=2004, cores=1, out_dir=str(tmp_path)
+            )
+
+        assert result is None
+        [(question, choices, details)] = asked
+        assert (question, choices) == ("Are you happy with these matchups? (y/n) ", ("y", "n"))
+        sim_dir = os.path.abspath("data/example")
+        files = sorted(
+            os.path.relpath(path, sim_dir)
+            for path in glob.glob(os.path.join(sim_dir, "*", "*", "*_grid_T.nc"))
+        )
+        pattern = "amm7_1d_**_**_grid_T.nc"
+        assert (details["kind"], details["sim_dir"], details["years"]) == (
+            "matchups",
+            sim_dir,
+            [2004, 2004],
+        )
+        assert details["rows"] == [
+            {
+                "variable": "temperature",
+                "title": "Temperature",
+                "model_variable": "votemper",
+                "pattern": pattern,
+                "observations": ["foo"],
+                "files": len(files),
+            }
+        ]
+        assert details["files"] == {pattern: files}
+        # no is not a matchup
+        assert not os.path.exists(tmp_path / "oceanval_matchups" / "mapping.csv")

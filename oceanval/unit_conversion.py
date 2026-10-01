@@ -323,7 +323,7 @@ def _missing(units):
     return units is None or not str(units).strip()
 
 
-def same(note="The same units, so no conversion is needed."):
+def same(note="OceanVal thinks these are the same units, so no conversion should be needed."):
     return {"status": "same", "multiplier": 1, "adder": 0, "note": note}
 
 
@@ -348,7 +348,7 @@ def _converted(multiplier, adder, assumed=()):
         "oxygen": f"a millilitre of oxygen as {OXYGEN_UMOL_PER_ML} µmol",
         "equivalents": "an equivalent of alkalinity as a mole",
     }
-    note = "Converted by OceanVal"
+    note = "Suggested by OceanVal"
     if assumed:
         note += ", taking " + " and ".join(assumptions[name] for name in sorted(assumed))
     return {
@@ -377,7 +377,7 @@ def suggest(variable, obs_units, model_units):
 
 def _suggest(variable, obs_units, model_units):
     if variable == "ph":
-        return same("pH has no units, so no conversion is needed.")
+        return same("pH has no units, so OceanVal thinks no conversion is needed.")
     if _missing(obs_units):
         return unknown("the observations' units are not known")
     if _missing(model_units):
@@ -386,8 +386,8 @@ def _suggest(variable, obs_units, model_units):
     if variable == "salinity":
         if _words(obs_units) in _SALINITY and _words(model_units) in _SALINITY:
             return same(
-                "Salinity is on the same scale in these units, so no "
-                "conversion is needed."
+                "OceanVal thinks salinity is on the same scale in these units, "
+                "so no conversion should be needed."
             )
         return unknown("OceanVal does not recognise these units of salinity")
 

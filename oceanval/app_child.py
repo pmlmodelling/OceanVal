@@ -18,12 +18,15 @@ import webbrowser
 QUESTION_MARKER = "\x1eoceanval-question "
 
 
-def _ask_the_window(question, choices):
+def _ask_the_window(question, choices, details=None):
     # whatever was printed before the question belongs above it
     sys.stdout.flush()
     sys.stderr.flush()
+    asked = {"question": question, "choices": choices}
+    if details is not None:
+        asked["details"] = details
     out = sys.__stdout__
-    out.write(QUESTION_MARKER + json.dumps({"question": question, "choices": choices}))
+    out.write(QUESTION_MARKER + json.dumps(asked))
     out.write("\n")
     out.flush()
     answer = sys.stdin.readline()

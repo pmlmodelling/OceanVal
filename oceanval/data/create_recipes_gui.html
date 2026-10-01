@@ -140,6 +140,8 @@
   }
   .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
   .settings__ticks { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px 24px; padding: 0 22px 20px; }
+  /* a box's own hint, between it and the next box */
+  .group__msg + .g-row { margin-top: 10px; }
 
   /* a dataset's own options, under its tick-box: as wide as the point
      column, so the gridded ones line up with the point ones */
@@ -232,7 +234,7 @@
           </div>
           <p class="group__msg" id="g-subset"></p>
         </fieldset>
-        <fieldset class="group">
+        <fieldset class="group" id="group-output">
           <legend>Output</legend>
           <label class="g-row"><span class="g-label">Directory</span><input class="s-input is-mono" id="s-out_dir" placeholder="Where you run the script" spellcheck="false" autocomplete="off" autocapitalize="off"></label>
           <p class="group__msg" id="g-output"></p>
@@ -240,6 +242,7 @@
         <fieldset class="group">
           <legend>Model data</legend>
           <label class="g-row"><span class="g-label">Thickness</span><input class="s-input is-mono" id="s-thickness" list="thickness-options" spellcheck="false" autocomplete="off" autocapitalize="off"></label>
+          <p class="group__msg" id="g-thickness"></p>
           <div class="g-row">
             <span class="g-label">Treat as missing</span>
             <div class="span-row">
@@ -248,7 +251,7 @@
               <input class="s-input is-num" id="s-missing_to" placeholder="to" aria-label="Treat as missing: the end of a range" spellcheck="false" autocomplete="off" autocapitalize="off">
             </div>
           </div>
-          <p class="group__msg" id="g-model"></p>
+          <p class="group__msg" id="g-missing"></p>
         </fieldset>
         <fieldset class="group">
           <legend>Point data</legend>
@@ -360,6 +363,9 @@
     OceanValGUI.steps($("steps"), OceanValGUI.STEPS[app.action], 3);
     // chosen with the simulation, in the step before
     $("group-files").hidden = true;
+    $("group-output").hidden = true;
+    // the app answers matchup's questions in its window, so it always asks them
+    $("s-ask").closest("label").hidden = true;
     $("page-title").textContent = app.action === "matchup"
       ? "Choose what to match up"
       : "Choose what to match up and validate";
@@ -416,7 +422,8 @@
     years: ["start", "end"],
     subset: ["lon_min", "lon_max", "lat_min", "lat_max"],
     output: ["out_dir", "overwrite"],
-    model: ["thickness", "missing_from", "missing_to"],
+    thickness: ["thickness"],
+    missing: ["missing_from", "missing_to"],
     point: ["point_time_res"],
     matchup: ["cores", "ask"],
     files: ["exclude", "require"],
@@ -481,6 +488,11 @@
   const woa23Period = (years) =>
     state.woa23_periods.find(([first, last]) => years[0] >= first && years[1] <= last);
   const hasOwnYears = (dataset) => ["start", "end"].some((name) => String(dataset.opts[name]).trim());
+  // matchup needs a thickness to validate anything through the water column
+  const needsThickness = () => !context.fvcom && (Boolean(app && app.own_vertical)
+    || rows.some((row) => row.status === "ok" && row.datasets.some(
+      (dataset) => dataset.checked && dataset.opts.vertical)));
+  const THICKNESS_NEEDED = "A dataset is set to Vertical, so a thickness is needed: z_level, a cell thickness variable or a file.";
 
   // the same rules create_recipes applies, so most problems show as you type
   function settingErrors() {
@@ -512,6 +524,8 @@
     if (thickness && !context.fvcom && !/^z[ _-]level$/.test(thickness)
         && !available.has(thickness) && !/[\/~.]/.test(thickness)) {
       errors.thickness = "Not a variable in the model output, or a file that exists.";
+    } else if (!thickness && app && needsThickness()) {
+      errors.thickness = THICKNESS_NEEDED;
     }
 
     const low = String(form.missing_from).trim();
@@ -565,23 +579,26 @@
           + (context.fvcom ? "Empty: the extent of the FVCOM mesh." : "Empty: the whole domain.") }];
       case "output":
         return [{ text: "Empty: the directory you run the script from. The report is built there too." }];
-      case "model": {
+      case "thickness": {
         const hints = [{ text: context.fvcom
-          ? "FVCOM output is regridded onto z-levels, so no thickness is needed. Treat as missing: one value, or everything in a range."
-          : "Thickness: z_level, a cell thickness variable or a file, only used by recipes with vertical=True. Treat as missing: one value, or everything in a range." }];
-        const vertical = rows.some((row) => row.status === "ok" && row.datasets.some(
-          (dataset) => dataset.checked && dataset.opts.vertical));
-        if (vertical && !context.fvcom && !String(form.thickness).trim()) {
+          ? "FVCOM output is regridded onto z-levels, so no thickness is needed."
+          : "Thickness: z_level, a cell thickness variable or a file, only used by recipes with vertical=True." }];
+        // in the app, a missing thickness is an error instead
+        if (!app && needsThickness() && !String(form.thickness).trim()) {
           hints.push({ text: "A dataset is set to Vertical, so matchup needs a thickness.", warn: true });
         }
         return hints;
       }
+      case "missing":
+        return [{ text: "Treat as missing: one value, or everything in a range." }];
       case "point": {
         const option = timeRes.get(form.point_time_res);
         return [{ text: `${option ? option.hint + ". " : ""}Each point dataset below can override this.` }];
       }
       case "matchup":
-        return [{ text: `This machine has ${state.cpu_count} cores. Untick Ask to run the script as a batch job, e.g. with SLURM.` }];
+        return [{ text: app
+          ? `This machine has ${state.cpu_count} cores.`
+          : `This machine has ${state.cpu_count} cores. Untick Ask to run the script as a batch job, e.g. with SLURM.` }];
       case "files":
         return [{ text: "Only file names are checked, not directories." }];
       default:

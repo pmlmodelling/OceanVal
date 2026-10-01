@@ -37,7 +37,26 @@ SETUP_FORM = {
     "end": "2012",
     "exclude": "",
     "require": "",
+    "out_dir": "",
     "out": "matchup.py",
+}
+
+# what matchup sends with its question of whether the matchups are right
+MATCHUPS = {
+    "kind": "matchups",
+    "sim_dir": "/sim",
+    "years": [2011, 2012],
+    "rows": [
+        {
+            "variable": "temperature",
+            "title": "Temperature",
+            "model_variable": "thetao",
+            "pattern": "x_**_grid_T.nc",
+            "observations": ["COBE2", "ICES (point)"],
+            "files": 2,
+        }
+    ],
+    "files": {"x_**_grid_T.nc": ["2011/x_2011_grid_T.nc", "2012/x_2012_grid_T.nc"]},
 }
 
 
@@ -94,16 +113,24 @@ class TestQuestions:
     def test_an_answerer_takes_the_questions(self):
         asked = []
 
-        def answerer(question, choices):
-            asked.append((question, choices))
+        def answerer(question, choices, details):
+            asked.append((question, choices, details))
             return "y"
 
         with prompts.answered_by(answerer):
             assert prompts.interactive()
             assert prompts.ask("Go? ", ["y", "n"]) == "y"
-        assert asked == [("Go? ", ("y", "n"))]
+            assert prompts.ask("These? ", ["y", "n"], details={"kind": "x"}) == "y"
+        assert asked == [
+            ("Go? ", ("y", "n"), None),
+            ("These? ", ("y", "n"), {"kind": "x"}),
+        ]
         # and afterwards the terminal is asked again
         assert prompts._answerer is None
+
+    def test_a_terminal_is_not_shown_the_details(self, monkeypatch):
+        monkeypatch.setattr("builtins.input", lambda question: question)
+        assert prompts.ask("Go? ", ("y", "n"), details={"kind": "x"}) == "Go? "
 
     def test_whether_anyone_can_be_asked_follows_the_terminal(self, monkeypatch):
         monkeypatch.setattr("sys.stdin.isatty", lambda: False, raising=False)
@@ -116,7 +143,7 @@ class TestQuestions:
         answers = iter(["maybe", "yes", "soon", "-1", "15"])
         asked = []
 
-        def answerer(question, choices):
+        def answerer(question, choices, details):
             asked.append(choices)
             return next(answers)
 
@@ -176,7 +203,7 @@ def run_script(tmp_path, source, answers=()):
     answers = iter(answers)
     finished = threading.Event()
 
-    def ask(question, choices, respond):
+    def ask(question, choices, respond, details):
         questions.append((question, choices))
         respond(next(answers))
 
@@ -255,17 +282,19 @@ class TestRun:
             [],
             ".",
             console,
-            lambda question, choices, respond: asked.append(question),
+            lambda question, choices, respond, details: asked.append((question, details)),
             None,
         )
         question = (
-            QUESTION_MARKER + json.dumps({"question": "Go? ", "choices": None}) + "\n"
+            QUESTION_MARKER
+            + json.dumps({"question": "Go? ", "choices": None, "details": {"kind": "x"}})
+            + "\n"
         )
         left = ""
         for character in "before" + question + "after":
             left = run._take(left + character)
 
-        assert asked == ["Go? "]
+        assert asked == [("Go? ", {"kind": "x"})]
         assert console.since(0, None)["text"] + left == "beforeafter"
 
 
@@ -286,6 +315,18 @@ class TestChildProcess:
         monkeypatch.setattr("sys.stdin", io.StringIO(""))
         with pytest.raises(EOFError):
             app_child._ask_the_window("Go? ", None)
+
+    def test_details_go_with_the_question(self, monkeypatch, capfd):
+        monkeypatch.setattr("sys.stdin", io.StringIO("y\n"))
+        app_child._ask_the_window("These? ", ["y", "n"], {"kind": "matchups"})
+
+        assert capfd.readouterr().out == (
+            QUESTION_MARKER
+            + json.dumps(
+                {"question": "These? ", "choices": ["y", "n"], "details": {"kind": "matchups"}}
+            )
+            + "\n"
+        )
 
     def test_validate_is_given_its_arguments(self, monkeypatch):
         called = []
@@ -331,8 +372,21 @@ class TestSetupChecks:
             "end": 2012,
             "exclude": None,
             "require": None,
+            "out_dir": str(tmp_path),
             "out": str(tmp_path / "run" / "m.py"),
         }
+
+    def test_the_output_directory(self, tmp_path):
+        (tmp_path / "sim").mkdir()
+        (tmp_path / "notes.txt").write_text("")
+
+        def check(out_dir):
+            return check_setup(dict(SETUP_FORM, out_dir=out_dir), str(tmp_path))
+
+        # relative to the directory worked in, and it need not be there yet
+        assert check("results")[0]["out_dir"] == str(tmp_path / "results")
+        assert check(str(tmp_path / "elsewhere"))[0]["out_dir"] == str(tmp_path / "elsewhere")
+        assert check("notes.txt")[1] == {"out_dir": "This is a file, not a directory."}
 
     def test_the_file_filters_are_words(self, tmp_path):
         (tmp_path / "sim").mkdir()
@@ -606,6 +660,22 @@ class TestServer:
         _, found = get_json(app, "/api/probe", simdir="nowhere", ndown="2", out="")
         assert found["directory"] == "missing"
 
+    def test_the_live_check_of_the_output_directory(self, app, tmp_path):
+        (tmp_path / "old" / "oceanval_matchups").mkdir(parents=True)
+        (tmp_path / "notes.txt").write_text("")
+
+        def probe(out_dir):
+            found = get_json(
+                app, "/api/probe", simdir="", ndown="", out="", out_dir=out_dir
+            )[1]
+            return found["out_dir"], found["out_dir_has_matchups"]
+
+        # empty is the directory worked in
+        assert probe("") == ("found", False)
+        assert probe("old") == ("found", True)
+        assert probe("new") == ("missing", False)
+        assert probe("notes.txt") == ("file", False)
+
     def test_the_live_check_counts_what_passes_the_file_filters(self, app, tmp_path):
         write_simulation(tmp_path / "sim", tracers=True)
 
@@ -653,9 +723,11 @@ class TestServer:
         status, body = get(app, "/recipes/")
         state = page_state(body)
         assert status == 200
-        assert state["context"]["app"] == {"action": action}
+        assert state["context"]["app"] == {"action": action, "own_vertical": False}
         # its requests are answered by the app's own server
         assert state["token"] == app.token
+        # the output directory was chosen with the simulation
+        assert state["settings"]["out_dir"] == ""
 
         rows = [
             {
@@ -681,6 +753,74 @@ class TestServer:
         assert app.results_dir == str(tmp_path)
         # the recipes step is over, so its link leads back to the app
         assert 'id="view-start"' in get(app, "/recipes/")[1]
+
+    def test_the_output_directory_reaches_the_script(self, app, tmp_path, runs):
+        write_simulation(tmp_path / "sim")
+        app.choose("matchup_validate")
+        post(app, "/api/setup", {"form": dict(SETUP_FORM, out_dir="results")})
+        post(app, "/api/own_data", {"answer": False})
+        wait_for(lambda: app.view == "recipes")
+        results = str(tmp_path / "results")
+        # chosen with the simulation, so the recipes step does not ask again
+        assert app.recipes_page.form["out_dir"] == results
+
+        rows = [{"variable": "temperature", "model_variable": "thetao", "selected": ["cobe2"]}]
+        assert post(app, "/recipes/write", {"rows": rows})[0] == 200
+        units_match(app)
+        wait_for(lambda: runs)
+        text = open(tmp_path / "matchup.py").read()
+
+        assert f'    out_dir="{results}",\n' in text
+        assert f'oceanval.validate(\n    data_dir="{results}",\n    out_dir="{results}",\n)' in text
+        assert app.results_dir == results
+
+    def test_the_recipes_step_always_asks_and_needs_a_thickness(self, app, tmp_path, runs):
+        write_simulation(tmp_path / "sim")
+        app.choose("matchup")
+        post(app, "/api/setup", {"form": SETUP_FORM})
+        post(app, "/api/own_data", {"answer": False})
+        wait_for(lambda: app.view == "recipes")
+        rows = [
+            {
+                "variable": "temperature",
+                "model_variable": "thetao",
+                "selected": ["nsbc"],
+                "gridded": {"nsbc": {"start": "", "end": "", "vertical": True}},
+            }
+        ]
+        settings = dict(app.recipes_page.form, ask=False)
+
+        status, reply = post(app, "/recipes/write", {"rows": rows, "settings": settings})
+        assert status == 400
+        assert "a thickness is needed" in reply["setting_errors"]["thickness"]
+        assert not (tmp_path / "matchup.py").exists()
+
+        settings["thickness"] = "z_level"
+        assert post(app, "/recipes/write", {"rows": rows, "settings": settings})[0] == 200
+        units_match(app)
+        wait_for(lambda: runs)
+        text = open(tmp_path / "matchup.py").read()
+        # asking is matchup's default, so it is not written
+        assert "    ask=" not in text
+        assert '    thickness="z_level",\n' in text
+
+    def test_own_data_through_the_water_column_needs_a_thickness(self, app, tmp_path, runs):
+        write_simulation(tmp_path / "sim")
+        app.choose("matchup")
+        post(app, "/api/setup", {"form": SETUP_FORM})
+        app.own_data["point"].append(
+            {"name": "cruise", "source": "mine", "model_variable": "thetao",
+             "obs_path": "points", "vertical": True}
+        )
+        post(app, "/api/own_data", {"answer": True})
+        post(app, "/api/own_next")
+        post(app, "/api/own_next")
+        wait_for(lambda: app.view == "recipes")
+
+        assert app.recipes_page.context["app"]["own_vertical"] is True
+        status, reply = post(app, "/recipes/write", {"rows": []})
+        assert status == 400
+        assert "thickness" in reply["setting_errors"]
 
     def choose_recipes(self, app, tmp_path, own_gridded=None, own_point=None, ices=False):
         """Get to the units step with temperature (COBE-SST 2) and nitrate
@@ -1142,6 +1282,64 @@ class TestServer:
         assert post(app, "/api/restart")[0] == 200
         assert app.view == "start"
 
+    def matchups_script(self, tmp_path):
+        """A stand-in for matchup, asking whether the matchups are right with
+        the details the window shows."""
+        script = tmp_path / "run.py"
+        script.write_text(
+            textwrap.dedent(
+                f"""
+                from oceanval import prompts
+                print("finding the files")
+                question = "Are you happy with these matchups? (y/n) "
+                print("answer:", prompts.ask(question, ("y", "n"), details={MATCHUPS!r}))
+                print("matching up")
+                """
+            )
+        )
+        return script
+
+    def test_the_matchups_are_asked_about_with_their_files(self, app, tmp_path):
+        app.action = "matchup"
+        app.start_run(["script", str(self.matchups_script(tmp_path))], "python run.py")
+        # the page says the files are being found until it is asked
+        assert get_json(app, "/api/state")[1]["run"]["identifying"]
+        wait_for(lambda: app.question is not None)
+        _, state = get_json(app, "/api/state")
+        question = state["question"]
+
+        assert not state["run"]["identifying"]
+        assert question["details"]["rows"] == MATCHUPS["rows"]
+        # the files can be many, so they are asked for a pattern at a time
+        assert "files" not in question["details"]
+        status, reply = get_json(
+            app, "/api/question_files", id=question["id"], pattern="x_**_grid_T.nc"
+        )
+        assert (status, reply["files"]) == (200, MATCHUPS["files"]["x_**_grid_T.nc"])
+        assert get_json(app, "/api/question_files", id=question["id"], pattern="y")[0] == 409
+
+        assert post(app, "/api/answer", {"id": question["id"], "answer": "y"})[0] == 200
+        wait_for(lambda: app.view == "finished")
+        assert app.status == "finished"
+        assert "answer: y\nmatching up\n" in app.console.since(0, None)["text"]
+        # once it is answered, they are not listed
+        assert (
+            get_json(app, "/api/question_files", id=question["id"], pattern="x_**_grid_T.nc")[0]
+            == 409
+        )
+
+    def test_no_to_the_matchups_stops_the_run(self, app, tmp_path):
+        app.action = "matchup_validate"
+        app.start_run(["script", str(self.matchups_script(tmp_path))], "python run.py")
+        wait_for(lambda: app.question is not None)
+
+        assert post(app, "/api/answer", {"id": app.question.id, "answer": "n"})[0] == 200
+        wait_for(lambda: app.view == "finished", timeout=30)
+        _, state = get_json(app, "/api/state")
+        assert (state["run"]["status"], state["run"]["rejected"]) == ("stopped", True)
+        # nothing carries on to validate
+        assert "answer:" not in state["console"]["text"]
+
     def test_stopping_a_run(self, app, tmp_path):
         script = tmp_path / "run.py"
         script.write_text(
@@ -1181,9 +1379,14 @@ def test_the_window_in_a_browser(browser, tmp_path, monkeypatch):
     stand_in = tmp_path / "stand_in.py"
     stand_in.write_text(
         textwrap.dedent(
-            """
+            f"""
+            import time
             from oceanval import prompts
-            print("answer:", prompts.ask("Are you happy with these matchups? (y/n) ", ("y", "n")))
+            # long enough for the page to say the files are being found
+            time.sleep(2)
+            question = "Are you happy with these matchups? (y/n) "
+            print("answer:", prompts.ask(question, ("y", "n"), details={MATCHUPS!r}))
+            print("again:", prompts.ask("Try again? (y/n) ", ("y", "n")))
             """
         )
     )
@@ -1206,6 +1409,9 @@ def test_the_window_in_a_browser(browser, tmp_path, monkeypatch):
             "2",
             "2011",
         )
+        # the output goes where oceanval was started, unless changed
+        assert page.input_value("#f-out_dir") == str(tmp_path)
+        assert page.text_content("#f-out_dir-label") == "Where do you want matchups to be saved?"
 
         page.click("#continue")
         # no data of our own
@@ -1214,17 +1420,64 @@ def test_the_window_in_a_browser(browser, tmp_path, monkeypatch):
         assert page.text_content("#write") == "Match up"
         # chosen with the simulation instead
         assert page.is_hidden("#group-files")
+        assert page.is_hidden("#group-output")
+        # the app always asks
+        assert page.is_hidden("#s-ask")
+        # the thickness hint is between its box and Treat as missing
+        assert "Treat as missing" in page.evaluate(
+            "document.getElementById('g-thickness').nextElementSibling.textContent"
+        )
+        # a dataset through the water column cannot go ahead without a thickness
+        nsbc = 'input[aria-label="NSBC, Northwest European Shelf, for Temperature"]'
+        page.check(nsbc)
+        page.check(
+            'input[aria-label="Validate NSBC observations for Temperature through the full water column"]'
+        )
+        assert page.is_disabled("#write")
+        assert "a thickness is needed" in page.text_content("#g-thickness")
+        page.fill("#s-thickness", "z_level")
+        assert page.is_enabled("#write")
+        page.uncheck(nsbc)
         page.click("#write")
         # the units have to be confirmed, once they have been read
         page.wait_for_selector("#units-body-gridded tr[data-units-row]")
         page.check("#units-confirm")
         page.click("#units-continue")
 
-        page.wait_for_selector("#ask:not([hidden])", timeout=90000)
-        # the buttons say what "(y/n)" would
-        assert (
-            page.text_content("#ask-question") == "Are you happy with these matchups?"
+        # until matchup asks, the page says it is finding the files
+        page.wait_for_selector("#identify:not([hidden])", timeout=90000)
+        assert "Identifying files that meet criteria. Please wait!" in page.text_content("#identify")
+        # and then shows what it found as a table, in place of the question below the output
+        page.wait_for_selector("#review:not([hidden])", timeout=90000)
+        assert page.is_hidden("#identify")
+        assert page.is_hidden("#ask")
+        assert page.text_content("#review-time-note") == (
+            "Temporal subsetting will be applied to the files listed below, based on the time criteria you provided on the previous pages. "
+            "Any year limits set for an individual dataset will also apply."
         )
+        row = page.locator('#review-body tr[data-variable="temperature"]')
+        for text in ("Temperature", "thetao", "COBE2, ICES (point)", "x_**_grid_T.nc", "2 files"):
+            assert text in row.text_content()
+
+        row.locator("button:has-text('List all files')").click()
+        page.wait_for_selector("#files-list .picker__file")
+        assert page.text_content("#files-notice").startswith(
+            "Temporal subsetting will be applied to these files by OceanVal"
+        )
+        assert "2011 to 2012" in page.text_content("#files-notice")
+        assert page.locator("#files-list .picker__file").all_text_contents() == [
+            "2011/x_2011_grid_T.nc",
+            "2012/x_2012_grid_T.nc",
+        ]
+        page.keyboard.press("Escape")
+        assert page.is_hidden("#files")
+        page.click("#review-actions button:has-text('Yes')")
+
+        # any other question is asked under the output
+        page.wait_for_selector("#ask:not([hidden])", timeout=60000)
+        assert page.is_hidden("#review")
+        # the buttons say what "(y/n)" would
+        assert page.text_content("#ask-question") == "Try again?"
         page.click("#ask-answer button:has-text('Yes')")
         page.wait_for_selector("#result:not([hidden])", timeout=60000)
 
@@ -1281,7 +1534,9 @@ def test_the_units_step_in_a_browser(browser, tmp_path, monkeypatch):
             assert text in temperature.text_content()
         # what OceanVal made of the units is on the line under each row
         below = "xpath=following-sibling::tr[1]"
-        assert "The same units" in temperature.locator(below).text_content()
+        assert "OceanVal thinks these are the same units" in temperature.locator(below).text_content()
+        # which is a suggestion, so it is not ticked off
+        assert temperature.locator(f"{below}//*[contains(@class, 'icon')]").count() == 0
         multiplier = temperature.locator('input[data-units-box="multiplier"]')
         assert multiplier.input_value() == ""
         # WOA23's nitrate is per kilogram, and the model's per volume
