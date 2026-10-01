@@ -530,13 +530,17 @@ def extract_variable_mapping(folder, exclude=[], n_check=None):
     return all_df
 
 
+# matchup's default number of cores: 6, or the system's if it has fewer
+DEFAULT_CORES = min(6, os.cpu_count() or 6)
+
+
 def matchup(
     sim_dir=None,
     start=None,
     end=None,
     lon_lim=None,
     lat_lim=None,
-    cores=6,
+    cores=DEFAULT_CORES,
     thickness=None,
     n_dirs_down=2,
     point_time_res=["year", "month", "day"],

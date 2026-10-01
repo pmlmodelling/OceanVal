@@ -320,7 +320,8 @@ class TestServer:
         assert page.wait() is None
 
     def test_settings_and_point_options_are_written(self, page):
-        form = dict(default_form(2011, 2012), cores="12", lon_min="-20", lon_max="10",
+        # GitHub's runners have 2 cores, and no more can be chosen
+        form = dict(default_form(2011, 2012), cores="1", lon_min="-20", lon_max="10",
                     lat_min="40", lat_max="65", pdf=True)
         rows = [{
             "variable": "temperature",
@@ -332,7 +333,7 @@ class TestServer:
         mapping, selection, settings, point_options, gridded_options = page.written[0]
 
         assert status == 200
-        assert (settings["cores"], settings["pdf"]) == (12, True)
+        assert (settings["cores"], settings["pdf"]) == (1, True)
         assert (settings["lon_lim"], settings["lat_lim"]) == ([-20, 10], [40, 65])
         assert point_options == {
             ("temperature", "ices"): {
@@ -892,7 +893,8 @@ def test_settings_in_the_browser(browser, tmp_path, monkeypatch):
     page.fill("#s-lat_min", "40")
     page.fill("#s-lat_max", "65")
     cpu_count = page.evaluate("JSON.parse(document.getElementById('state').textContent).cpu_count")
-    valid_cores = min(3, cpu_count) if cpu_count else 3
+    # valid on any machine, and not the default, so it is written
+    valid_cores = 1
     if cpu_count:
         page.fill("#s-cores", str(cpu_count + 1))
         assert page.is_disabled("#write")
