@@ -12,6 +12,9 @@ in, and a page opens in your web browser that takes you through:
 4. the run: the script create_recipes wrote, or validate(), in a process of
    its own (see oceanval.app_child). The page shows its output as it comes,
    which is printed in the terminal too, and asks any question it asks.
+   To match up and validate, once the matchups are checked, a last step
+   asks for the report's options before anything is matched up, and
+   validate() is run with them after the script.
 
 Like the create_recipes window (see oceanval.recipes_gui), the page is
 served only on 127.0.0.1, only to requests carrying the random token in its
@@ -95,6 +98,7 @@ def default_validate_form():
         "pdf": False,
         "word": False,
         "zip": False,
+        "concise": True,
     }
 
 
@@ -190,13 +194,6 @@ def check_validate(form, cwd):
     """
     form = _form(form, default_validate_form())
     errors = {}
-
-    def text(name):
-        # a regions file is relative to the directory worked in, too
-        if name == "subregions_file" and form[name]:
-            return _path(form[name], cwd)
-        return form[name]
-
     arguments = {
         "data_dir": _path(form["data_dir"] or ".", cwd),
         "out_dir": _path(form["out_dir"] or ".", cwd),
@@ -207,6 +204,29 @@ def check_validate(form, cwd):
         errors["data_dir"] = str(error)
     if os.path.isfile(arguments["out_dir"]):
         errors["out_dir"] = "This is a file, not a directory."
+    report, report_errors = check_report(form, cwd)
+    arguments.update(report)
+    errors.update(report_errors)
+    return arguments, errors
+
+
+def check_report(form, cwd):
+    """Turn the report options step's boxes, other than its directories,
+    into validate() arguments: what the last step of a matchup and validate
+    run asks, before the matchups are made.
+
+    Returns (arguments, errors), as check_validate does.
+    """
+    form = _form(form, default_validate_form())
+    errors = {}
+    arguments = {}
+
+    def text(name):
+        # a regions file is relative to the directory worked in, too
+        if name == "subregions_file" and form[name]:
+            return _path(form[name], cwd)
+        return form[name]
+
     limits = recipes_gui.check_limits(text, errors)
     if limits is not None:
         arguments["lon_lim"], arguments["lat_lim"] = limits
@@ -221,6 +241,9 @@ def check_validate(form, cwd):
     for name in ("fixed_scale", "pdf", "word", "zip"):
         if form[name]:
             arguments[name] = True
+    # validate's own default is the concise report
+    if not form["concise"]:
+        arguments["concise"] = False
     return arguments, errors
 
 
@@ -508,8 +531,11 @@ class App:
     "recipes" (its window) to match up, then "units_table" (the model's and
     the observations' units, with the conversions OceanVal suggests, to check,
     change and always confirm), or "validate" for the report options, and then
-    "running" and "finished". Everything the page does goes through the methods here,
-    which the server's threads call.
+    "running" and "finished". To match up and validate, once the matchups are
+    checked in "running", "report_options" asks for the report's options
+    before anything is matched up, while matchup waits for the answer to
+    whether the matchups are right. Everything the page does goes through the
+    methods here, which the server's threads call.
     """
 
     def __init__(self, cwd=None):
@@ -534,6 +560,10 @@ class App:
         # register them
         self.own_data = {"point": [], "gridded": []}
         self.validate_form = default_validate_form()
+        # the validate() arguments chosen in the report options step of a
+        # matchup and validate run, and what writes the script again with them
+        self.report_arguments = None
+        self._script_writer = None
         self.question = None
         self.recipes_page = None
         # the matchups' units, while the units step is being shown, and the
@@ -587,6 +617,10 @@ class App:
                 "cwd": self.cwd,
                 "setup": {"form": self.setup_form, "error": self.setup_error},
                 "validate": {"form": self.validate_form},
+                "report": {
+                    "given": self.report_arguments is not None,
+                    "dir": self.results_dir or self.out_dir,
+                },
                 "own": {
                     "entries": self.own_data,
                     "fields": own_data.FIELDS,
@@ -651,10 +685,8 @@ class App:
             self.action = action
             self.question = None
             if action == "validate":
-                if data_dir:
-                    self.validate_form["data_dir"] = _shown(data_dir, self.cwd)
-                else:
-                    self.validate_form["data_dir"] = _shown(self.out_dir, self.cwd)
+                # the full path, never "." for the directory worked in
+                self.validate_form["data_dir"] = _path(data_dir or self.out_dir, self.cwd)
                 self.view = "validate"
             else:
                 self.setup_error = None
@@ -671,6 +703,9 @@ class App:
                 "point_data": "own_data",
                 "gridded_data": "point_data",
             }
+            if self.view == "report_options" and self._held_matchups():
+                # the matchups again, whose question is still being asked
+                earlier["report_options"] = "running"
             if self.view not in earlier:
                 return False
             self.view = earlier[self.view]
@@ -822,7 +857,10 @@ class App:
                     self.view = self._before_recipes()
                     self._notify()
             return
-        self.start_run(["script", out], f"python {_shown(out, self.cwd)}")
+        # to validate as well, the report is built once the script has run,
+        # with the options chosen after the matchups are checked
+        kind = "matchup" if self.action == "matchup_validate" else "script"
+        self.start_run([kind, out], f"python {_shown(out, self.cwd)}")
 
     def show_recipes(self, page):
         """Show the create_recipes window as the recipes step, and wait for
@@ -880,6 +918,8 @@ class App:
             result = self._convert_units(page, result, conversions)
         with self._lock:
             self.units_choices = None
+            # to write the report options into the script, once chosen
+            self._script_writer = (page.write, result)
             self.view = "running"
             self.status = "starting"
             # the script, once written, starts by finding the files
@@ -977,6 +1017,75 @@ class App:
         self.start_run(
             ["validate", json.dumps(arguments)], _validate_call(arguments, self.cwd)
         )
+        return 200, {"ok": True}
+
+    # ---- the report options of a matchup and validate run ----
+
+    def _held_matchups(self):
+        """The question of whether the matchups are right, while its answer
+        is held back for the report options to be chosen, or None."""
+        question = self.question
+        return question if question is not None and question.matchups else None
+
+    def _report_first(self):
+        """Whether the report options are still to be chosen before this
+        run matches anything up: it is a matchup and validate run, which
+        builds the report once its script has run."""
+        return (
+            self.run is not None
+            and self.run.args[:1] == ["matchup"]
+            and self.report_arguments is None
+        )
+
+    def report(self, form):
+        """Take the report options of a matchup and validate run, from the
+        boxes of the step after the matchups are checked. They are written
+        into the script, and then matchup carries on - or, if it has run
+        already, the report is built. Returns the HTTP status and the reply
+        for the page."""
+        with self._lock:
+            if self.view != "report_options":
+                return 409, {"ok": False, "error": "This step is over."}
+            self.validate_form = _form(form, default_validate_form())
+            form = dict(self.validate_form)
+        # outside the lock: reading a regions file can take a moment
+        report, errors = check_report(form, self.cwd)
+        if errors:
+            return 400, {"ok": False, "errors": errors}
+        with self._lock:
+            if self.view != "report_options":
+                return 409, {"ok": False, "error": "This step is over."}
+            # so that a second click does nothing more
+            self.view = "running"
+            question = self._held_matchups()
+            self.question = None
+            # the report goes beside the matchups, as the simulation step said
+            directory = self.results_dir or self.out_dir
+            self.report_arguments = {
+                "data_dir": directory,
+                "out_dir": directory,
+                **report,
+            }
+            arguments = dict(self.report_arguments)
+            writer = self._script_writer
+            self._notify()
+        if writer is not None:
+            write, choices = writer
+            try:
+                write(*choices, report=report)
+            except OSError as error:
+                self.console.write(
+                    f"The script could not be written again with the report options: {error}\n"
+                )
+        if question is not None:
+            # yes, the matchups are right, as answered at a terminal
+            self.console.write("y\n")
+            question.respond("y")
+        else:
+            # matchup has run already, without asking about the matchups
+            self.start_run(
+                ["validate", json.dumps(arguments)], _validate_call(arguments, self.cwd)
+            )
         return 200, {"ok": True}
 
     def probe(self, simdir, ndown, out, exclude="", require="", out_dir=""):
@@ -1180,14 +1289,18 @@ class App:
             self.status = "running"
             self.returncode = None
             self.question = None
-            self.identifying = args[:1] == ["script"]
+            script = args[:1] in (["script"], ["matchup"])
+            self.identifying = script
             self.matchups_rejected = False
             self.matchup_script_saved = False
             self.script_path = (
                 os.path.abspath(os.path.join(self.cwd, args[1]))
-                if args[:1] == ["script"] and len(args) > 1
+                if script and len(args) > 1
                 else None
             )
+            if args[:1] == ["matchup"]:
+                # chosen once the matchups are checked
+                self.report_arguments = None
             self.view = "running"
             self._notify()
         # set apart from what create_recipes printed before it
@@ -1201,18 +1314,43 @@ class App:
             self._run_finished(run)
 
     def _run_finished(self, run):
+        validate = None
         with self._lock:
             if run is not self.run:
                 return
             if run.stopped:
-                self.status = "stopped"
+                status = "stopped"
             else:
-                self.status = "finished" if run.returncode == 0 else "failed"
-            self.returncode = run.returncode
+                status = "finished" if run.returncode == 0 else "failed"
             self.question = None
             self.identifying = False
-            self.view = "script_saved" if self.matchup_script_saved else "finished"
+            # a matchup and validate run builds the report once its script
+            # has run, with the options chosen after the matchups were checked
+            report_next = (
+                status == "finished"
+                and run.args[:1] == ["matchup"]
+                and not self.matchup_script_saved
+                and not self.closed.is_set()
+            )
+            if report_next and self.report_arguments is not None:
+                validate = dict(self.report_arguments)
+            else:
+                self.status = status
+                self.returncode = run.returncode
+                if report_next:
+                    # matchup did not ask whether the matchups are right, so
+                    # the report options are asked for now
+                    self.view = "report_options"
+                else:
+                    self.view = "script_saved" if self.matchup_script_saved else "finished"
             self._notify()
+        if validate is not None:
+            self.start_run(
+                ["validate", json.dumps(validate)], _validate_call(validate, self.cwd)
+            )
+            return
+        if report_next:
+            return
         self.console.note(
             "\nOceanVal: the run has "
             + {"stopped": "been stopped", "finished": "finished", "failed": "failed"}[
@@ -1258,15 +1396,25 @@ class App:
     def answer(self, number, text):
         """Answer the question numbered number, if it is still being asked.
         No to whether the matchups are right stops the run instead, as
-        there is then nothing for it to do."""
+        there is then nothing for it to do. Yes, in a matchup and validate
+        run, is held back while the report options are chosen (see report),
+        so that nothing is matched up before then."""
         # one line, as typed at a terminal
         text = str(text).replace("\r", " ").replace("\n", " ")
         with self._lock:
             question = self.question
-            if question is None or question.id != number:
+            if (
+                question is None
+                or question.id != number
+                or self.view == "report_options"
+            ):
                 return False
-            self.question = None
             answer = text.strip().lower()
+            if question.matchups and answer == "y" and self._report_first():
+                self.view = "report_options"
+                self._notify()
+                return True
+            self.question = None
             rejected = question.matchups and answer == "n"
             save_script = question.matchups and answer == "save"
             if rejected:
@@ -1440,6 +1588,9 @@ class _Handler(recipes_gui._Handler):
             return
         if path == "/api/validate":
             self._reply_json(*app.validate(payload.get("form")))
+            return
+        if path == "/api/report":
+            self._reply_json(*app.report(payload.get("form")))
             return
         if path == "/api/units_continue":
             self._reply_json(

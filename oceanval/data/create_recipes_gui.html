@@ -112,15 +112,6 @@
   .settings__title { font: 600 18px/1.3 var(--font-head); letter-spacing: -0.2px; }
   .settings__sub { color: var(--muted); font-size: 13.5px; }
   .settings__sub code { color: var(--ink-soft); font-size: 12.5px; }
-  .settings__changed {
-    align-self: center;
-    padding: 2px 9px;
-    border-radius: 999px;
-    background: rgba(15, 143, 150, 0.13);
-    color: var(--teal-700);
-    font-size: 12px;
-    font-weight: 600;
-  }
   .settings__chevron {
     align-self: center;
     width: 9px;
@@ -167,6 +158,14 @@
   .opts__help-popover p { margin: 0 0 6px; }
   .opts__help-popover ul { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 12px; margin: 0 0 6px; padding-left: 16px; }
   .opts__help-popover p:last-child { margin-bottom: 0; }
+  .g-label-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+  .g-label-row .g-label { margin: 0; }
+  .g-row.has-help { position: relative; }
+  .g-row.has-help .opts__help { position: static; margin-left: 0; }
+  .g-row.has-help .opts__help-popover { top: 26px; left: 0; right: 0; width: auto; max-width: 360px; }
+  .opts__help-popover dl { margin: 0 0 6px; }
+  .opts__help-popover dt { margin-top: 6px; font-weight: 700; }
+  .opts__help-popover dd { margin: 0; color: var(--ink-soft); }
   .opts__years { display: flex; align-items: center; gap: 4px; }
   .s-input.is-small, .s-select.is-small { padding-top: 4px; padding-bottom: 4px; font-size: 12.5px; }
   .s-select.is-small { padding-right: 22px; background-position: right 7px center; }
@@ -225,7 +224,6 @@
     <details id="settings" open>
       <summary class="settings__head">
         <span class="settings__title" id="settings-title">Global settings</span>
-        <span class="settings__changed" id="settings-changed" hidden></span>
         <span class="settings__chevron" aria-hidden="true"></span>
       </summary>
       <div class="settings__grid">
@@ -247,13 +245,13 @@
           <fieldset class="group" id="group-subset">
             <legend>Do you want a spatial subset?</legend>
             <div class="g-row span-row">
-              <span class="span-row__label">Lon</span>
+              <span class="span-row__label">Longitude</span>
               <input class="s-input is-num" id="s-lon_min" placeholder="min" aria-label="Minimum longitude" spellcheck="false" autocomplete="off" autocapitalize="off">
               <span class="dash">–</span>
               <input class="s-input is-num" id="s-lon_max" placeholder="max" aria-label="Maximum longitude" spellcheck="false" autocomplete="off" autocapitalize="off">
             </div>
             <div class="g-row span-row">
-              <span class="span-row__label">Lat</span>
+              <span class="span-row__label">Latitude</span>
               <input class="s-input is-num" id="s-lat_min" placeholder="min" aria-label="Minimum latitude" spellcheck="false" autocomplete="off" autocapitalize="off">
               <span class="dash">–</span>
               <input class="s-input is-num" id="s-lat_max" placeholder="max" aria-label="Maximum latitude" spellcheck="false" autocomplete="off" autocapitalize="off">
@@ -298,7 +296,29 @@
         </div>
         <div class="settings__column">
           <fieldset class="group">
-            <label class="g-row"><span class="g-label">Match point observations by</span><select class="s-select" id="s-point_time_res"></select></label>
+            <div class="g-row has-help">
+              <div class="g-label-row">
+                <label class="g-label" for="s-point_time_res">Match point observations by</label>
+                <details class="opts__help" id="help-point_time_res">
+                  <summary aria-label="Explain how point observations are matched" title="How point observations are matched">?</summary>
+                  <div class="opts__help-popover" role="note">
+                    <p>Each observation has a date: a year, a month and a day. This chooses which of those are used to find the model output it is compared with. Anything a dataset does not have is simply not used, and only observations from the First to Last years are used.</p>
+                    <dl>
+                      <dt>Year, month, day</dt>
+                      <dd>Exact dates. Each observation is compared with the model on the day it was made. Use this for daily, or finer, model output.</dd>
+                      <dt>Year, month</dt>
+                      <dd>Each observation is compared with the model's mean for that month of that year, and the day is ignored. Use this for monthly model output.</dd>
+                      <dt>Month, day</dt>
+                      <dd>Climatological: the year is ignored. Observations from any year are compared with the simulation's average for the same day of the year.</dd>
+                      <dt>Month</dt>
+                      <dd>Climatological, by month. Observations from any year are compared with the simulation's average for that calendar month.</dd>
+                    </dl>
+                    <p>Each point dataset below can override this with its own Match by.</p>
+                  </div>
+                </details>
+              </div>
+              <select class="s-select" id="s-point_time_res"></select>
+            </div>
             <p class="group__msg" id="g-point"></p>
           </fieldset>
           <fieldset class="group" id="group-detail">
@@ -314,8 +334,8 @@
             <label class="g-row"><span class="g-label">Which region do you want to use for subregion analysis?</span>
               <select class="s-select" id="s-subregions">
                 <option value="">None</option>
-                <option value="nwes">Northwest European Shelf</option>
-                <option value="global">Global</option>
+                <option value="nwes">Northwest European Shelf subregions</option>
+                <option value="global">Global subregions</option>
                 <option value="file">A .nc file of your own…</option>
               </select>
             </label>
@@ -414,10 +434,9 @@
     $("page-title").textContent = app.action === "matchup"
       ? "Choose what to match up"
       : "Let's fine-tune what you want to matchup";
-    if (app.action === "matchup") {
-      // the report is built later, so validate's settings can wait until then
-      for (const id of ["group-report", "group-detail", "group-regional"]) $(id).hidden = true;
-    }
+    // validate's settings are asked for once the matchups are checked, or
+    // when the report is built later
+    for (const id of ["group-report", "group-detail", "group-regional"]) $(id).hidden = true;
   }
   const meta = $("meta");
   function metaItem(key, value, options = {}) {
@@ -689,9 +708,6 @@
         el("span", { class: "group__line" + (hint.ersem ? " is-ersem" : hint.warn ? " is-warn" : "") },
           hint.warn || hint.ersem ? icon("warn") : null, el("span", { text: hint.text }))));
     }
-    const count = SETTINGS.filter((names) => names.some((name) => form[name] !== initialForm[name])).length;
-    $("settings-changed").hidden = count === 0;
-    $("settings-changed").textContent = `${count} changed`;
     return SETTINGS.filter((names) => names.some((name) => errors[name])).length;
   }
 

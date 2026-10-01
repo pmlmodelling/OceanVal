@@ -28,7 +28,7 @@ work in, run:
    oceanval
 
 ``OceanVal`` works too. A page opens in your web browser that takes you
-through six steps:
+through these steps:
 
 1. **Choose** to match up new data and validate it, to match up only, or to
    validate matchups made earlier.
@@ -65,14 +65,22 @@ through six steps:
    box under the tables, before the button starts the matchup. The
    conversions are written into the matchup script as ``obs_multiplier`` and
    ``obs_adder``.
-6. **Run**: the page says it is identifying the files that meet your
+6. **Files**: the page says it is identifying the files that meet your
    criteria, then shows what it found as a table: each variable, its model
    variable, the observations it is compared with and the files it is in,
    with **List all files** for each (OceanVal applies temporal subsetting to
-   them). Carry on if the matchups are right; No stops the run. The output
-   appears as it comes, in the page and in the terminal, and anything else
-   OceanVal asks, such as whether to try again for observations a server
-   could not supply, is asked in the page.
+   them). Carry on if the matchups are right; No stops the run.
+7. **Report** (to match up and validate): "One last thing... How would you
+   like your validation report?" The report's options, asked for before
+   anything is matched up: a subregion to validate, regional summaries,
+   fixed colour scales, PDF and Word versions, a zipped copy, and a concise
+   or detailed report. The report is built beside the matchups, in the
+   directory chosen in step 2. **Back** shows the matchups again. The options
+   are written into the matchup script's ``validate()`` call.
+8. **Run**: matchup, then, to validate as well, ``validate()`` with the
+   report's options. The output appears as it comes, in the page and in the
+   terminal, and anything else OceanVal asks, such as whether to try again
+   for observations a server could not supply, is asked in the page.
 
 The script it runs is written first, to ``matchup.py`` unless you choose
 another name, so you can read it, and run it again later with

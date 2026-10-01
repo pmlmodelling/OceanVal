@@ -1071,6 +1071,30 @@ class TestSettings:
             'oceanval.validate(\n    subregions="nwes",\n    pdf=True,\n    word=True,\n)'
         ) in script
 
+    def test_report_options_chosen_later_replace_the_settings(self):
+        # chosen in the oceanval window once the matchups are checked, with
+        # validate's own subset rather than matchup's
+        script = self.build(
+            settings=settings(out_dir="/run", lon_lim=[-5.0, 5.0], pdf=True),
+            report={"lon_lim": [-20.0, 10.0], "lat_lim": [40.0, 65.0], "zip": True, "concise": False},
+        )
+        ast.parse(script)
+
+        assert "    lon_lim=[-5, 5],\n" in matchup_call(script).split("oceanval.validate")[0]
+        assert (
+            'oceanval.validate(\n'
+            '    data_dir="/run",\n'
+            '    out_dir="/run",\n'
+            '    lon_lim=[-20, 10],\n'
+            '    lat_lim=[40, 65],\n'
+            '    zip=True,\n'
+            '    concise=False,\n'
+            ')'
+        ) in script
+        assert "pdf=True" not in script.split("oceanval.validate(")[-1]
+        # the report's defaults
+        assert "oceanval.validate()\n" in self.build(settings=settings(pdf=True), report={})
+
     def test_a_full_report_is_asked_for_with_concise_false(self):
         assert "concise" not in self.build(settings=settings()).split("oceanval.validate")[-1]
 

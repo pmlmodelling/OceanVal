@@ -24,7 +24,7 @@ import xarray as xr
 
 import oceanval
 from oceanval import app_child, prompts
-from oceanval.app import App, Console, Run, check_setup, check_validate
+from oceanval.app import App, Console, Run, check_report, check_setup, check_validate
 from oceanval.app_child import QUESTION_MARKER
 from oceanval.gridded import _ask_minutes, _ask_yes_no
 from simulations import write_fvcom, write_simulation
@@ -364,6 +364,19 @@ class TestChildProcess:
 
         assert called == [{"data_dir": "/matchups", "pdf": True}]
 
+    def test_a_matchup_script_leaves_validate_to_the_window(self, tmp_path, monkeypatch, capsys):
+        script = tmp_path / "matchup.py"
+        script.write_text(
+            "import oceanval\nprint('matched')\noceanval.validate(data_dir='.')\n"
+        )
+        monkeypatch.setattr(oceanval, "validate", lambda **arguments: pytest.fail("validated"))
+        monkeypatch.setattr(webbrowser, "open", webbrowser.open)
+        app_child.main(["matchup", str(script)])
+
+        assert capsys.readouterr().out == (
+            "matched\nThe report is built next, with the options chosen in the OceanVal window.\n"
+        )
+
     def test_without_a_display_the_report_is_not_opened(self, monkeypatch, capsys):
         # webbrowser would fall back on a text browser, which would wait for
         # keys the window never sends
@@ -575,6 +588,7 @@ class TestValidateChecks:
             "subregions": "global",
             "pdf": True,
             "zip": True,
+            "concise": False,
         }
         arguments, errors = check_validate(form, str(tmp_path))
 
@@ -587,7 +601,15 @@ class TestValidateChecks:
             "subregions": "global",
             "pdf": True,
             "zip": True,
+            "concise": False,
         }
+
+    def test_the_report_is_concise_unless_detailed_is_chosen(self, tmp_path):
+        write_matchups(tmp_path)
+
+        assert "concise" not in check_validate({}, str(tmp_path))[0]
+        assert check_validate({"concise": True}, str(tmp_path))[0].get("concise") is None
+        assert check_validate({"concise": False}, str(tmp_path))[0]["concise"] is False
 
     def test_a_regions_file_is_found_in_the_directory_worked_in(self, tmp_path):
         write_matchups(tmp_path)
@@ -596,6 +618,21 @@ class TestValidateChecks:
         assert check_validate(form, str(tmp_path))[1] == {
             "subregions_file": "There is no file at this path."
         }
+
+    def test_the_report_options_need_no_matchups(self, tmp_path):
+        # asked for before anything is matched up, with no directories
+        form = {"lon_min": "-20", "lon_max": "10", "lat_min": "40", "lat_max": "65",
+                "data_dir": "nowhere", "word": True, "fixed_scale": True}
+        arguments, errors = check_report(form, str(tmp_path))
+
+        assert errors == {}
+        assert arguments == {
+            "lon_lim": [-20, 10],
+            "lat_lim": [40, 65],
+            "fixed_scale": True,
+            "word": True,
+        }
+        assert check_report({"lon_min": "x"}, str(tmp_path))[1]["lon_min"] == "Limits must be numbers."
 
 
 def _request(app, route, data=None, token=None, **params):
@@ -787,7 +824,10 @@ class TestServer:
         script = str(tmp_path / "matchup.py")
         text = open(script).read()
 
-        assert runs == [(["script", script], "python matchup.py")]
+        # to validate as well, the report is built after the script, with the
+        # options chosen once the matchups are checked
+        kind = "script" if action == "matchup" else "matchup"
+        assert runs == [([kind, script], "python matchup.py")]
         assert '\noceanval.add_gridded_comparison(\n    name="temperature",' in text
         if action == "matchup":
             # the report is left for later
@@ -819,6 +859,38 @@ class TestServer:
         assert f'    out_dir="{results}",\n' in text
         assert f'oceanval.validate(\n    data_dir="{results}",\n    out_dir="{results}",\n)' in text
         assert app.results_dir == results
+
+    def test_the_report_options_are_written_into_the_script(self, app, tmp_path, runs):
+        write_simulation(tmp_path / "sim")
+        app.choose("matchup_validate")
+        post(app, "/api/setup", {"form": SETUP_FORM})
+        post(app, "/api/own_data", {"answer": False})
+        wait_for(lambda: app.view == "recipes")
+        rows = [{"variable": "temperature", "model_variable": "thetao", "selected": ["cobe2"]}]
+        assert post(app, "/recipes/write", {"rows": rows, "settings": recipe_settings(app)})[0] == 200
+        units_match(app)
+        wait_for(lambda: runs)
+        # as when the script has run without asking about the matchups
+        app.view = "report_options"
+        form = {"lon_min": "-20", "lon_max": "10", "lat_min": "40", "lat_max": "65",
+                "pdf": True, "concise": False}
+        assert post(app, "/api/report", {"form": form})[0] == 200
+        text = open(tmp_path / "matchup.py").read()
+
+        # so it can be run again from a terminal, as the window ran it
+        assert (
+            "\noceanval.validate(\n    lon_lim=[-20, 10],\n    lat_lim=[40, 65],\n"
+            "    pdf=True,\n    concise=False,\n)\n"
+        ) in text
+        # the subset is the report's, not matchup's
+        assert "lon_lim" not in text[text.index("oceanval.matchup(") : text.index("\noceanval.validate(")]
+        assert runs[-1] == (
+            ["validate", json.dumps({"data_dir": str(tmp_path), "out_dir": str(tmp_path),
+                                     "lon_lim": [-20.0, 10.0], "lat_lim": [40.0, 65.0],
+                                     "pdf": True, "concise": False})],
+            'oceanval.validate(data_dir=".", out_dir=".", lon_lim=[-20, 10], '
+            'lat_lim=[40, 65], pdf=True, concise=False)',
+        )
 
     def test_the_recipes_step_always_asks_and_needs_a_thickness(self, app, tmp_path, runs):
         write_simulation(tmp_path / "sim")
@@ -1295,7 +1367,7 @@ class TestServer:
         )
 
         assert app.view == "validate"
-        assert app.validate_form["data_dir"] == "run"
+        assert app.validate_form["data_dir"] == str(tmp_path / "run")
 
     @pytest.mark.parametrize("chosen", [None, "matchups"])
     def test_validate_defaults_to_matchup_output_directory(self, app, tmp_path, chosen):
@@ -1303,7 +1375,7 @@ class TestServer:
             app.out_dir = str(tmp_path / chosen)
 
         assert post(app, "/api/choose", {"action": "validate"})[0] == 200
-        expected = chosen or "."
+        expected = str(tmp_path / chosen) if chosen else app.cwd
         assert app.validate_form["data_dir"] == expected
 
     def test_a_run_from_start_to_finish(self, app, tmp_path):
@@ -1383,9 +1455,108 @@ class TestServer:
             == 409
         )
 
+    def validate_runs(self, app, monkeypatch):
+        """The validate runs the app starts, which are recorded rather than
+        started; the other runs are started."""
+        started = []
+        start_run = app.start_run
+
+        def record(args, label):
+            if args[0] == "validate":
+                started.append((args, label))
+            else:
+                start_run(args, label)
+
+        monkeypatch.setattr(app, "start_run", record)
+        return started
+
+    def test_the_report_options_come_before_anything_is_matched_up(
+        self, app, tmp_path, monkeypatch
+    ):
+        validated = self.validate_runs(app, monkeypatch)
+        app.action = "matchup_validate"
+        app.start_run(["matchup", str(self.matchups_script(tmp_path))], "python run.py")
+        wait_for(lambda: app.question is not None)
+        number = app.question.id
+
+        assert post(app, "/api/answer", {"id": number, "answer": "y"})[0] == 200
+        _, state = get_json(app, "/api/state")
+        assert state["view"] == "report_options"
+        # matchup still waits for the answer, so nothing is matched up yet
+        assert state["question"]["id"] == number
+        assert state["report"] == {"given": False, "dir": str(tmp_path)}
+        time.sleep(0.5)
+        assert "answer:" not in app.console.since(0, None)["text"]
+        assert post(app, "/api/answer", {"id": number, "answer": "y"})[0] == 409
+
+        # Back shows the matchups again, still asked about
+        assert post(app, "/api/back")[0] == 200
+        assert (app.view, app.question.id) == ("running", number)
+        assert post(app, "/api/answer", {"id": number, "answer": "y"})[0] == 200
+        assert app.view == "report_options"
+
+        status, reply = post(app, "/api/report", {"form": {"lon_min": "x"}})
+        assert status == 400
+        assert reply["errors"]["lon_min"] == "Limits must be numbers."
+        assert app.view == "report_options"
+
+        form = {"lon_min": "-20", "lon_max": "10", "lat_min": "40", "lat_max": "65",
+                "pdf": True, "concise": False}
+        assert post(app, "/api/report", {"form": form})[0] == 200
+        assert get_json(app, "/api/state")[1]["report"]["given"] is True
+        # then matchup carries on, and the report is built once it has run
+        wait_for(lambda: validated)
+        text = app.console.since(0, None)["text"]
+        assert "Are you happy with these matchups? (y/n) y\nanswer: y\nmatching up\n" in text
+        [(args, label)] = validated
+        assert args[0] == "validate"
+        assert json.loads(args[1]) == {
+            "data_dir": str(tmp_path),
+            "out_dir": str(tmp_path),
+            "lon_lim": [-20, 10],
+            "lat_lim": [40, 65],
+            "pdf": True,
+            "concise": False,
+        }
+        assert label == (
+            'oceanval.validate(data_dir=".", out_dir=".", lon_lim=[-20, 10], '
+            'lat_lim=[40, 65], pdf=True, concise=False)'
+        )
+
+    def test_the_report_options_are_asked_for_if_matchup_did_not_ask(
+        self, app, tmp_path, monkeypatch
+    ):
+        validated = self.validate_runs(app, monkeypatch)
+        script = tmp_path / "run.py"
+        script.write_text("print('matched up')\n")
+        app.action = "matchup_validate"
+        app.start_run(["matchup", str(script)], "python run.py")
+        wait_for(lambda: app.view == "report_options")
+
+        # the matchups are made, so there is nothing to go back to
+        assert post(app, "/api/back")[0] == 409
+        assert post(app, "/api/report", {"form": {}})[0] == 200
+        assert validated == [
+            (
+                ["validate", json.dumps({"data_dir": str(tmp_path), "out_dir": str(tmp_path)})],
+                'oceanval.validate(data_dir=".", out_dir=".")',
+            )
+        ]
+
+    def test_a_failed_matchup_builds_no_report(self, app, tmp_path, monkeypatch):
+        validated = self.validate_runs(app, monkeypatch)
+        script = tmp_path / "run.py"
+        script.write_text("raise SystemExit(1)\n")
+        app.action = "matchup_validate"
+        app.start_run(["matchup", str(script)], "python run.py")
+        wait_for(lambda: app.view == "finished")
+
+        assert app.status == "failed"
+        assert validated == []
+
     def test_no_to_the_matchups_stops_the_run(self, app, tmp_path):
         app.action = "matchup_validate"
-        app.start_run(["script", str(self.matchups_script(tmp_path))], "python run.py")
+        app.start_run(["matchup", str(self.matchups_script(tmp_path))], "python run.py")
         wait_for(lambda: app.question is not None)
 
         assert post(app, "/api/answer", {"id": app.question.id, "answer": "n"})[0] == 200
@@ -1398,7 +1569,7 @@ class TestServer:
     def test_store_choice_stops_before_matching_and_keeps_the_script(self, app, tmp_path):
         script = self.matchups_script(tmp_path)
         app.action = "matchup_validate"
-        app.start_run(["script", str(script)], "python run.py")
+        app.start_run(["matchup", str(script)], "python run.py")
         wait_for(lambda: app.question is not None)
 
         assert post(app, "/api/answer", {"id": app.question.id, "answer": "save"})[0] == 200
@@ -1473,11 +1644,15 @@ def test_the_window_in_a_browser(browser, tmp_path, monkeypatch):
         page = browser.new_page()
         page.goto(url)
         assert "Choose what to do. Matchups, scripts and reports are written" not in page.text_content("#view-start")
+        # nothing is listed until something is chosen, as the steps differ for each
+        assert not page.is_visible("#steps")
         page.click('button.choice[data-action="matchup"]')
         page.wait_for_function(
-            "document.querySelector('#title').textContent === 'Provide some essential information about your simulation data'"
+            "document.querySelector('#title').textContent === 'What kind of datasets do you want to use for validation?'"
         )
-        assert page.text_content("#title") == "Provide some essential information about your simulation data"
+        assert page.text_content("#title") == "What kind of datasets do you want to use for validation?"
+        assert page.locator("#steps .is-current .steps__label").text_content() == "Simulation"
+        assert "Note: selections can be modified later." in page.text_content("#m-domain")
         assert page.locator("#title").evaluate("node => getComputedStyle(node).whiteSpace") == "nowrap"
         assert "OceanVal is running from" in page.text_content("#meta")
         assert "Next, OceanVal reads the simulation, and shows you what it found." not in page.text_content("#bar")
@@ -1634,6 +1809,81 @@ def test_storing_the_matchup_script_opens_run_instructions(browser, tmp_path):
         assert "matching up" not in page.text_content("#console-text")
         page.click('#actions button:has-text("Start again")')
         page.wait_for_function("document.querySelector('#title').textContent === 'Validate an ocean model'")
+    finally:
+        app.close()
+
+
+def test_the_report_options_in_a_browser(browser, tmp_path, monkeypatch):
+    """Once the matchups are checked, a matchup and validate run asks for the
+    report's options, before anything is matched up."""
+    script = tmp_path / "matchup.py"
+    script.write_text(
+        textwrap.dedent(
+            f"""
+            from oceanval import prompts
+            question = "Are you happy with these matchups? (y/n) "
+            print("answer:", prompts.ask(question, ("y", "n"), details={MATCHUPS!r}))
+            print("matching up")
+            """
+        )
+    )
+    app = App(cwd=str(tmp_path))
+    app.action = "matchup_validate"
+    validated = []
+    start_run = app.start_run
+    monkeypatch.setattr(
+        app,
+        "start_run",
+        lambda args, label: validated.append(args) if args[0] == "validate" else start_run(args, label),
+    )
+    app.start_run(["matchup", str(script)], f"python {script}")
+    url = app.start()
+    try:
+        page = browser.new_page()
+        page.goto(url)
+        page.wait_for_selector("#review:not([hidden])")
+        current = page.locator("#steps .is-current .steps__label")
+        assert current.text_content() == "Files"
+        page.click("#review-actions button:has-text('Yes')")
+        page.wait_for_selector("#view-validate:not([hidden])")
+
+        assert page.text_content("#title") == "One last thing... How would you like your validation report?"
+        assert page.locator("#title").evaluate("node => getComputedStyle(node).whiteSpace") == "nowrap"
+        assert page.locator("#steps li").count() == 8
+        assert current.text_content() == "Report"
+        # the matchups and the report go where the simulation step said
+        assert page.is_hidden("#v-group-data_dir")
+        assert page.is_hidden("#v-group-out_dir")
+        assert page.text_content("#v-report-dir") == (
+            "Nothing is matched up until you carry on. The report is built in "
+            f"oceanval_report, beside the matchups, in {tmp_path}."
+        )
+        assert page.evaluate("document.activeElement.id") == "v-lon_min"
+        assert page.text_content("#build") == "Match up and validate"
+        assert "matching up" not in page.text_content("#console-text")
+
+        # Back shows the matchups again, to be answered afresh
+        page.click("#actions button:has-text('Back')")
+        page.wait_for_selector("#review:not([hidden])")
+        assert current.text_content() == "Files"
+        assert page.is_enabled("#review-actions button:has-text('Yes')")
+        page.click("#review-actions button:has-text('Yes')")
+        page.wait_for_selector("#view-validate:not([hidden])")
+
+        page.check("#v-pdf")
+        page.select_option("#v-concise", "false")
+        page.click("#build")
+        page.wait_for_function(
+            "document.querySelector('#console-text').textContent.includes('matching up')"
+        )
+        assert current.text_content() == "Run"
+        wait_for(lambda: validated)
+        assert json.loads(validated[0][1]) == {
+            "data_dir": str(tmp_path),
+            "out_dir": str(tmp_path),
+            "pdf": True,
+            "concise": False,
+        }
     finally:
         app.close()
 
@@ -1912,6 +2162,10 @@ def test_choosing_directories_in_a_browser(browser, tmp_path):
 
         page.click("text=Back")
         page.click('button.choice[data-action="validate"]')
+        # concise or detailed is the last thing asked, and concise to start with
+        assert page.locator("#validate-form fieldset").last.locator("#v-concise").count() == 1
+        assert page.input_value("#v-concise") == "true"
+        assert page.locator("#v-concise option").all_text_contents() == ["Concise", "Detailed"]
         page.click('[data-browse="v-data_dir"]')
         page.click('#picker-list .picker__row[title="run"]')
         page.wait_for_function(

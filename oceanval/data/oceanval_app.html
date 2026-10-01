@@ -408,6 +408,11 @@
   .lede .oceanval-change, .units .s-input.is-oceanval, .units .group__line.is-oceanval { color: var(--red); font-weight: 700; }
   /* the units always have to be confirmed, after the tables */
   .units-confirm { padding: 16px 20px; }
+  .form__stack { display: grid; gap: 26px; max-width: 560px; }
+  .detail-row { display: flex; align-items: center; gap: 12px; }
+  .detail-row .g-label { margin: 0; }
+  .detail-row .s-select { width: auto; }
+  #v-report-dir code { color: var(--ink); font-size: 13.5px; overflow-wrap: anywhere; }
   .units-confirm .tick-label { align-items: flex-start; color: var(--ink); font-size: 14.5px; line-height: 1.5; }
   .units-confirm .tick { margin-top: 2px; }
 </style>
@@ -453,7 +458,7 @@
     <div class="banner" id="setup-error" role="alert" hidden></div>
     <form class="form card" id="setup-form" novalidate autocomplete="off">
       <fieldset class="group form__wide">
-        <legend>Simulation</legend>
+        <legend>Tell OceanVal about your simulation files</legend>
         <div class="g-row"><label class="g-label is-required" for="f-simdir">Which directory stores your simulation data? <span class="own-req">Required</span></label><div class="path-field"><input class="s-input is-mono" id="f-simdir" list="f-simdir-folders" placeholder="/path/to/model/output" spellcheck="false" autocapitalize="off"><button type="button" class="btn btn--ghost btn--field" data-browse="f-simdir">Browse…</button></div><datalist id="f-simdir-folders"></datalist></div>
         <div class="ndown-row">
           <label class="g-label is-required" for="f-ndown">How many directories below this can you find your files? <span class="own-req">Required</span></label>
@@ -469,20 +474,19 @@
         <p class="group__msg" id="m-simulation"></p>
       </fieldset>
       <fieldset class="group">
-        <legend>Domain</legend>
+        <legend>Which type of data do you want to use for validation?</legend>
         <div class="segmented" id="f-domain" role="radiogroup" aria-label="Domain"></div>
         <p class="group__msg" id="m-domain"></p>
       </fieldset>
       <fieldset class="group form__wide">
-        <legend>Output</legend>
+        <legend>Tell OceanVal where you want output to be saved</legend>
         <div class="g-row"><label class="g-label" for="f-out_dir" id="f-out_dir-label">Where do you want matchups and validation output to be saved?</label><div class="path-field"><input class="s-input is-mono" id="f-out_dir" list="f-out_dir-folders" spellcheck="false" autocapitalize="off"><button type="button" class="btn btn--ghost btn--field" data-browse="f-out_dir">Browse…</button></div><datalist id="f-out_dir-folders"></datalist></div>
         <p class="group__msg" id="m-out_dir"></p>
         <label class="tick-label" id="row-overwrite" hidden><input type="checkbox" class="tick" id="f-overwrite">Do you want to overwrite existing matchups in this directory?</label>
       </fieldset>
       <fieldset class="group form__wide">
-        <legend>Matchup script</legend>
+        <label class="g-row"><span class="g-label">What do you want the matchup script to be called</span><input class="s-input is-mono" id="f-out" spellcheck="false" autocapitalize="off"></label>
         <p class="group__intro">This is created to produce a fully reproducible version of this validation that can be run from the command line. You will not need to run this, and the file is saved for completeness.</p>
-        <label class="g-row"><span class="g-label">Write the script to</span><input class="s-input is-mono" id="f-out" spellcheck="false" autocapitalize="off"></label>
         <p class="group__msg" id="m-out"></p>
       </fieldset>
       <input type="hidden" id="f-start">
@@ -551,56 +555,67 @@
   </section>
 
   <section id="view-validate" hidden>
-    <p class="lede">Build the validation report from matchups made earlier by <code>matchup()</code>, or by this window.</p>
+    <p class="lede" id="v-report-dir" hidden></p>
     <form class="form card" id="validate-form" novalidate autocomplete="off">
-      <fieldset class="group form__wide">
-        <legend>Matchups</legend>
-        <div class="g-row"><label class="g-label" for="v-data_dir">Directory the matchups were made in</label><div class="path-field"><input class="s-input is-mono" id="v-data_dir" list="v-data_dir-folders" spellcheck="false" autocapitalize="off"><button type="button" class="btn btn--ghost btn--field" data-browse="v-data_dir">Browse…</button></div><datalist id="v-data_dir-folders"></datalist></div>
+      <fieldset class="group form__wide" id="v-group-data_dir">
+        <div class="g-row"><label class="g-label" for="v-data_dir">Where are the matchups located?</label><div class="path-field"><input class="s-input is-mono" id="v-data_dir" list="v-data_dir-folders" spellcheck="false" autocapitalize="off"><button type="button" class="btn btn--ghost btn--field" data-browse="v-data_dir">Browse…</button></div><datalist id="v-data_dir-folders"></datalist></div>
         <p class="group__msg" id="vm-data_dir"></p>
       </fieldset>
-      <fieldset class="group form__wide">
-        <legend>Report</legend>
-        <div class="g-row"><label class="g-label" for="v-out_dir">Directory to build the report in</label><div class="path-field"><input class="s-input is-mono" id="v-out_dir" list="v-out_dir-folders" spellcheck="false" autocapitalize="off"><button type="button" class="btn btn--ghost btn--field" data-browse="v-out_dir">Browse…</button></div><datalist id="v-out_dir-folders"></datalist></div>
+      <fieldset class="group form__wide" id="v-group-out_dir">
+        <div class="g-row"><label class="g-label" for="v-out_dir">Which directory do you want to build the report in?</label><div class="path-field"><input class="s-input is-mono" id="v-out_dir" list="v-out_dir-folders" spellcheck="false" autocapitalize="off"><button type="button" class="btn btn--ghost btn--field" data-browse="v-out_dir">Browse…</button></div><datalist id="v-out_dir-folders"></datalist></div>
         <p class="group__msg" id="vm-out_dir"></p>
       </fieldset>
-      <fieldset class="group">
-        <legend>Spatial subset</legend>
-        <div class="g-row span-row">
-          <span class="span-row__label">Lon</span>
-          <input class="s-input is-num" id="v-lon_min" placeholder="min" aria-label="Minimum longitude" spellcheck="false">
-          <span class="dash">–</span>
-          <input class="s-input is-num" id="v-lon_max" placeholder="max" aria-label="Maximum longitude" spellcheck="false">
-        </div>
-        <div class="g-row span-row">
-          <span class="span-row__label">Lat</span>
-          <input class="s-input is-num" id="v-lat_min" placeholder="min" aria-label="Minimum latitude" spellcheck="false">
-          <span class="dash">–</span>
-          <input class="s-input is-num" id="v-lat_max" placeholder="max" aria-label="Maximum latitude" spellcheck="false">
-        </div>
-        <p class="group__msg" id="vm-subset"></p>
-      </fieldset>
-      <fieldset class="group">
-        <legend>Regional summaries</legend>
-        <label class="g-row"><span class="g-label">Summarise by</span>
-          <select class="s-select" id="v-subregions">
-            <option value="">None</option>
-            <option value="nwes">Northwest European Shelf</option>
-            <option value="global">Global</option>
-            <option value="file">A .nc file of your own…</option>
-          </select>
-        </label>
-        <label class="g-row" id="row-subregions_file" hidden><span class="g-label">Path to the file</span><input class="s-input is-mono" id="v-subregions_file" placeholder="/path/to/regions.nc" spellcheck="false" autocapitalize="off"></label>
-        <p class="group__msg" id="vm-subregions"></p>
-      </fieldset>
+      <div class="form__wide form__stack">
+        <fieldset class="group">
+          <legend>Do you only want to validate a subregion?</legend>
+          <div class="g-row span-row">
+            <span class="span-row__label">Longitude</span>
+            <input class="s-input is-num" id="v-lon_min" placeholder="min" aria-label="Minimum longitude" spellcheck="false">
+            <span class="dash">–</span>
+            <input class="s-input is-num" id="v-lon_max" placeholder="max" aria-label="Maximum longitude" spellcheck="false">
+          </div>
+          <div class="g-row span-row">
+            <span class="span-row__label">Latitude</span>
+            <input class="s-input is-num" id="v-lat_min" placeholder="min" aria-label="Minimum latitude" spellcheck="false">
+            <span class="dash">–</span>
+            <input class="s-input is-num" id="v-lat_max" placeholder="max" aria-label="Maximum latitude" spellcheck="false">
+          </div>
+          <p class="group__msg" id="vm-subset"></p>
+        </fieldset>
+        <fieldset class="group">
+          <legend>Regional summaries</legend>
+          <label class="g-row"><span class="g-label">Summarise by</span>
+            <select class="s-select" id="v-subregions">
+              <option value="">None</option>
+              <option value="nwes">Northwest European Shelf subregions</option>
+              <option value="global">Global subregions</option>
+              <option value="file">A .nc file of your own…</option>
+            </select>
+          </label>
+          <label class="g-row" id="row-subregions_file" hidden><span class="g-label">Path to the file</span><input class="s-input is-mono" id="v-subregions_file" placeholder="/path/to/regions.nc" spellcheck="false" autocapitalize="off"></label>
+          <p class="group__msg" id="vm-subregions"></p>
+        </fieldset>
+      </div>
       <fieldset class="group form__wide">
         <legend>Options</legend>
-        <div class="g-row ticks">
-          <label class="tick-label" title="Cap the seasonal plots' colour scales at the 2nd and 98th percentiles of the model and observations"><input type="checkbox" class="tick" id="v-fixed_scale">Fixed colour scales</label>
-          <label class="tick-label"><input type="checkbox" class="tick" id="v-pdf">PDF version</label>
-          <label class="tick-label"><input type="checkbox" class="tick" id="v-word">Word version</label>
-          <label class="tick-label"><input type="checkbox" class="tick" id="v-zip">Zip of the report</label>
+        <div class="g-row"><label class="tick-label" title="Cap the seasonal plots' colour scales at the 2nd and 98th percentiles of the model and observations"><input type="checkbox" class="tick" id="v-fixed_scale">Do you want model and observations to always use fixed colour scales?</label></div>
+        <div class="g-row detail-row" role="group" aria-labelledby="v-formats-label">
+          <span class="g-label" id="v-formats-label">What additional report formats do you want?</span>
+          <div class="ticks">
+            <label class="tick-label"><input type="checkbox" class="tick" id="v-pdf">PDF</label>
+            <label class="tick-label"><input type="checkbox" class="tick" id="v-word">Word</label>
+          </div>
         </div>
-        <p class="group__msg" id="vm-options"></p>
+        <div class="g-row"><label class="tick-label">Do you want a zipped version of report files?<input type="checkbox" class="tick" id="v-zip"></label></div>
+      </fieldset>
+      <fieldset class="group form__wide">
+        <div class="g-row detail-row">
+          <label class="g-label" for="v-concise">How detailed do you want the report to be?</label>
+          <select class="s-select" id="v-concise">
+            <option value="true">Concise</option>
+            <option value="false">Detailed</option>
+          </select>
+        </div>
       </fieldset>
       <button type="submit" hidden></button>
     </form>
@@ -804,6 +819,11 @@
     if (view === "own_data" || view === "point_data" || view === "gridded_data") return 2;
     if (view === "recipes" || view === "preparing") return 3;
     if (view === "units_table") return 4;
+    if (view === "report_options") return STEPS[action].indexOf("Report");
+    // to validate as well, the matchups are checked before the report options are chosen
+    if (view === "running" && STEPS[action].includes("Files") && !state.report.given) {
+      return STEPS[action].indexOf("Files");
+    }
     return STEPS[action].length - 1;
   }
 
@@ -811,13 +831,14 @@
     const run = state.run;
     switch (state.view) {
       case "start": return "Validate an ocean model";
-      case "setup": return "Provide some essential information about your simulation data";
+      case "setup": return "What kind of datasets do you want to use for validation?";
       case "own_data": return "Do you have your own data?";
       case "point_data": return "Your point data";
       case "gridded_data": return "Your gridded data";
       case "preparing": return "Reading the simulation";
       case "units_table": return "Do the units match up?";
       case "validate": return "Build a validation report";
+      case "report_options": return "One last thing... How would you like your validation report?";
       case "running": return ACTION_TITLES[state.action];
       case "script_saved": return "Your matchup script is saved";
       default:
@@ -827,9 +848,11 @@
   }
 
   function renderHeader() {
-    steps($("steps"), STEPS[state.action || "matchup_validate"], stepIndex(state.view, state.action));
+    // no steps until something is chosen: they differ for each thing on offer
+    if (state.view === "start") $("steps").hidden = true;
+    else steps($("steps"), STEPS[state.action || "matchup_validate"], stepIndex(state.view, state.action));
     $("title").textContent = title();
-    $("title").classList.toggle("is-setup-title", state.view === "setup");
+    $("title").classList.toggle("is-setup-title", state.view === "setup" || state.view === "report_options");
     const meta = $("meta");
     meta.replaceChildren(el("li", { title: state.cwd },
       el("span", { class: "meta__k", text: "OceanVal is running from" }),
@@ -845,7 +868,7 @@
   function renderBar() {
     const view = state.view;
     // only rebuilt when something in it changes, so a button keeps its focus
-    const key = [view, state.action, state.run.status, Boolean(stopArmed),
+    const key = [view, state.action, state.run.status, Boolean(stopArmed), Boolean(state.question),
       state.own.entries.point.length, state.own.entries.gridded.length, Boolean(state.units.rows)].join("|");
     if (key === barShown) {
       if (view === "setup") refreshSetup();
@@ -867,6 +890,13 @@
     } else if (view === "validate") {
       actions.push(button("Back", "ghost", () => post("api/back")),
         button("Build the report", "primary", submitValidate, { id: "build" }));
+    } else if (view === "report_options") {
+      // matchup waits on whether the matchups are right until these are chosen,
+      // so Back shows them again; without it, they are made already
+      const waiting = Boolean(state.question);
+      if (waiting) actions.push(button("Back", "ghost", () => post("api/back")));
+      actions.push(button(waiting ? "Match up and validate" : "Build the report", "primary",
+        submitValidate, { id: "build" }));
     } else if (view === "units_table") {
       // no Back: a recipes window that has been used cannot be opened again
       actions.push(button("Continue", "primary", submitUnits,
@@ -905,7 +935,7 @@
 
   // ---- the views ----
   const VIEWS = { start: "view-start", setup: "view-setup", validate: "view-validate",
-    own_data: "view-own", point_data: "view-point", gridded_data: "view-gridded",
+    report_options: "view-validate", own_data: "view-own", point_data: "view-point", gridded_data: "view-gridded",
     units_table: "view-units-table",
     preparing: "view-run", running: "view-run", finished: "view-run",
     script_saved: "view-script-saved" };
@@ -916,9 +946,9 @@
     if (view === "setup") {
       fillSetup();
       $("f-simdir").focus();
-    } else if (view === "validate") {
+    } else if (view === "validate" || view === "report_options") {
       fillValidate();
-      $("v-data_dir").focus();
+      $(view === "validate" ? "v-data_dir" : "v-lon_min").focus();
     } else if (view === "start") {
       document.querySelector(".choice").focus();
     } else if (view === "units_table") {
@@ -933,6 +963,11 @@
       if (first) first.focus();
     } else if (view === "script_saved") {
       $("script-saved-title").focus();
+    }
+    if (VIEWS[view] !== "view-run") {
+      // a question shown again, as on Back from the report options, is shown afresh
+      shownQuestion = null;
+      document.title = "OceanVal";
     }
     shownView = view;
     $("toast").hidden = true;
@@ -1113,7 +1148,10 @@
     }
     message("m-simulation", simulation, false);
 
-    message("m-domain", [line(DOMAIN_HINTS[setup.domain] + " Where a variable has datasets in both regions, the domain decides which is ticked.")]);
+    message("m-domain", [
+      line(DOMAIN_HINTS[setup.domain] + " Where a variable has datasets in both regions, the domain decides which is ticked."),
+      line("Note: selections can be modified later."),
+    ]);
 
     if (errors.out_dir) {
       message("m-out_dir", [line(errors.out_dir, "error")], true);
@@ -1325,8 +1363,20 @@
     Object.assign(validateForm, state.validate.form);
     for (const name of VALIDATE_TEXT) $(`v-${name}`).value = validateForm[name];
     for (const name of VALIDATE_TICKS) $(`v-${name}`).checked = Boolean(validateForm[name]);
+    $("v-concise").value = String(Boolean(validateForm.concise));
     $("v-data_dir").placeholder = state.cwd;
     $("v-out_dir").placeholder = state.cwd;
+    // to validate as well, the matchups and the report go where the simulation step said
+    const before = state.view === "report_options";
+    $("v-group-data_dir").hidden = before;
+    $("v-group-out_dir").hidden = before;
+    $("v-report-dir").hidden = !before;
+    if (before) {
+      $("v-report-dir").replaceChildren(
+        state.question ? "Nothing is matched up until you carry on. " : "",
+        "The report is built in oceanval_report, beside the matchups, in ",
+        el("code", { text: state.report.dir || state.cwd }), ".");
+    }
     validateErrors = {};
     refreshValidate();
   }
@@ -1341,29 +1391,28 @@
   for (const name of VALIDATE_TICKS) {
     $(`v-${name}`).addEventListener("change", (event) => { validateForm[name] = event.target.checked; });
   }
+  $("v-concise").addEventListener("change", (event) => { validateForm.concise = event.target.value === "true"; });
   $("validate-form").addEventListener("submit", (event) => { event.preventDefault(); submitValidate(); });
 
   function refreshValidate() {
     $("row-subregions_file").hidden = validateForm.subregions !== "file";
     const hints = {
-      "vm-data_dir": "Where oceanval_matchups is: the directory matchup was run in, or its out_dir. Empty: the directory above.",
-      "vm-out_dir": "Empty: the directory above.",
-      "vm-subset": "Optional: only this box is validated. Empty: all of the matchups.",
-      "vm-subregions": "Optional: summaries for each region, in the report.",
+      "vm-data_dir": "Where oceanval_matchups is: the directory matchup was run in, or its out_dir.",
     };
     for (const [id, names] of Object.entries(VALIDATE_GROUPS)) {
       const problems = [...new Set(names.filter((name) => validateErrors[name]).map((name) => validateErrors[name]))];
       for (const name of names) $(`v-${name}`).classList.toggle("is-invalid", Boolean(validateErrors[name]));
       if (problems.length) message(id, problems.map((text) => line(text, "error")), true);
-      else message(id, [line(hints[id])]);
+      else message(id, hints[id] ? [line(hints[id])] : []);
     }
-    message("vm-options", [line("PDF and Word versions take a while longer to build. The zip holds everything needed to share the report.")]);
   }
 
   async function submitValidate() {
     const build = $("build");
     if (build) build.disabled = true;
-    const reply = await post("api/validate", { form: validateForm });
+    // the report options of a matchup and validate run, or the report from matchups made earlier
+    const path = state.view === "report_options" ? "api/report" : "api/validate";
+    const reply = await post(path, { form: validateForm });
     if (build) build.disabled = false;
     if (!reply.ok) {
       validateErrors = reply.errors || {};

@@ -1016,7 +1016,9 @@ def _own_data_block(own_data):
     return lines
 
 
-def _footer(simdir, ndown, years, fvcom=False, settings=None, validate=True):
+def _footer(
+    simdir, ndown, years, fvcom=False, settings=None, validate=True, report=None
+):
     start, end = years if years is not None else (1995, 2004)
     suffix = "" if years is not None else "  # set to your simulation's years"
     if fvcom:
@@ -1031,6 +1033,9 @@ def _footer(simdir, ndown, years, fvcom=False, settings=None, validate=True):
             '# thickness - either "z_level" or the name of a cell thickness variable.',
         ]
     matchup_changed, validate_changed = _changed_settings(settings)
+    if report is not None:
+        # the report options chosen in the oceanval window, after the recipes
+        validate_changed = list(report.items())
     validate_arguments = [
         f"{name}={_literal(value)}," for name, value in validate_changed
     ]
@@ -1140,6 +1145,7 @@ def build_recipe_script(
     gridded_options=None,
     validate=True,
     own_data=None,
+    report=None,
 ):
     """The text of the matchup script for one simulation's variable mapping.
 
@@ -1154,7 +1160,8 @@ def build_recipe_script(
     arguments of the user's own add_point_comparison and
     add_gridded_comparison calls, under "point" and "gridded", which are
     written after the recipes. With validate=False, the validate() call is
-    written commented out.
+    written commented out. report, if given, holds the validate() arguments
+    to write, other than data_dir and out_dir, in place of those in settings.
     """
     point_options = point_options or {}
     gridded_options = gridded_options or {}
@@ -1211,7 +1218,7 @@ def build_recipe_script(
         lines.extend(own_lines)
 
     lines.extend(_section("Matchup and report"))
-    lines.extend(_footer(simdir, ndown, years, fvcom, settings, validate))
+    lines.extend(_footer(simdir, ndown, years, fvcom, settings, validate, report))
     return "\n".join(lines).rstrip("\n") + "\n"
 
 
@@ -1427,7 +1434,12 @@ def create_recipes(
     mapping = extract_recipe_variable_mapping(simdir, ndown, fvcom, **filters)
 
     def write(
-        mapping, selection, settings=None, point_options=None, gridded_options=None
+        mapping,
+        selection,
+        settings=None,
+        point_options=None,
+        gridded_options=None,
+        report=None,
     ):
         # the window can change the years along with everything else
         years = (settings["start"], settings["end"]) if settings else (start, end)
@@ -1449,6 +1461,7 @@ def create_recipes(
             gridded_options,
             validate,
             own_data,
+            report,
         )
         _write_script(out, script)
         return os.path.abspath(out)

@@ -680,6 +680,27 @@ class TestHosting:
         # FVCOM output is regridded onto z-levels
         assert self.app_page(own_vertical=True, fvcom=True).submit({"rows": []})[0] == 200
 
+    @pytest.mark.parametrize("action", ["matchup", "matchup_validate"])
+    def test_the_report_options_are_asked_for_elsewhere(self, browser, action):
+        """In the app they come once the matchups are checked, or when the
+        report is built later; matchup's own subset stays."""
+        recipe_page = RecipePage(
+            recipe_rows({"temperature": "thetao"}, "global"),
+            {"thetao"},
+            dict(CONTEXT, app={"action": action, "own_vertical": False}),
+            lambda *chosen: "/out/matchup.py",
+        )
+        url = recipe_page.start()
+        try:
+            page = browser.new_page()
+            page.goto(url)
+
+            for group in ("group-report", "group-detail", "group-regional"):
+                assert page.is_hidden(f"#{group}")
+            assert page.is_visible("#group-subset")
+        finally:
+            recipe_page.close()
+
 
 class TestChooseRecipes:
     def test_it_waits_for_the_page_to_be_written(self, monkeypatch, capsys):
@@ -847,7 +868,20 @@ def test_settings_in_the_browser(browser, tmp_path, monkeypatch):
     assert page.locator("#group-subset legend").text_content() == "Do you want a spatial subset?"
     assert page.locator("#s-thickness").evaluate("node => node.previousElementSibling.textContent") == "Is the model z-level or is thickness supplied?"
     assert page.locator("#s-missing_from").evaluate("node => node.closest('.g-row').querySelector('.g-label').textContent") == "What should be treated as missing values?"
-    assert page.locator("#s-point_time_res").evaluate("node => node.closest('label').querySelector('.g-label').textContent") == "Match point observations by"
+    assert page.locator("#s-point_time_res").evaluate("node => node.closest('.g-row').querySelector('.g-label').textContent") == "Match point observations by"
+    # a "?" beside it explains each option, and only opens when asked
+    assert page.locator("#help-point_time_res").evaluate("node => node.open") is False
+    assert not page.locator("#help-point_time_res .opts__help-popover").is_visible()
+    page.click("#help-point_time_res > summary")
+    assert page.locator("#help-point_time_res").evaluate("node => node.open") is True
+    popover = page.locator("#help-point_time_res .opts__help-popover")
+    assert popover.is_visible()
+    for label in ("Year, month, day", "Year, month", "Month, day", "Month"):
+        assert label in popover.locator("dt").all_text_contents()
+    box = popover.bounding_box()
+    assert box["x"] >= 0 and box["x"] + box["width"] <= page.viewport_size["width"]
+    page.click("#help-point_time_res > summary")
+    assert not popover.is_visible()
     assert page.locator("#group-detail legend").count() == 0
     assert page.locator("#group-regional legend").count() == 0
     assert page.locator("#s-subregions").evaluate("node => node.closest('label').querySelector('.g-label').textContent") == "Which region do you want to use for subregion analysis?"

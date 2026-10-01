@@ -52,7 +52,7 @@ const OceanValGUI = (() => {
 
   // the steps the oceanval app takes for each thing it can do
   const STEPS = {
-    matchup_validate: ["Choose", "Simulation", "Own data", "Recipes", "Units", "Run"],
+    matchup_validate: ["Choose", "Simulation", "Own data", "Recipes", "Units", "Files", "Report", "Run"],
     matchup: ["Choose", "Simulation", "Own data", "Recipes", "Units", "Run"],
     validate: ["Choose", "Report options", "Run"],
   };
