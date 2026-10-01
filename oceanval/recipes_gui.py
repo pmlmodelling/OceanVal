@@ -71,6 +71,19 @@ _TIME_RES = {",".join(value): list(value) for value, _, _ in POINT_TIME_RES_OPTI
 
 _LIMITS = ("lon_min", "lon_max", "lat_min", "lat_max")
 
+ERSEM_VARIABLES = frozenset(
+    importlib.resources.files("oceanval")
+    .joinpath("data/nemo_ersem_variables.txt")
+    .read_text(encoding="utf-8")
+    .splitlines()
+)
+
+
+def is_likely_nemo_ersem(variables):
+    """Whether more than 20 supplied model-variable names match the stored
+    NEMO-ERSEM signature."""
+    return len(ERSEM_VARIABLES.intersection(variables)) > 20
+
 # why the oceanval app's window cannot carry on without a thickness
 THICKNESS_NEEDED = (
     "A dataset is set to Vertical, so a thickness is needed: z_level, a cell "
@@ -164,9 +177,9 @@ def check_settings(form, available, fvcom=False):
         try:
             settings[name] = int(text(name))
         except ValueError:
-            errors[name] = f"{name.title()} must be a year, e.g. 2011."
+            errors[name] = f"{'First' if name == 'start' else 'Last'} must be a year, e.g. 2011."
     if not errors and settings["end"] < settings["start"]:
-        errors["end"] = "End must not be before start."
+        errors["end"] = "Last year must not be before the first year."
 
     limits = check_limits(text, errors)
     if limits is not None:
@@ -216,6 +229,9 @@ def check_settings(form, available, fvcom=False):
             raise ValueError
     except ValueError:
         errors["cores"] = "Cores must be a whole number, 1 or more."
+    cpu_count = os.cpu_count()
+    if "cores" not in errors and cpu_count and settings["cores"] > cpu_count:
+        errors["cores"] = f"This machine has {cpu_count} cores. Choose {cpu_count} or fewer."
     settings["ask"] = bool(form.get("ask", True))
 
     settings["exclude"] = _strings(text("exclude"))
@@ -223,7 +239,13 @@ def check_settings(form, available, fvcom=False):
 
     settings["pdf"] = bool(form.get("pdf"))
     settings["word"] = bool(form.get("word"))
-    settings["concise"] = bool(form.get("concise", True))
+    concise = form.get("concise", True)
+    if isinstance(concise, bool):
+        settings["concise"] = concise
+    elif str(concise).lower() in ("true", "false"):
+        settings["concise"] = str(concise).lower() == "true"
+    else:
+        errors["concise"] = "Choose concise or detailed."
     settings["subregions"] = check_subregions(text, errors)
     return settings, errors
 
@@ -352,12 +374,23 @@ def check_gridded_options(form, years, vertical_option=False, decadal=False):
     options["vertical"] = True if vertical_option and form.get("vertical") else None
 
     start, end = options["start"], options["end"]
-    if decadal and not errors and (start is not None or end is not None):
+    needs_dataset_decade = years is not None and not any(
+        first <= years[0] and years[1] <= last for first, last in _WOA23_PERIODS
+    )
+    if (
+        decadal
+        and not errors
+        and (start is not None or end is not None or needs_dataset_decade)
+    ):
         if start is None:
             errors["start"] = "WOA23 publishes this per decade, so give both years."
-        elif end is None:
+        if end is None:
             errors["end"] = "WOA23 publishes this per decade, so give both years."
-        elif not any(first <= start and end <= last for first, last in _WOA23_PERIODS):
+        if (
+            start is not None
+            and end is not None
+            and not any(first <= start and end <= last for first, last in _WOA23_PERIODS)
+        ):
             errors["end"] = (
                 "These years must sit inside one WOA23 decade, e.g. 2005–2014."
             )
@@ -607,6 +640,8 @@ class RecipePage:
         state = {
             "rows": self.rows,
             "available": sorted(self.available),
+            "nemo_ersem": bool(self.context.get("app"))
+            and is_likely_nemo_ersem(self.available),
             "context": self.context,
             "token": self.token,
             "settings": self.form,

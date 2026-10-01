@@ -29,6 +29,7 @@ import os
 import queue
 import random
 import secrets
+import shlex
 import signal
 import subprocess
 import sys
@@ -42,6 +43,7 @@ from oceanval.app_child import QUESTION_MARKER
 from oceanval import own_data, units
 from oceanval.create_recipes import (
     DOMAIN_REGIONS,
+    RECIPE_VARIABLES,
     _literal,
     create_recipes,
     simulation_paths,
@@ -73,6 +75,7 @@ def default_setup_form():
         "exclude": "",
         "require": "",
         "out_dir": "",
+        "overwrite": False,
         "out": "matchup.py",
     }
 
@@ -167,6 +170,8 @@ def check_setup(form, cwd):
         errors["out_dir"] = "This is a file, not a directory."
     else:
         arguments["out_dir"] = out_dir
+        has_matchups = os.path.isdir(os.path.join(out_dir, "oceanval_matchups"))
+        arguments["overwrite"] = form["overwrite"] if has_matchups else True
     if not form["out"]:
         errors["out"] = "Enter the file to write the script to."
     elif os.path.isdir(_path(form["out"], cwd)):
@@ -387,7 +392,6 @@ class Run:
 
     def start(self):
         # the same oceanval as this process, wherever that was imported from,
-        # rather than whichever the directory worked in would give
         root = os.path.dirname(os.path.dirname(os.path.abspath(oceanval.__file__)))
         code = (
             f"import sys; sys.path.insert(0, {root!r}); "
@@ -525,6 +529,7 @@ class App:
         self.setup_arguments = None
         # where the matchups and the report are saved
         self.out_dir = self.cwd
+        self.overwrite = True
         # the user's own observations, as the arguments of the calls to
         # register them
         self.own_data = {"point": [], "gridded": []}
@@ -545,6 +550,8 @@ class App:
         # whether a matchup is still finding the files to ask about
         self.identifying = False
         self.matchups_rejected = False
+        self.matchup_script_saved = False
+        self.script_path = None
         self._server = None
 
     # ---- state ----
@@ -583,6 +590,7 @@ class App:
                 "own": {
                     "entries": self.own_data,
                     "fields": own_data.FIELDS,
+                    "recipe_variables": sorted(RECIPE_VARIABLES),
                 },
                 "units": {"rows": self.units_rows},
                 "question": self.question.as_dict() if self.question else None,
@@ -600,6 +608,13 @@ class App:
                     "report_exists": bool(report and os.path.exists(report)),
                     "identifying": self.identifying,
                     "rejected": self.matchups_rejected,
+                    "script_saved": self.matchup_script_saved,
+                    "script": self.script_path if self.matchup_script_saved else None,
+                    "script_command": (
+                        f"python {shlex.quote(self.script_path)}"
+                        if self.matchup_script_saved and self.script_path
+                        else None
+                    ),
                 },
                 "console": (
                     self.console.since(after, epoch)
@@ -638,6 +653,8 @@ class App:
             if action == "validate":
                 if data_dir:
                     self.validate_form["data_dir"] = _shown(data_dir, self.cwd)
+                else:
+                    self.validate_form["data_dir"] = _shown(self.out_dir, self.cwd)
                 self.view = "validate"
             else:
                 self.setup_error = None
@@ -662,10 +679,12 @@ class App:
 
     def restart(self):
         with self._lock:
-            if self.view != "finished":
+            if self.view not in ("finished", "script_saved"):
                 return False
             self.view = "start"
             self.action = None
+            self.matchup_script_saved = False
+            self.script_path = None
             self._notify()
             return True
 
@@ -682,6 +701,7 @@ class App:
                 return 400, {"ok": False, "errors": errors}
             self.setup_error = None
             self.out_dir = arguments.pop("out_dir")
+            self.overwrite = arguments.pop("overwrite")
             self.setup_arguments = arguments
             self.view = "own_data"
             self._notify()
@@ -819,6 +839,9 @@ class App:
         }
         # chosen in the simulation step; the directory worked in is matchup's default
         page.form["out_dir"] = "" if self.out_dir == self.cwd else self.out_dir
+        page.form["overwrite"] = self.overwrite
+        page.form["start"] = ""
+        page.form["end"] = ""
         with self._lock:
             if self.closed.is_set():
                 return None
@@ -1159,6 +1182,12 @@ class App:
             self.question = None
             self.identifying = args[:1] == ["script"]
             self.matchups_rejected = False
+            self.matchup_script_saved = False
+            self.script_path = (
+                os.path.abspath(os.path.join(self.cwd, args[1]))
+                if args[:1] == ["script"] and len(args) > 1
+                else None
+            )
             self.view = "running"
             self._notify()
         # set apart from what create_recipes printed before it
@@ -1182,7 +1211,7 @@ class App:
             self.returncode = run.returncode
             self.question = None
             self.identifying = False
-            self.view = "finished"
+            self.view = "script_saved" if self.matchup_script_saved else "finished"
             self._notify()
         self.console.note(
             "\nOceanVal: the run has "
@@ -1237,12 +1266,16 @@ class App:
             if question is None or question.id != number:
                 return False
             self.question = None
-            rejected = question.matchups and text.strip().lower().startswith("n")
+            answer = text.strip().lower()
+            rejected = question.matchups and answer == "n"
+            save_script = question.matchups and answer == "save"
             if rejected:
                 self.matchups_rejected = True
+            if save_script:
+                self.matchup_script_saved = True
             self._notify()
         self.console.write(text + "\n")
-        if rejected and self.stop():
+        if (rejected or save_script) and self.stop():
             return True
         question.respond(text)
         return True

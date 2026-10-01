@@ -67,11 +67,15 @@
   .own-field.is-required > .g-label { color: var(--red); font-weight: 600; }
   .own-field.is-required .s-input, .own-field.is-required .s-select { border-color: #e2a59d; }
   .own-req { margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: #fdf2f1; color: var(--red); font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
+  .g-label.is-required { color: var(--red); font-weight: 700; }
   .own-help { display: block; margin: 4px 0 0; color: var(--muted); font-size: 12.5px; line-height: 1.4; }
   .own-err { display: block; margin: 4px 0 0; color: var(--red); font-size: 12.5px; font-weight: 500; }
   .own-err:empty { display: none; }
   .own-optional { grid-column: 1 / -1; }
-  .own-optional > summary { display: inline-block; margin-bottom: 14px; color: var(--teal-700); font-weight: 600; cursor: pointer; }
+  .own-optional > summary { display: inline-flex; align-items: center; gap: 9px; margin-bottom: 14px; color: var(--teal-700); font-weight: 600; cursor: pointer; }
+  .own-optional > summary:focus-visible { outline: none; border-radius: 4px; box-shadow: var(--focus); }
+  .own-optional__chevron { width: 8px; height: 8px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg); transition: transform 0.15s; }
+  .own-optional[open] > summary .own-optional__chevron { transform: rotate(45deg); }
   .own-optional[open] > summary { color: var(--ink-soft); }
   .own-actions { display: flex; align-items: center; gap: 14px; margin-top: 22px; }
   .own-multi { display: flex; flex-wrap: wrap; gap: 8px 18px; }
@@ -90,6 +94,11 @@
   .form__row > .g-row + .g-row { margin-top: 0; }
   .form__row + .form__row { margin-top: 14px; }
   .form__row.is-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ndown-row { display: grid; grid-template-columns: max-content 84px minmax(0, 1fr); gap: 12px; align-items: center; margin-top: 12px; }
+  .ndown-row > .g-label { margin: 0; }
+  .ndown-row > .g-label.is-required { color: var(--red); font-weight: 700; }
+  .ndown-row > .s-input { width: 84px; text-align: center; }
+  .group__intro.ndown-example { margin: 0; color: var(--teal-700); font-weight: 500; }
   .group__intro { margin: -2px 0 12px; color: var(--muted); font-size: 13.5px; line-height: 1.45; }
   .group__line.is-ok { color: var(--teal-700); }
   .group__line .link { font-size: inherit; }
@@ -351,6 +360,10 @@
   .review__files { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-top: 4px; }
   .review__files small { display: inline; }
   .review__actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; padding: 18px 24px 22px; }
+  .script-saved.card { max-width: 760px; padding: 28px 30px; }
+  .script-saved h2 { margin: 0 0 8px; font: 600 22px/1.3 var(--font-head); }
+  .script-saved p { margin: 0 0 14px; color: var(--muted); }
+  .script-saved code { display: block; margin: 8px 0 18px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg-alt); color: var(--ink); font: 500 13px/1.5 var(--font-mono); overflow-wrap: anywhere; }
   .files__notice { display: flex; gap: 8px; align-items: flex-start; margin: 0 22px; padding: 10px 12px; border: 1px solid #f3d5c8; border-radius: 10px; background: #fff8f4; color: var(--coral-dark); font-size: 13.5px; font-weight: 500; line-height: 1.45; }
   .picker__info code { overflow-wrap: anywhere; }
   #files-intro { margin-bottom: 10px; }
@@ -367,6 +380,9 @@
     .form { grid-template-columns: 1fr; padding: 20px 16px 22px; }
     .form__row, .form__row.is-pair { grid-template-columns: 1fr; }
     .form__row > .g-row + .g-row { margin-top: 10px; }
+    .ndown-row { grid-template-columns: 84px minmax(0, 1fr); gap: 6px 10px; }
+    .ndown-row > .g-label { grid-column: 1 / -1; }
+    .ndown-row > .ndown-example { align-self: center; }
     .ask { grid-template-columns: auto minmax(0, 1fr); }
     .ask__answer { grid-column: 1 / -1; justify-content: flex-start; }
     .ask__answer .s-input { flex: 1; width: auto; }
@@ -411,7 +427,6 @@
 
 <main class="wrap">
   <section id="view-start" hidden>
-    <p class="lede">Choose what to do. Matchups, scripts and reports are written in the directory shown above, the one you started <code>oceanval</code> in, unless you choose another.</p>
     <div class="choices">
       <button type="button" class="choice" data-action="matchup_validate">
         <span class="choice__icon" data-icon="chart"></span>
@@ -435,14 +450,15 @@
   </section>
 
   <section id="view-setup" hidden>
-    <p class="lede">Tell OceanVal where the simulation is. It then reads the output files, works out which model variable holds each observational variable, and shows you what it found, for you to check.</p>
     <div class="banner" id="setup-error" role="alert" hidden></div>
     <form class="form card" id="setup-form" novalidate autocomplete="off">
       <fieldset class="group form__wide">
         <legend>Simulation</legend>
-        <div class="form__row">
-          <div class="g-row"><label class="g-label" for="f-simdir">Directory with the model output</label><div class="path-field"><input class="s-input is-mono" id="f-simdir" list="f-simdir-folders" placeholder="/path/to/model/output" spellcheck="false" autocapitalize="off"><button type="button" class="btn btn--ghost btn--field" data-browse="f-simdir">Browse…</button></div><datalist id="f-simdir-folders"></datalist></div>
-          <label class="g-row"><span class="g-label">Files are this many directories below it</span><input class="s-input is-num" id="f-ndown" inputmode="numeric" placeholder="e.g. 2" spellcheck="false" autocapitalize="off"></label>
+        <div class="g-row"><label class="g-label is-required" for="f-simdir">Which directory stores your simulation data? <span class="own-req">Required</span></label><div class="path-field"><input class="s-input is-mono" id="f-simdir" list="f-simdir-folders" placeholder="/path/to/model/output" spellcheck="false" autocapitalize="off"><button type="button" class="btn btn--ghost btn--field" data-browse="f-simdir">Browse…</button></div><datalist id="f-simdir-folders"></datalist></div>
+        <div class="ndown-row">
+          <label class="g-label is-required" for="f-ndown">How many directories below this can you find your files? <span class="own-req">Required</span></label>
+          <input class="s-input is-num" id="f-ndown" inputmode="numeric" placeholder="e.g. 2" spellcheck="false" autocapitalize="off" required>
+          <p class="group__intro ndown-example" id="ndown-example">Use 2 for output filed as sim/YYYY/MM/*.nc, 1 for sim/YYYY/*.nc, and 0 for a single directory.</p>
         </div>
         <p class="group__intro">Once you have told OceanVal the names of model variables it will be able to identify which files contain them, and it will use the files with the highest temporal resolution. However, sometimes you have files that could trip up OceanVal's file identifier. For example, you might have files covering the entire simulation, but others covering a spatial subregion. In this case, OceanVal needs to be told some further details to dig down.</p>
         <p class="group__intro"><button type="button" class="link" id="view-files" aria-haspopup="dialog">View files in a random subdirectory in the listed directory</button></p>
@@ -457,18 +473,11 @@
         <div class="segmented" id="f-domain" role="radiogroup" aria-label="Domain"></div>
         <p class="group__msg" id="m-domain"></p>
       </fieldset>
-      <fieldset class="group">
-        <legend>Years to validate</legend>
-        <div class="g-row pair">
-          <label><span class="g-label">Start</span><input class="s-input is-num" id="f-start" inputmode="numeric" spellcheck="false" autocapitalize="off"></label>
-          <label><span class="g-label">End</span><input class="s-input is-num" id="f-end" inputmode="numeric" spellcheck="false" autocapitalize="off"></label>
-        </div>
-        <p class="group__msg" id="m-years"></p>
-      </fieldset>
       <fieldset class="group form__wide">
         <legend>Output</legend>
         <div class="g-row"><label class="g-label" for="f-out_dir" id="f-out_dir-label">Where do you want matchups and validation output to be saved?</label><div class="path-field"><input class="s-input is-mono" id="f-out_dir" list="f-out_dir-folders" spellcheck="false" autocapitalize="off"><button type="button" class="btn btn--ghost btn--field" data-browse="f-out_dir">Browse…</button></div><datalist id="f-out_dir-folders"></datalist></div>
         <p class="group__msg" id="m-out_dir"></p>
+        <label class="tick-label" id="row-overwrite" hidden><input type="checkbox" class="tick" id="f-overwrite">Do you want to overwrite existing matchups in this directory?</label>
       </fieldset>
       <fieldset class="group form__wide">
         <legend>Matchup script</legend>
@@ -476,6 +485,8 @@
         <label class="g-row"><span class="g-label">Write the script to</span><input class="s-input is-mono" id="f-out" spellcheck="false" autocapitalize="off"></label>
         <p class="group__msg" id="m-out"></p>
       </fieldset>
+      <input type="hidden" id="f-start">
+      <input type="hidden" id="f-end">
       <button type="submit" hidden></button>
     </form>
   </section>
@@ -642,6 +653,16 @@
       </div>
     </div>
   </section>
+
+  <section id="view-script-saved" hidden>
+    <div class="script-saved card">
+      <h2 id="script-saved-title" tabindex="-1">Your matchup script is saved</h2>
+      <p>The matchup has not been run. To match and validate later, open a terminal and run:</p>
+      <code id="script-saved-command"></code>
+      <p>Script file:</p>
+      <code id="script-saved-path"></code>
+    </div>
+  </section>
 </main>
 
 <footer class="bar" id="bar" hidden>
@@ -706,6 +727,7 @@
 </div>
 
 <div class="toast" id="toast" role="status" hidden></div>
+<datalist id="own-variable-options"></datalist>
 
 <script type="application/json" id="state">__OCEANVAL_STATE__</script>
 <script>
@@ -789,7 +811,7 @@
     const run = state.run;
     switch (state.view) {
       case "start": return "Validate an ocean model";
-      case "setup": return "Where is the simulation?";
+      case "setup": return "Provide some essential information about your simulation data";
       case "own_data": return "Do you have your own data?";
       case "point_data": return "Your point data";
       case "gridded_data": return "Your gridded data";
@@ -797,6 +819,7 @@
       case "units_table": return "Do the units match up?";
       case "validate": return "Build a validation report";
       case "running": return ACTION_TITLES[state.action];
+      case "script_saved": return "Your matchup script is saved";
       default:
         return run.status === "finished" ? "Finished"
           : run.status === "stopped" ? "Stopped" : "Something went wrong";
@@ -806,9 +829,10 @@
   function renderHeader() {
     steps($("steps"), STEPS[state.action || "matchup_validate"], stepIndex(state.view, state.action));
     $("title").textContent = title();
+    $("title").classList.toggle("is-setup-title", state.view === "setup");
     const meta = $("meta");
     meta.replaceChildren(el("li", { title: state.cwd },
-      el("span", { class: "meta__k", text: "Working in" }),
+      el("span", { class: "meta__k", text: "OceanVal is running from" }),
       el("span", { class: "meta__v is-mono", text: shorten(state.cwd) })));
   }
 
@@ -830,33 +854,24 @@
     barShown = key;
     const summary = $("summary");
     const actions = [];
-    let text = "";
     if (view === "setup") {
-      text = "Next, OceanVal reads the simulation, and shows you what it found.";
       actions.push(button("Back", "ghost", () => post("api/back")),
         button("Continue", "primary", submitSetup, { id: "continue" }));
     } else if (view === "own_data") {
-      text = "Your data is added to the matchup script, so it is matched up with the built-in datasets.";
       actions.push(button("Back", "ghost", () => post("api/back")));
     } else if (view === "point_data" || view === "gridded_data") {
       const kind = view === "point_data" ? "point" : "gridded";
       const added = state.own.entries[kind].length;
-      text = added ? `${plural(added, "dataset")} added.` : "Nothing added yet: skip this step if you have no " + kind + " data.";
       actions.push(button("Back", "ghost", () => post("api/back")),
         button(added ? "Continue" : "Skip", "primary", () => post("api/own_next"), { id: "own-next" }));
     } else if (view === "validate") {
-      text = "The report is built in oceanval_report, in the report directory.";
       actions.push(button("Back", "ghost", () => post("api/back")),
         button("Build the report", "primary", submitValidate, { id: "build" }));
     } else if (view === "units_table") {
       // no Back: a recipes window that has been used cannot be opened again
-      text = "Confirm the units to continue. A conversion is written into the matchup script as obs_multiplier and obs_adder.";
       actions.push(button("Continue", "primary", submitUnits,
         { id: "units-continue", disabled: !unitsConfirmed() }));
-    } else if (view === "preparing") {
-      text = "This takes a few seconds: only one file of each kind is read.";
     } else if (view === "running") {
-      text = "The run carries on if you close this page. Open the link oceanval printed to come back to it.";
       const stop = button(stopArmed ? "Stop the run?" : "Stop", stopArmed ? "danger" : "ghost", () => {
         if (!stopArmed) {
           // a second click stops it
@@ -870,8 +885,7 @@
         post("api/stop");
       }, { id: "stop" });
       actions.push(stop);
-    } else if (view === "finished") {
-      text = "Quit closes OceanVal. Closing this tab leaves it running in the terminal.";
+    } else if (view === "finished" || view === "script_saved") {
       actions.push(button("Quit", "ghost", async () => {
         await post("api/quit");
         showDone("closed");
@@ -883,9 +897,9 @@
           () => post("api/choose", { action: "validate", data_dir: state.run.results })));
       }
     }
-    summary.textContent = text;
+    summary.replaceChildren();
     $("actions").replaceChildren(...actions);
-    $("bar").hidden = actions.length === 0 && !text;
+    $("bar").hidden = actions.length === 0;
     if (view === "setup") refreshSetup();
   }
 
@@ -893,7 +907,8 @@
   const VIEWS = { start: "view-start", setup: "view-setup", validate: "view-validate",
     own_data: "view-own", point_data: "view-point", gridded_data: "view-gridded",
     units_table: "view-units-table",
-    preparing: "view-run", running: "view-run", finished: "view-run" };
+    preparing: "view-run", running: "view-run", finished: "view-run",
+    script_saved: "view-script-saved" };
   let shownView = null;
 
   function enterView(view) {
@@ -916,6 +931,8 @@
       refreshOwn(view === "point_data" ? "point" : "gridded");
       const first = document.querySelector(`#view-${view === "point_data" ? "point" : "gridded"} input:not([type=checkbox]), #view-${view === "point_data" ? "point" : "gridded"} select`);
       if (first) first.focus();
+    } else if (view === "script_saved") {
+      $("script-saved-title").focus();
     }
     shownView = view;
     $("toast").hidden = true;
@@ -931,6 +948,7 @@
     // the units are read after the step is shown
     if (state.view === "units_table" && !unitsFilled && state.units.rows) fillUnits();
     if (VIEWS[state.view] === "view-run") renderRun();
+    if (state.view === "script_saved") renderSavedScript();
   }
 
   // ---- 1: choosing what to do ----
@@ -951,8 +969,7 @@
   let probe = null;
   let probeNumber = 0;
   let probeTimer = null;
-  // whether the depth and years were filled in from the files, so can change with them
-  let autoDepth = false;
+  // whether the years were filled in from the files, so can change with them
   let autoYears = false;
 
   const segmented = $("f-domain");
@@ -965,13 +982,14 @@
   function fillSetup() {
     Object.assign(setup, state.setup.form);
     for (const name of SETUP_FIELDS) $(`f-${name}`).value = setup[name];
+    $("f-overwrite").checked = Boolean(setup.overwrite);
     segmented.querySelectorAll("input").forEach((input) => { input.checked = input.value === setup.domain; });
     $("f-out_dir").placeholder = state.cwd;
     $("f-out_dir-label").textContent = state.action === "matchup"
       ? "Where do you want matchups to be saved?"
       : "Where do you want matchups and validation output to be saved?";
     setupErrors = {};
-    autoDepth = autoYears = false;
+    autoYears = Boolean(setup.start && setup.end);
     probe = null;
     askProbe(0);
   }
@@ -980,12 +998,14 @@
     $(`f-${name}`).addEventListener("input", (event) => {
       setup[name] = event.target.value;
       delete setupErrors[name];
-      if (name === "ndown") autoDepth = false;
       if (name === "start" || name === "end") autoYears = false;
       if (PROBED.has(name)) askProbe(400);
       refreshSetup();
     });
   }
+  $("f-overwrite").addEventListener("change", (event) => {
+    setup.overwrite = event.target.checked;
+  });
   $("setup-form").addEventListener("submit", (event) => { event.preventDefault(); submitSetup(); });
 
   function askProbe(delay) {
@@ -1013,18 +1033,10 @@
   function useProbe() {
     if (!probe) return;
     const blank = (name) => !String(setup[name]).trim();
-    const suggestion = probe.suggestion;
-    // an empty depth is filled in with the one the files are at
-    if (suggestion && (blank("ndown") || autoDepth)) {
-      setup.ndown = $("f-ndown").value = String(suggestion.ndown);
-      autoDepth = true;
-      askProbe(0);
-      return;
-    }
-    const years = probe.years;
-    if (years && ((blank("start") && blank("end")) || autoYears)) {
-      setup.start = $("f-start").value = String(years[0]);
-      setup.end = $("f-end").value = String(years[1]);
+    const years = probe.years || (probe.suggestion && probe.suggestion.years);
+    if ((blank("start") && blank("end")) || autoYears) {
+      setup.start = $("f-start").value = years ? String(years[0]) : "1995";
+      setup.end = $("f-end").value = years ? String(years[1]) : "2004";
       autoYears = true;
     }
   }
@@ -1089,7 +1101,6 @@
         simulation.push(line(`No netCDF files ${depthText(depth)}, but there are ${other.files} ${depthText(other.ndown)}. `, "warn",
           el("button", { type: "button", class: "link", text: `Use ${other.ndown}`, onclick: () => {
             setup.ndown = $("f-ndown").value = String(other.ndown);
-            autoDepth = true;
             askProbe(0);
             refreshSetup();
           } })));
@@ -1097,23 +1108,12 @@
         simulation.push(line(`No netCDF files ${depthText(depth)}, nor at any depth down to 3 directories.`, "warn"));
       }
     }
-    if (!simulation.length) {
-      simulation.push(line("Use 2 for output filed as sim/YYYY/MM/*.nc, 1 for sim/YYYY/*.nc, and 0 for a single directory."));
-    }
     if (String(setup.exclude).trim() || String(setup.require).trim()) {
       simulation.push(line("Only file names are checked, not directories. The filters are passed on to matchup, too."));
     }
     message("m-simulation", simulation, false);
 
     message("m-domain", [line(DOMAIN_HINTS[setup.domain] + " Where a variable has datasets in both regions, the domain decides which is ticked.")]);
-
-    if (errors.start || errors.end) {
-      message("m-years", [line(errors.start || errors.end, "error")], true);
-    } else {
-      message("m-years", [line(autoYears
-        ? "Filled in from the file names. They can be changed in the next step too."
-        : "The first and last years to match up. They can be changed in the next step too.")]);
-    }
 
     if (errors.out_dir) {
       message("m-out_dir", [line(errors.out_dir, "error")], true);
@@ -1124,13 +1124,14 @@
       const lines = [line(String(setup.out_dir).trim() ? saved : `${saved} Empty: the directory you started oceanval in.`)];
       if (probe && probe.out_dir === "missing") lines.push(line("It does not exist yet, so OceanVal will create it."));
       if (probe && probe.out_dir_has_matchups) {
-        lines.push(line("There are matchups here already, from an earlier run. Choose another directory to keep them apart.", "warn"));
+        lines.push(line("There are matchups here already, from an earlier run. Choose another directory if you need to keep them apart.", "warn"));
       }
       message("m-out_dir", lines);
     }
+    $("row-overwrite").hidden = !(probe && probe.out_dir_has_matchups);
 
     if (errors.out) message("m-out", [line(errors.out, "error")], true);
-    else if (probe && probe.out_exists) message("m-out", [line("This file already exists, and will be replaced.", "warn")]);
+    else if (probe && probe.out_exists) message("m-out", [line("This file already exists, and will be replaced. Unless you plan to run this matchup file yourself, there is no need to worry about the name.", "warn")]);
     else message("m-out", []);
 
     const blocked = Object.keys(errors).length > 0;
@@ -1176,6 +1177,8 @@
     },
   };
   const own = { point: {}, gridded: {} };
+  $("own-variable-options").append(...initial.state.own.recipe_variables.map(
+    (variable) => el("option", { value: variable })));
 
   function ownField(kind, field) {
     const id = `o-${kind}-${field.name}`;
@@ -1213,6 +1216,7 @@
       const number = field.kind !== "text";
       input = el("input", { type: "text", class: "s-input" + (mono ? " is-mono" : number ? " is-num" : ""), id,
         placeholder: field.placeholder || "", spellcheck: "false", autocapitalize: "off", autocomplete: "off",
+        list: field.name === "name" ? "own-variable-options" : null,
         "aria-describedby": described });
       read = () => input.value;
       reset = () => { input.value = ""; };
@@ -1238,7 +1242,7 @@
     const fields = initial.state.own.fields[kind];
     const needed = el("div", { class: "own-fields" }, ...fields.filter((f) => f.required).map((f) => ownField(kind, f)));
     const optional = el("details", { class: "own-optional", id: `own-optional-${kind}` },
-      el("summary", { text: "Optional settings" }),
+      el("summary", {}, "Optional settings", el("span", { class: "own-optional__chevron", "aria-hidden": "true" })),
       el("div", { class: "own-fields" }, ...fields.filter((f) => !f.required).map((f) => ownField(kind, f))));
     const form = el("form", { class: "own-form card", id: `own-form-${kind}`, novalidate: true, autocomplete: "off" },
       el("h2", { text: `Add a ${OWN_TEXT[kind].noun}` }),
@@ -1989,10 +1993,16 @@
             { class: "btn btn--text btn--small", "aria-haspopup": "dialog", "aria-label": `List all files for ${row.title}` }))))));
     $("review-actions").replaceChildren(
       button("No, stop the run", "ghost", () => send(question.id, "n")),
+      button("No, store the matchup Python script. I will run it later.", "ghost", () => send(question.id, "save")),
       button("Yes, carry on", "primary", () => send(question.id, "y")));
     $("review").hidden = false;
     $("review").scrollIntoView({ block: "start" });
     $("review-title").focus({ preventScroll: true });
+  }
+
+  function renderSavedScript() {
+    $("script-saved-command").textContent = state.run.script_command || "";
+    $("script-saved-path").textContent = state.run.script || "";
   }
 
   const filesDialog = { opener: null, number: 0 };

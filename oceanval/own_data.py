@@ -100,7 +100,7 @@ _NAME = _field(
     "Variable name",
     required=True,
     help="Letters and numbers only. The same name for another source adds "
-    "it to that variable's report.",
+    "it to that variable's report. Choose a recipe variable or enter your own.",
     placeholder="e.g. chlorophyll",
 )
 _SOURCE = _field(

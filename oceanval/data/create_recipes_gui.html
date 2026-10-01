@@ -135,13 +135,20 @@
   .settings__grid {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 26px 30px;
+    gap: 0 30px;
     padding: 20px 22px 24px;
   }
+  .settings__column { display: grid; align-content: start; gap: 26px; min-width: 0; }
   .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
   .settings__ticks { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px 24px; padding: 0 22px 20px; }
+  .g-label.is-required { color: var(--red); font-weight: 700; }
+  .year-required { margin-left: 6px; color: var(--red); font-size: 10.5px; font-weight: 700; text-transform: uppercase; }
   /* a box's own hint, between it and the next box */
   .group__msg + .g-row { margin-top: 10px; }
+  .group__line.is-ersem { color: #8a5a00; font-weight: 600; }
+  .s-input.is-ersem, .s-select.is-ersem { border-color: #d7a83e; background-color: #fff8df; color: #8a5a00; font-weight: 600; }
+  .cores-row { display: grid; grid-template-columns: minmax(0, 1fr) 84px; align-items: center; gap: 10px; }
+  .cores-row .g-label { margin: 0; }
 
   /* a dataset's own options, under its tick-box: as wide as the point
      column, so the gridded ones line up with the point ones */
@@ -149,12 +156,25 @@
   .opts { display: grid; gap: 6px; width: 188px; max-width: 100%; }
   .opts__row { display: grid; grid-template-columns: 50px minmax(0, 1fr); align-items: center; gap: 6px; }
   .opts__label { color: var(--muted); font-size: 11.5px; font-weight: 500; }
+  .opts__row.is-required { grid-template-columns: 64px minmax(0, 1fr); }
+  .opts__row.is-required .opts__label { color: var(--red); font-weight: 700; }
+  .opts__row.is-required .opts__label::after { content: "Required"; display: block; color: var(--red); font-size: 9px; font-weight: 700; text-transform: uppercase; }
+  .opts__help { position: relative; display: inline-flex; margin-left: 3px; vertical-align: middle; }
+  .opts__help > summary { display: grid; place-items: center; width: 16px; height: 16px; border: 1px solid var(--teal-600); border-radius: 50%; color: var(--teal-700); font-size: 11px; font-weight: 700; line-height: 1; list-style: none; cursor: pointer; }
+  .opts__help > summary::-webkit-details-marker { display: none; }
+  .opts__help > summary:focus-visible { outline: none; box-shadow: var(--focus); }
+  .opts__help-popover { position: absolute; top: calc(100% + 7px); left: 0; z-index: 8; width: min(250px, 70vw); padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); box-shadow: var(--shadow-lg); font-size: 12px; font-weight: 400; line-height: 1.45; }
+  .opts__help-popover p { margin: 0 0 6px; }
+  .opts__help-popover ul { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 12px; margin: 0 0 6px; padding-left: 16px; }
+  .opts__help-popover p:last-child { margin-bottom: 0; }
   .opts__years { display: flex; align-items: center; gap: 4px; }
   .s-input.is-small, .s-select.is-small { padding-top: 4px; padding-bottom: 4px; font-size: 12.5px; }
   .s-select.is-small { padding-right: 22px; background-position: right 7px center; }
   .opts__vertical { font-size: 12.5px; }
   .opts__msg { margin: 0; color: var(--red); font-size: 12px; line-height: 1.35; }
   .opts__msg:empty { display: none; }
+  .fix-settings { margin: 0; color: var(--red); font-size: 12.5px; font-weight: 700; text-align: center; }
+  .write-action { display: grid; gap: 4px; }
 
 
   @media (max-width: 1000px) {
@@ -205,88 +225,104 @@
     <details id="settings" open>
       <summary class="settings__head">
         <span class="settings__title" id="settings-title">Global settings</span>
-        <span class="settings__sub" id="settings-sub">Written into the script's <code>matchup()</code> and <code>validate()</code> calls</span>
         <span class="settings__changed" id="settings-changed" hidden></span>
         <span class="settings__chevron" aria-hidden="true"></span>
       </summary>
       <div class="settings__grid">
-        <fieldset class="group">
-          <legend>Years to validate</legend>
-          <div class="g-row pair">
-            <label><span class="g-label">Start</span><input class="s-input is-num" id="s-start" inputmode="numeric" spellcheck="false" autocomplete="off" autocapitalize="off"></label>
-            <label><span class="g-label">End</span><input class="s-input is-num" id="s-end" inputmode="numeric" spellcheck="false" autocomplete="off" autocapitalize="off"></label>
-          </div>
-          <p class="group__msg" id="g-years"></p>
-        </fieldset>
-        <fieldset class="group">
-          <legend>Spatial subset</legend>
-          <div class="g-row span-row">
-            <span class="span-row__label">Lon</span>
-            <input class="s-input is-num" id="s-lon_min" placeholder="min" aria-label="Minimum longitude" spellcheck="false" autocomplete="off" autocapitalize="off">
-            <span class="dash">–</span>
-            <input class="s-input is-num" id="s-lon_max" placeholder="max" aria-label="Maximum longitude" spellcheck="false" autocomplete="off" autocapitalize="off">
-          </div>
-          <div class="g-row span-row">
-            <span class="span-row__label">Lat</span>
-            <input class="s-input is-num" id="s-lat_min" placeholder="min" aria-label="Minimum latitude" spellcheck="false" autocomplete="off" autocapitalize="off">
-            <span class="dash">–</span>
-            <input class="s-input is-num" id="s-lat_max" placeholder="max" aria-label="Maximum latitude" spellcheck="false" autocomplete="off" autocapitalize="off">
-          </div>
-          <p class="group__msg" id="g-subset"></p>
-        </fieldset>
-        <fieldset class="group" id="group-output">
-          <legend>Output</legend>
-          <label class="g-row"><span class="g-label">Directory</span><input class="s-input is-mono" id="s-out_dir" placeholder="Where you run the script" spellcheck="false" autocomplete="off" autocapitalize="off"></label>
-          <p class="group__msg" id="g-output"></p>
-        </fieldset>
-        <fieldset class="group">
-          <legend>Model data</legend>
-          <label class="g-row"><span class="g-label">Thickness</span><input class="s-input is-mono" id="s-thickness" list="thickness-options" spellcheck="false" autocomplete="off" autocapitalize="off"></label>
-          <p class="group__msg" id="g-thickness"></p>
-          <div class="g-row">
-            <span class="g-label">Treat as missing</span>
-            <div class="span-row">
-              <input class="s-input is-num" id="s-missing_from" placeholder="value" aria-label="Treat as missing: the value, or the start of a range" spellcheck="false" autocomplete="off" autocapitalize="off">
-              <span class="dash">–</span>
-              <input class="s-input is-num" id="s-missing_to" placeholder="to" aria-label="Treat as missing: the end of a range" spellcheck="false" autocomplete="off" autocapitalize="off">
+        <div class="settings__column">
+          <fieldset class="group">
+            <legend>What years do you want to validate?</legend>
+            <div class="g-row pair">
+              <label><span class="g-label" id="s-start-label">First <span class="year-required" id="s-start-required" hidden>Required</span></span><input class="s-input is-num" id="s-start" inputmode="numeric" spellcheck="false" autocomplete="off" autocapitalize="off"></label>
+              <label><span class="g-label" id="s-end-label">Last <span class="year-required" id="s-end-required" hidden>Required</span></span><input class="s-input is-num" id="s-end" inputmode="numeric" spellcheck="false" autocomplete="off" autocapitalize="off"></label>
             </div>
-          </div>
-          <p class="group__msg" id="g-missing"></p>
-        </fieldset>
-        <fieldset class="group">
-          <legend>Point data</legend>
-          <label class="g-row"><span class="g-label">Match observations by</span><select class="s-select" id="s-point_time_res"></select></label>
-          <p class="group__msg" id="g-point"></p>
-        </fieldset>
-        <fieldset class="group">
-          <legend>Matchup</legend>
-          <label class="g-row"><span class="g-label">Cores</span><input class="s-input is-num" id="s-cores" inputmode="numeric" spellcheck="false" autocomplete="off" autocapitalize="off"></label>
-          <p class="group__msg" id="g-matchup"></p>
-        </fieldset>
-        <fieldset class="group" id="group-files">
-          <legend>File filters</legend>
-          <label class="g-row"><span class="g-label">Skip file names containing <span class="g-note">(separate words with a space)</span></span><input class="s-input is-mono" id="s-exclude" placeholder="e.g. restart 5d" spellcheck="false" autocomplete="off" autocapitalize="off"></label>
-          <label class="g-row"><span class="g-label">Only file names containing <span class="g-note">(separate words with a space)</span></span><input class="s-input is-mono" id="s-require" placeholder="e.g. grid_T" spellcheck="false" autocomplete="off" autocapitalize="off"></label>
-          <p class="group__msg" id="g-files"></p>
-        </fieldset>
-        <fieldset class="group" id="group-report">
-          <legend>Additional reports</legend>
-          <div class="g-row ticks">
-            <label class="tick-label"><input type="checkbox" class="tick" id="s-pdf">PDF</label>
-            <label class="tick-label"><input type="checkbox" class="tick" id="s-word">Word</label>
-            <label class="tick-label"><input type="checkbox" class="tick" id="s-concise">Concise report</label>
-          </div>
-          <label class="g-row"><span class="g-label">Regional summaries</span>
-            <select class="s-select" id="s-subregions">
-              <option value="">None</option>
-              <option value="nwes">Northwest European Shelf</option>
-              <option value="global">Global</option>
-              <option value="file">A .nc file of your own…</option>
-            </select>
-          </label>
-          <label class="g-row" id="row-subregions_file" hidden><span class="g-label">Path to the file</span><input class="s-input is-mono" id="s-subregions_file" placeholder="/path/to/regions.nc" spellcheck="false" autocomplete="off" autocapitalize="off"></label>
-          <p class="group__msg" id="g-report"></p>
-        </fieldset>
+            <p class="group__msg" id="g-years"></p>
+          </fieldset>
+          <fieldset class="group">
+            <label class="g-row cores-row"><span class="g-label">How many cores do you want to use?</span><input class="s-input is-num" id="s-cores" inputmode="numeric" spellcheck="false" autocomplete="off" autocapitalize="off"></label>
+            <p class="group__msg" id="g-matchup"></p>
+          </fieldset>
+        </div>
+        <div class="settings__column">
+          <fieldset class="group" id="group-subset">
+            <legend>Do you want a spatial subset?</legend>
+            <div class="g-row span-row">
+              <span class="span-row__label">Lon</span>
+              <input class="s-input is-num" id="s-lon_min" placeholder="min" aria-label="Minimum longitude" spellcheck="false" autocomplete="off" autocapitalize="off">
+              <span class="dash">–</span>
+              <input class="s-input is-num" id="s-lon_max" placeholder="max" aria-label="Maximum longitude" spellcheck="false" autocomplete="off" autocapitalize="off">
+            </div>
+            <div class="g-row span-row">
+              <span class="span-row__label">Lat</span>
+              <input class="s-input is-num" id="s-lat_min" placeholder="min" aria-label="Minimum latitude" spellcheck="false" autocomplete="off" autocapitalize="off">
+              <span class="dash">–</span>
+              <input class="s-input is-num" id="s-lat_max" placeholder="max" aria-label="Maximum latitude" spellcheck="false" autocomplete="off" autocapitalize="off">
+            </div>
+            <p class="group__msg" id="g-subset"></p>
+          </fieldset>
+          <fieldset class="group form__wide" id="group-report">
+            <legend>Which additional validation report formats do you want?</legend>
+            <div class="g-row ticks report-formats">
+              <label class="tick-label"><input type="checkbox" class="tick" id="s-pdf">PDF</label>
+              <label class="tick-label"><input type="checkbox" class="tick" id="s-word">Word</label>
+            </div>
+            <p class="group__msg" id="g-report"></p>
+          </fieldset>
+        </div>
+        <div class="settings__column">
+          <fieldset class="group" id="group-output">
+            <legend>Output</legend>
+            <label class="g-row"><span class="g-label">Directory</span><input class="s-input is-mono" id="s-out_dir" placeholder="Where you run the script" spellcheck="false" autocomplete="off" autocapitalize="off"></label>
+            <p class="group__msg" id="g-output"></p>
+          </fieldset>
+          <fieldset class="group">
+            <legend>Model data info</legend>
+            <label class="g-row"><span class="g-label">Is the model z-level or is thickness supplied?</span><input class="s-input is-mono" id="s-thickness" list="thickness-options" spellcheck="false" autocomplete="off" autocapitalize="off"></label>
+            <p class="group__msg" id="g-thickness"></p>
+            <div class="g-row">
+              <span class="g-label">What should be treated as missing values?</span>
+              <div class="span-row">
+                <input class="s-input is-num" id="s-missing_from" placeholder="value" aria-label="Treat as missing: the value, or the start of a range" spellcheck="false" autocomplete="off" autocapitalize="off">
+                <span class="dash">–</span>
+                <input class="s-input is-num" id="s-missing_to" placeholder="to" aria-label="Treat as missing: the end of a range" spellcheck="false" autocomplete="off" autocapitalize="off">
+              </div>
+            </div>
+            <p class="group__msg" id="g-missing"></p>
+          </fieldset>
+          <fieldset class="group" id="group-files">
+            <legend>File filters</legend>
+            <label class="g-row"><span class="g-label">Skip file names containing <span class="g-note">(separate words with a space)</span></span><input class="s-input is-mono" id="s-exclude" placeholder="e.g. restart 5d" spellcheck="false" autocomplete="off" autocapitalize="off"></label>
+            <label class="g-row"><span class="g-label">Only file names containing <span class="g-note">(separate words with a space)</span></span><input class="s-input is-mono" id="s-require" placeholder="e.g. grid_T" spellcheck="false" autocomplete="off" autocapitalize="off"></label>
+            <p class="group__msg" id="g-files"></p>
+          </fieldset>
+        </div>
+        <div class="settings__column">
+          <fieldset class="group">
+            <label class="g-row"><span class="g-label">Match point observations by</span><select class="s-select" id="s-point_time_res"></select></label>
+            <p class="group__msg" id="g-point"></p>
+          </fieldset>
+          <fieldset class="group" id="group-detail">
+            <label class="g-row"><span class="g-label">How detailed do you want the validation to be?</span>
+              <select class="s-select" id="s-concise">
+                <option value="true">Concise</option>
+                <option value="false">Detailed</option>
+              </select>
+            </label>
+            <p class="group__msg" id="g-detail"></p>
+          </fieldset>
+          <fieldset class="group" id="group-regional">
+            <label class="g-row"><span class="g-label">Which region do you want to use for subregion analysis?</span>
+              <select class="s-select" id="s-subregions">
+                <option value="">None</option>
+                <option value="nwes">Northwest European Shelf</option>
+                <option value="global">Global</option>
+                <option value="file">A .nc file of your own…</option>
+              </select>
+            </label>
+            <label class="g-row" id="row-subregions_file" hidden><span class="g-label">Path to the file</span><input class="s-input is-mono" id="s-subregions_file" placeholder="/path/to/regions.nc" spellcheck="false" autocomplete="off" autocapitalize="off"></label>
+            <p class="group__msg" id="g-regional"></p>
+          </fieldset>
+        </div>
       </div>
       <div class="settings__ticks">
         <label class="tick-label"><input type="checkbox" class="tick" id="s-overwrite">Overwrite existing matchups</label>
@@ -322,7 +358,10 @@
     <div class="actions">
       <button type="button" class="btn btn--text" id="reset" hidden>Reset</button>
       <button type="button" class="btn btn--ghost" id="cancel">Cancel</button>
-      <button type="button" class="btn btn--primary" id="write">Write script</button>
+      <div class="write-action">
+        <p class="fix-settings" id="fix-settings" hidden>Fix settings above</p>
+        <button type="button" class="btn btn--primary" id="write">Write script</button>
+      </div>
     </div>
   </div>
 </footer>
@@ -366,13 +405,18 @@
     $("group-output").hidden = true;
     // the app answers matchup's questions in its window, so it always asks them
     $("s-ask").closest("label").hidden = true;
+    $("s-overwrite").closest("label").hidden = true;
+    for (const name of ["start", "end"]) {
+      $(`s-${name}-label`).classList.add("is-required");
+      $(`s-${name}-required`).hidden = false;
+      $(`s-${name}`).required = true;
+    }
     $("page-title").textContent = app.action === "matchup"
       ? "Choose what to match up"
-      : "Choose what to match up and validate";
+      : "Let's fine-tune what you want to matchup";
     if (app.action === "matchup") {
       // the report is built later, so validate's settings can wait until then
-      $("group-report").hidden = true;
-      $("settings-sub").replaceChildren("Written into the script's ", el("code", { text: "matchup()" }), " call");
+      for (const id of ["group-report", "group-detail", "group-regional"]) $(id).hidden = true;
     }
   }
   const meta = $("meta");
@@ -384,24 +428,19 @@
     );
   }
   metaItem("Simulation", context.simdir, { mono: true });
-  metaItem("Files", context.ndown === 0 ? "in the directory itself"
-    : `${context.ndown} director${context.ndown === 1 ? "y" : "ies"} down`);
-  metaItem("Domain", context.region);
-  metaItem("Years", context.start === context.end ? String(context.start) : `${context.start}–${context.end}`);
-  if (context.fvcom) {
-    metaItem("Model", "Raw FVCOM", {
-      flag: true,
-      title: "Read with xarray, and the script's matchup call is given fvcom=True",
-    });
+  if (!app) {
+    metaItem("Files", context.ndown === 0 ? "in the directory itself"
+      : `${context.ndown} director${context.ndown === 1 ? "y" : "ies"} down`);
+    metaItem("Domain", context.region);
+    metaItem("Years", context.start === context.end ? String(context.start) : `${context.start}–${context.end}`);
+    if (context.fvcom) {
+      metaItem("Model", "Raw FVCOM", {
+        flag: true,
+        title: "Read with xarray, and the script's matchup call is given fvcom=True",
+      });
+    }
+    metaItem("Output", context.out, { mono: true });
   }
-  if (app && (context.exclude || context.require)) {
-    // chosen in the step before, so shown rather than asked for here
-    const filters = [];
-    if (context.exclude) filters.push(`skip ${context.exclude.join(" ")}`);
-    if (context.require) filters.push(`only ${context.require.join(" ")}`);
-    metaItem("File filters", filters.join(" · "));
-  }
-  metaItem("Output", context.out, { mono: true });
 
   $("lede").append(
     "Check the model variable matched to each observational variable, and tick the datasets " +
@@ -414,8 +453,16 @@
   $("model-variables").append(...state.available.map((name) => el("option", { value: name })));
 
   // ---- global settings ----
-  const form = { ...state.settings };
-  const initialForm = { ...state.settings };
+  const form = { ...state.settings, concise: String(state.settings.concise) };
+  const ERSEM_DEFAULTS = state.nemo_ersem ? {
+    ...(available.has("e3t") ? { thickness: "e3t" } : {}),
+    missing_from: "0",
+    missing_to: "0",
+  } : {};
+  for (const [name, value] of Object.entries(ERSEM_DEFAULTS)) {
+    if (!String(form[name] || "").trim()) form[name] = value;
+  }
+  const initialForm = { ...form };
   // what create_recipes found wrong with the last Write, until the box changes
   const serverErrors = {};
   const GROUPS = {
@@ -427,7 +474,9 @@
     point: ["point_time_res"],
     matchup: ["cores", "ask"],
     files: ["exclude", "require"],
-    report: ["pdf", "word", "concise", "subregions", "subregions_file"],
+    report: ["pdf", "word"],
+    detail: ["concise"],
+    regional: ["subregions", "subregions_file"],
   };
   const FIELDS = Object.values(GROUPS).flat();
   // each setting as the boxes it is made of, so changes and problems are
@@ -437,7 +486,7 @@
     ["missing_from", "missing_to"], ["point_time_res"], ["cores"], ["ask"],
     ["exclude"], ["require"], ["pdf"], ["word"], ["concise"], ["subregions", "subregions_file"],
   ];
-  const BOOLEANS = new Set(["overwrite", "ask", "pdf", "word", "concise"]);
+  const BOOLEANS = new Set(["overwrite", "ask", "pdf", "word"]);
   const timeRes = new Map(state.time_res_options.map((option) => [option.value, option]));
   const field = (name) => $(`s-${name}`);
 
@@ -458,6 +507,10 @@
     const control = field(name);
     if (BOOLEANS.has(name)) control.checked = Boolean(form[name]);
     else if (control.value !== String(form[name])) control.value = form[name];
+    control.classList.toggle(
+      "is-ersem",
+      ERSEM_DEFAULTS[name] !== undefined && String(form[name]) === ERSEM_DEFAULTS[name],
+    );
     // a long path can be wider than its box
     if (control.tagName === "INPUT" && !BOOLEANS.has(name)) control.title = control.value;
   }
@@ -498,9 +551,9 @@
   function settingErrors() {
     const errors = {};
     for (const name of ["start", "end"]) {
-      if (!isInteger(form[name])) errors[name] = `${name === "start" ? "Start" : "End"} must be a year, e.g. 2011.`;
+      if (!isInteger(form[name])) errors[name] = `${name === "start" ? "First" : "Last"} must be a year, e.g. 2011.`;
     }
-    if (!errors.start && !errors.end && +form.end < +form.start) errors.end = "End must not be before start.";
+    if (!errors.start && !errors.end && +form.end < +form.start) errors.end = "Last year must not be before the first year.";
 
     const given = GROUPS.subset.filter((name) => String(form[name]).trim());
     for (const name of given) {
@@ -545,7 +598,11 @@
       else if (!path.endsWith(".nc")) errors.subregions_file = "This must be a .nc file.";
     }
 
-    if (!isInteger(form.cores) || +form.cores < 1) errors.cores = "Cores must be a whole number, 1 or more.";
+    if (!isInteger(form.cores) || +form.cores < 1) {
+      errors.cores = "Cores must be a whole number, 1 or more.";
+    } else if (state.cpu_count && +form.cores > state.cpu_count) {
+      errors.cores = `This machine has ${state.cpu_count} cores. Choose ${state.cpu_count} or fewer.`;
+    }
     return errors;
   }
 
@@ -590,15 +647,18 @@
         return hints;
       }
       case "missing":
-        return [{ text: "Treat as missing: one value, or everything in a range." }];
+        return [
+          { text: "Treat as missing: one value, or everything in a range." },
+          ...(app && state.nemo_ersem
+            ? [{ text: "This appears to be an ERSEM simulation and the above values are assumed.", ersem: true }]
+            : []),
+        ];
       case "point": {
         const option = timeRes.get(form.point_time_res);
         return [{ text: `${option ? option.hint + ". " : ""}Each point dataset below can override this.` }];
       }
       case "matchup":
-        return [{ text: app
-          ? `This machine has ${state.cpu_count} cores.`
-          : `This machine has ${state.cpu_count} cores. Untick Ask to run the script as a batch job, e.g. with SLURM.` }];
+        return app ? [] : [{ text: "Untick Ask to run the script as a batch job, e.g. with SLURM." }];
       case "files":
         return [{ text: "Only file names are checked, not directories." }];
       default:
@@ -626,8 +686,8 @@
       }
       msg.className = "group__msg";
       msg.replaceChildren(...groupHints(group).map((hint) =>
-        el("span", { class: "group__line" + (hint.warn ? " is-warn" : "") },
-          hint.warn ? icon("warn") : null, el("span", { text: hint.text }))));
+        el("span", { class: "group__line" + (hint.ersem ? " is-ersem" : hint.warn ? " is-warn" : "") },
+          hint.warn || hint.ersem ? icon("warn") : null, el("span", { text: hint.text }))));
     }
     const count = SETTINGS.filter((names) => names.some((name) => form[name] !== initialForm[name])).length;
     $("settings-changed").hidden = count === 0;
@@ -747,13 +807,16 @@
     const years = knownYears();
     const missed = years ? `These years miss the ${years[0]}–${years[1]} being matched up.` : "";
     const both = "WOA23 publishes this per decade, so give both years.";
+    const needsDatasetDecade = Boolean(years && !woa23Period(years));
     if (start !== null && end !== null && start > end) errors.end = "To must not be before From.";
     else if (years && start !== null && start > years[1]) errors.start = missed;
     else if (years && end !== null && end < years[0]) errors.end = missed;
-    else if (dataset.decadal && start === null && end !== null) errors.start = both;
-    else if (dataset.decadal && end === null && start !== null) errors.end = both;
-    else if (dataset.decadal && start !== null && !woa23Period([start, end])) {
-      errors.end = "These years must sit inside one WOA23 decade, e.g. 2005–2014.";
+    else if (dataset.decadal && (needsDatasetDecade || start !== null || end !== null)) {
+      if (start === null) errors.start = both;
+      if (end === null) errors.end = both;
+      if (start !== null && end !== null && !woa23Period([start, end])) {
+        errors.end = "These years must sit inside one WOA23 decade, e.g. 2005–2014.";
+      }
     }
     return errors;
   }
@@ -775,9 +838,16 @@
       select.title = own ? own.hint : `As in the global settings: ${global ? global.label : ""}`;
     }
     if (dataset.decadal) {
-      // left empty, the script uses the decade the global years sit inside
+      // with a matching global decade, the script can use that decade
       const years = knownYears();
       const period = years && woa23Period(years);
+      const required = shown && Boolean(years && !period || hasOwnYears(dataset));
+      opts.yearsRow.classList.toggle("is-required", required);
+      for (const name of ["start", "end"]) {
+        const missing = !String(dataset.opts[name]).trim();
+        opts.controls[name].required = required && missing;
+        opts.controls[name].setAttribute("aria-required", String(required && missing));
+      }
       opts.controls.start.placeholder = period ? String(period[0]) : "from";
       opts.controls.end.placeholder = period ? String(period[1]) : "to";
       opts.years.title = period
@@ -787,6 +857,7 @@
     const errors = shown ? optionErrors(dataset) : {};
     for (const [name, control] of Object.entries(opts.controls)) {
       control.classList.toggle("is-invalid", Boolean(errors[name]));
+      control.setAttribute("aria-invalid", String(Boolean(errors[name])));
     }
     opts.msg.textContent = Object.values(errors)[0] || "";
     return Object.keys(errors).length > 0;
@@ -815,7 +886,18 @@
     }));
     const years = el("span", { class: "opts__years" },
       controls.start, el("span", { class: "dash", text: "–" }), controls.end);
-    parts.push(el("div", { class: "opts__row" }, el("span", { class: "opts__label", text: "Years" }), years));
+    const yearsLabel = el("span", { class: "opts__label" }, "Years");
+    if (dataset.decadal) {
+      const help = el("details", { class: "opts__help" },
+        el("summary", { "aria-label": "Show available WOA23 year periods", title: "Available WOA23 year periods" }, "?"),
+        el("div", { class: "opts__help-popover", role: "note" },
+          el("p", {}, el("strong", { text: "Available WOA23 periods" })),
+          el("ul", {}, ...state.woa23_periods.map(([first, last]) => el("li", { text: `${first}–${last}` }))),
+          el("p", { text: "First and Last must fit within the same period." })));
+      yearsLabel.append(help);
+    }
+    const yearsRow = el("div", { class: "opts__row" }, yearsLabel, years);
+    parts.push(yearsRow);
     if (dataset.vertical_option) {
       controls.vertical = el("input", {
         type: "checkbox",
@@ -837,7 +919,7 @@
     }
     const msg = el("p", { class: "opts__msg" });
     const block = el("div", { class: "opts" }, ...parts, msg);
-    return { block, controls, years, msg };
+    return { block, controls, years, yearsRow, msg };
   }
 
   function buildChip(row, dataset) {
@@ -955,6 +1037,7 @@
       summary.append(part);
     });
     writeButton.disabled = busy || invalid > 0 || settingsToFix > 0;
+    $("fix-settings").hidden = invalid === 0 && settingsToFix === 0;
     writeButton.title = invalid || settingsToFix ? "Fix what is marked in red first"
       : app ? `Write ${context.out}, and run it` : `Write ${context.out}`;
     resetButton.hidden = busy || !changed();

@@ -74,6 +74,7 @@ h1 {
   font: 600 24px/1.25 var(--font-head);
   letter-spacing: -0.3px;
 }
+.masthead h1.is-setup-title { max-width: none; white-space: nowrap; }
 .meta { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .meta li {
   display: inline-flex;
@@ -244,6 +245,7 @@ input.tick { cursor: pointer; }
 .group__msg { display: grid; gap: 4px; margin: 10px 0 0; color: var(--muted); font-size: 12.5px; line-height: 1.4; }
 .group__line { display: flex; gap: 6px; align-items: flex-start; }
 .group__line.is-warn { color: var(--coral-dark); }
+.group__line.is-error { color: var(--red); font-weight: 700; }
 .group__msg:empty { display: none; }
 .group__msg.is-error { color: var(--red); }
 .group__msg.is-warn { color: var(--coral-dark); }
@@ -365,6 +367,7 @@ input.tick { cursor: pointer; }
   .wrap { padding: 0 16px; }
   .steps { position: static; margin: 16px 0 0; }
   h1 { font-size: 25px; }
+  .masthead h1.is-setup-title { white-space: normal; }
   .meta__v { max-width: 58vw; }
   .bar .wrap { flex-direction: column; align-items: stretch; }
   .actions { justify-content: flex-end; }

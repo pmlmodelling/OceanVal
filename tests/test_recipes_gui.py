@@ -68,6 +68,47 @@ class TestRows:
         }
         assert ticked == default_selection(mapping, domain)
 
+
+class TestErsemDetection:
+    def test_more_than_twenty_signature_variables_are_required(self):
+        variables = sorted(recipes_gui.ERSEM_VARIABLES)
+
+        assert not recipes_gui.is_likely_nemo_ersem(variables[:20])
+        assert recipes_gui.is_likely_nemo_ersem(variables[:21])
+
+    @pytest.mark.parametrize("has_e3t", [True, False])
+    def test_hosted_page_suggests_ersem_values_in_amber(self, browser, has_e3t):
+        available = set(recipes_gui.ERSEM_VARIABLES)
+        if has_e3t:
+            available.add("e3t")
+        else:
+            available.discard("e3t")
+        recipe_page = RecipePage(
+            recipe_rows({}, "global"),
+            available,
+            dict(CONTEXT, app={"action": "matchup", "own_vertical": False}),
+            lambda *chosen: "/out/matchup.py",
+        )
+        url = recipe_page.start()
+        try:
+            browser_page = browser.new_page()
+            browser_page.goto(url)
+
+            assert browser_page.input_value("#s-thickness") == ("e3t" if has_e3t else "")
+            assert browser_page.input_value("#s-missing_from") == "0"
+            assert browser_page.input_value("#s-missing_to") == "0"
+            assert browser_page.locator("#g-missing").get_by_text(
+                "This appears to be an ERSEM simulation and the above values are assumed."
+            ).count() == 1
+            for name in ("missing_from", "missing_to"):
+                assert "is-ersem" in browser_page.locator(f"#s-{name}").get_attribute("class")
+            if has_e3t:
+                assert "is-ersem" in browser_page.locator("#s-thickness").get_attribute("class")
+            amber = browser_page.locator("#g-missing .group__line.is-ersem")
+            assert amber.evaluate("node => getComputedStyle(node).color") == "rgb(138, 90, 0)"
+        finally:
+            recipe_page.close()
+
     def test_the_other_regions_datasets_start_unticked(self):
         rows = recipe_rows({"temperature": "thetao"}, "nwes")
         assert ticks(rows, "temperature") == {"cobe2": False, "woa23": False, "nsbc": True}
@@ -395,6 +436,14 @@ class TestSettingsChecks:
         assert errors == {}
         assert settings == default_settings(2011, 2012)
 
+    def test_core_count_cannot_exceed_system_cores(self):
+        cpu_count = recipes_gui.os.cpu_count()
+        if not cpu_count:
+            pytest.skip("system core count is unavailable")
+        _, errors = self.check(cores=str(cpu_count + 1))
+
+        assert errors["cores"] == f"This machine has {cpu_count} cores. Choose {cpu_count} or fewer."
+
     @pytest.mark.parametrize(
         "changes, errors",
         [
@@ -419,6 +468,11 @@ class TestSettingsChecks:
     def test_the_report_is_concise_unless_unticked(self):
         assert self.check()[0]["concise"] is True
         assert self.check(concise=False)[0]["concise"] is False
+        assert self.check(concise="true")[0]["concise"] is True
+        assert self.check(concise="false")[0]["concise"] is False
+
+    def test_the_detail_choice_must_be_known(self):
+        assert self.check(concise="verbose")[1] == {"concise": "Choose concise or detailed."}
 
     def test_the_file_filters_create_recipes_was_given(self):
         form = default_form(2011, 2012, ["ptrc", "5d"], ["grid_T"])
@@ -548,6 +602,19 @@ class TestGriddedOptions:
         # were they not per decade, all of these could be used
         assert list(check_gridded_options(form, None, True, decadal=True)[1]) == errors
         assert check_gridded_options(form, None, True)[1] == {}
+
+    def test_global_years_without_a_woa23_decade_require_dataset_years(self):
+        options, errors = check_gridded_options({}, (1990, 2020), True, decadal=True)
+
+        assert errors == {
+            "start": "WOA23 publishes this per decade, so give both years.",
+            "end": "WOA23 publishes this per decade, so give both years.",
+        }
+        options, errors = check_gridded_options(
+            {"start": "2005", "end": "2014"}, (1990, 2020), True, decadal=True
+        )
+        assert errors == {}
+        assert (options["start"], options["end"]) == (2005, 2014)
 
 
 class TestHosting:
@@ -755,12 +822,55 @@ def test_settings_in_the_browser(browser, tmp_path, monkeypatch):
     own options reach the script."""
     page, out, finished = _open_window(browser, tmp_path, monkeypatch)
 
+    assert page.locator(".settings__grid > .settings__column").count() == 4
+    assert page.locator("#s-cores").evaluate(
+        "node => node.closest('.settings__column') === document.querySelector('#s-start').closest('.settings__column')"
+    )
+    assert page.locator("#s-pdf").evaluate(
+        "node => node.closest('.settings__column') === document.querySelector('#s-lon_min').closest('.settings__column')"
+    )
+    assert page.locator("#s-subregions").evaluate(
+        "node => node.closest('.settings__column') === document.querySelector('#s-point_time_res').closest('.settings__column')"
+    )
+    assert page.text_content("#settings-title") == "Global settings"
+    assert page.locator("#s-start-label").text_content().startswith("First")
+    assert page.locator("#s-end-label").text_content().startswith("Last")
+    assert page.locator("#s-start").locator("xpath=ancestor::fieldset").locator("legend").text_content() == "What years do you want to validate?"
+    page.fill("#s-start", "")
+    page.fill("#s-end", "")
+    assert "First must be a year, e.g. 2011." in page.text_content("#g-years")
+    assert "Last must be a year, e.g. 2011." in page.text_content("#g-years")
+    page.fill("#s-start", "2011")
+    page.fill("#s-end", "2012")
+    assert page.locator(".settings__sub").count() == 0
+    assert "Matchup" not in page.locator(".settings__grid legend").all_text_contents()
+    assert page.locator("#group-subset legend").text_content() == "Do you want a spatial subset?"
+    assert page.locator("#s-thickness").evaluate("node => node.previousElementSibling.textContent") == "Is the model z-level or is thickness supplied?"
+    assert page.locator("#s-missing_from").evaluate("node => node.closest('.g-row').querySelector('.g-label').textContent") == "What should be treated as missing values?"
+    assert page.locator("#s-point_time_res").evaluate("node => node.closest('label').querySelector('.g-label').textContent") == "Match point observations by"
+    assert page.locator("#group-detail legend").count() == 0
+    assert page.locator("#group-regional legend").count() == 0
+    assert page.locator("#s-subregions").evaluate("node => node.closest('label').querySelector('.g-label').textContent") == "Which region do you want to use for subregion analysis?"
+
     page.fill("#s-lon_min", "-20")
     assert page.is_disabled("#write")
     page.fill("#s-lon_max", "10")
     page.fill("#s-lat_min", "40")
     page.fill("#s-lat_max", "65")
-    page.fill("#s-cores", "3")
+    cpu_count = page.evaluate("JSON.parse(document.getElementById('state').textContent).cpu_count")
+    valid_cores = min(3, cpu_count) if cpu_count else 3
+    if cpu_count:
+        page.fill("#s-cores", str(cpu_count + 1))
+        assert page.is_disabled("#write")
+        assert f"This machine has {cpu_count} cores" in page.text_content("#g-matchup")
+    page.fill("#s-cores", str(valid_cores))
+    assert page.locator(".cores-row .g-label").text_content() == "How many cores do you want to use?"
+    assert page.text_content("#group-report legend") == "Which additional validation report formats do you want?"
+    assert page.locator("#s-pdf").bounding_box()["y"] == page.locator("#s-word").bounding_box()["y"]
+    assert page.locator("#s-concise").evaluate("node => node.tagName") == "SELECT"
+    assert page.locator("#s-concise").locator("option").all_text_contents() == ["Concise", "Detailed"]
+    assert page.text_content("#group-detail .g-label") == "How detailed do you want the validation to be?"
+    page.select_option("#s-concise", "false")
     assert page.is_enabled("#write")
     page.select_option('select[aria-label="Match ICES observations for Temperature by"]', "month")
     # a gridded dataset's years and Vertical, which only depth-resolved ones offer
@@ -776,7 +886,8 @@ def test_settings_in_the_browser(browser, tmp_path, monkeypatch):
 
     assert finished() == out
     script = open(out).read()
-    assert "    lon_lim=[-20, 10],\n    lat_lim=[40, 65],\n    cores=3,\n" in script
+    assert f"    lon_lim=[-20, 10],\n    lat_lim=[40, 65],\n    cores={valid_cores},\n" in script
+    assert "    concise=False,\n" in script
     assert '    recipe={"temperature": "ices"},\n    point_time_res=["month"],\n' in script
     assert (
         '    recipe={"temperature": "nsbc"},\n'
@@ -784,3 +895,44 @@ def test_settings_in_the_browser(browser, tmp_path, monkeypatch):
         '    climatology=True,\n'
         '    vertical=True,'
     ) in script
+
+
+def test_woa23_dataset_years_are_required_when_global_years_have_no_decade(browser, tmp_path, monkeypatch):
+    page, _, finished = _open_window(browser, tmp_path, monkeypatch)
+    page.fill("#s-start", "1990")
+    page.fill("#s-end", "2020")
+    page.check('input[aria-label="WOA23, Global, for Temperature"]')
+
+    first_year = page.locator('input[aria-label="First year of WOA23 observations for Temperature"]')
+    last_year = page.locator('input[aria-label="Last year of WOA23 observations for Temperature"]')
+    year_row = first_year.locator("xpath=ancestor::div[contains(concat(' ', @class, ' '), ' opts__row ')]")
+    assert "is-required" in year_row.get_attribute("class")
+    assert first_year.get_attribute("aria-required") == "true"
+    assert last_year.get_attribute("aria-required") == "true"
+    assert first_year.get_attribute("aria-invalid") == "true"
+    assert last_year.get_attribute("aria-invalid") == "true"
+    opts_block = first_year.locator("xpath=ancestor::div[contains(concat(' ', @class, ' '), ' opts ')]")
+    help = opts_block.locator(".opts__help")
+    assert help.locator("summary").get_attribute("aria-label") == "Show available WOA23 year periods"
+    assert help.locator(".opts__help-popover").is_hidden()
+    help.locator("summary").click()
+    popover = help.locator(".opts__help-popover")
+    assert popover.is_visible()
+    assert popover.locator("li").all_text_contents() == [
+        "1955–1964", "1965–1974", "1975–1984", "1985–1994",
+        "1995–2004", "2005–2014", "2015–2022",
+    ]
+    assert "First and Last must fit within the same period." in popover.text_content()
+    assert page.is_disabled("#write")
+    assert page.is_visible("#fix-settings")
+
+    first_year.fill("2005")
+    last_year.fill("2014")
+    assert first_year.get_attribute("aria-invalid") == "false"
+    assert last_year.get_attribute("aria-invalid") == "false"
+    assert page.is_enabled("#write")
+    assert page.is_hidden("#fix-settings")
+
+    page.click("#cancel")
+    page.wait_for_selector("#done:not([hidden])")
+    assert finished() is None

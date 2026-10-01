@@ -38,6 +38,7 @@ SETUP_FORM = {
     "exclude": "",
     "require": "",
     "out_dir": "",
+    "overwrite": False,
     "out": "matchup.py",
 }
 
@@ -85,6 +86,30 @@ def units_match(app):
     """Carry on from the units step without changing any conversion."""
     units_read(app)
     assert post(app, "/api/units_continue", {"conversions": {}, "confirmed": True})[0] == 200
+
+
+def fill_required_recipe_years(page):
+    red = "rgb(192, 57, 43)"
+    for name in ("start", "end"):
+        assert page.input_value(f"#s-{name}") == ""
+        assert page.locator(f"#s-{name}").evaluate("node => node.required")
+        label = page.locator(f"#s-{name}-label")
+        assert label.evaluate("node => getComputedStyle(node).color") == red
+        assert label.evaluate("node => getComputedStyle(node).fontWeight") == "700"
+        assert page.is_visible(f"#s-{name}-required")
+    assert page.is_disabled("#write")
+    page.fill("#s-start", "2011")
+    page.fill("#s-end", "2012")
+
+
+def recipe_settings(app, **changes):
+    settings = dict(app.recipes_page.form)
+    settings.update(changes)
+    if not settings.get("start"):
+        settings["start"] = "2011"
+    if not settings.get("end"):
+        settings["end"] = "2012"
+    return settings
 
 
 def wait_for(condition, timeout=90):
@@ -373,6 +398,7 @@ class TestSetupChecks:
             "exclude": None,
             "require": None,
             "out_dir": str(tmp_path),
+            "overwrite": True,
             "out": str(tmp_path / "run" / "m.py"),
         }
 
@@ -387,6 +413,21 @@ class TestSetupChecks:
         assert check("results")[0]["out_dir"] == str(tmp_path / "results")
         assert check(str(tmp_path / "elsewhere"))[0]["out_dir"] == str(tmp_path / "elsewhere")
         assert check("notes.txt")[1] == {"out_dir": "This is a file, not a directory."}
+
+    def test_overwrite_is_only_used_when_matchups_already_exist(self, tmp_path):
+        (tmp_path / "sim").mkdir()
+        (tmp_path / "old" / "oceanval_matchups").mkdir(parents=True)
+
+        keep, keep_errors = check_setup(dict(SETUP_FORM, out_dir="old", overwrite=False), str(tmp_path))
+        replace, replace_errors = check_setup(dict(SETUP_FORM, out_dir="old", overwrite=True), str(tmp_path))
+        clean, clean_errors = check_setup(dict(SETUP_FORM, out_dir="new", overwrite=False), str(tmp_path))
+
+        assert not keep_errors and not replace_errors and not clean_errors
+        assert (keep["overwrite"], replace["overwrite"], clean["overwrite"]) == (
+            False,
+            True,
+            True,
+        )
 
     def test_the_file_filters_are_words(self, tmp_path):
         (tmp_path / "sim").mkdir()
@@ -728,6 +769,7 @@ class TestServer:
         assert state["token"] == app.token
         # the output directory was chosen with the simulation
         assert state["settings"]["out_dir"] == ""
+        assert (state["settings"]["start"], state["settings"]["end"]) == ("", "")
 
         rows = [
             {
@@ -736,7 +778,10 @@ class TestServer:
                 "selected": ["cobe2"],
             }
         ]
-        assert post(app, "/recipes/write", {"rows": rows})[0] == 200
+        status, reply = post(app, "/recipes/write", {"rows": rows})
+        assert status == 400
+        assert {"start", "end"} <= set(reply["setting_errors"])
+        assert post(app, "/recipes/write", {"rows": rows, "settings": recipe_settings(app)})[0] == 200
         units_match(app)
         wait_for(lambda: runs)
         script = str(tmp_path / "matchup.py")
@@ -765,11 +810,12 @@ class TestServer:
         assert app.recipes_page.form["out_dir"] == results
 
         rows = [{"variable": "temperature", "model_variable": "thetao", "selected": ["cobe2"]}]
-        assert post(app, "/recipes/write", {"rows": rows})[0] == 200
+        assert post(app, "/recipes/write", {"rows": rows, "settings": recipe_settings(app)})[0] == 200
         units_match(app)
         wait_for(lambda: runs)
         text = open(tmp_path / "matchup.py").read()
 
+        assert f'    sim_dir="{tmp_path / "sim"}",\n' in text
         assert f'    out_dir="{results}",\n' in text
         assert f'oceanval.validate(\n    data_dir="{results}",\n    out_dir="{results}",\n)' in text
         assert app.results_dir == results
@@ -788,7 +834,7 @@ class TestServer:
                 "gridded": {"nsbc": {"start": "", "end": "", "vertical": True}},
             }
         ]
-        settings = dict(app.recipes_page.form, ask=False)
+        settings = recipe_settings(app, ask=False)
 
         status, reply = post(app, "/recipes/write", {"rows": rows, "settings": settings})
         assert status == 400
@@ -818,7 +864,7 @@ class TestServer:
         wait_for(lambda: app.view == "recipes")
 
         assert app.recipes_page.context["app"]["own_vertical"] is True
-        status, reply = post(app, "/recipes/write", {"rows": []})
+        status, reply = post(app, "/recipes/write", {"rows": [], "settings": recipe_settings(app)})
         assert status == 400
         assert "thickness" in reply["setting_errors"]
 
@@ -847,7 +893,7 @@ class TestServer:
             },
             {"variable": "nitrate", "model_variable": "N3_n", "selected": ["woa23"]},
         ]
-        assert post(app, "/recipes/write", {"rows": rows})[0] == 200
+        assert post(app, "/recipes/write", {"rows": rows, "settings": recipe_settings(app)})[0] == 200
         units_read(app)
 
     def test_the_units_are_shown_after_the_recipes(self, app, tmp_path, runs):
@@ -1110,7 +1156,7 @@ class TestServer:
         post(app, "/api/own_next")
         assert post(app, "/api/own_next")[0] == 200
         wait_for(lambda: app.view == "recipes")
-        post(app, "/recipes/write", {"rows": []})
+        post(app, "/recipes/write", {"rows": [], "settings": recipe_settings(app)})
         units_match(app)
         wait_for(lambda: runs)
 
@@ -1129,7 +1175,7 @@ class TestServer:
         post(app, "/api/own_next")
         post(app, "/api/own_next")
         wait_for(lambda: app.view == "recipes")
-        post(app, "/recipes/write", {"rows": []})
+        post(app, "/recipes/write", {"rows": [], "settings": recipe_settings(app)})
         units_match(app)
         wait_for(lambda: runs)
 
@@ -1170,7 +1216,7 @@ class TestServer:
                 "selected": ["cobe2"],
             }
         ]
-        post(app, "/recipes/write", {"rows": rows, "settings": page.form})
+        post(app, "/recipes/write", {"rows": rows, "settings": recipe_settings(app, **page.form)})
         units_match(app)
         wait_for(lambda: runs)
         script = open(tmp_path / "matchup.py").read()
@@ -1250,6 +1296,15 @@ class TestServer:
 
         assert app.view == "validate"
         assert app.validate_form["data_dir"] == "run"
+
+    @pytest.mark.parametrize("chosen", [None, "matchups"])
+    def test_validate_defaults_to_matchup_output_directory(self, app, tmp_path, chosen):
+        if chosen:
+            app.out_dir = str(tmp_path / chosen)
+
+        assert post(app, "/api/choose", {"action": "validate"})[0] == 200
+        expected = chosen or "."
+        assert app.validate_form["data_dir"] == expected
 
     def test_a_run_from_start_to_finish(self, app, tmp_path):
         script = tmp_path / "run.py"
@@ -1340,6 +1395,22 @@ class TestServer:
         # nothing carries on to validate
         assert "answer:" not in state["console"]["text"]
 
+    def test_store_choice_stops_before_matching_and_keeps_the_script(self, app, tmp_path):
+        script = self.matchups_script(tmp_path)
+        app.action = "matchup_validate"
+        app.start_run(["script", str(script)], "python run.py")
+        wait_for(lambda: app.question is not None)
+
+        assert post(app, "/api/answer", {"id": app.question.id, "answer": "save"})[0] == 200
+        wait_for(lambda: app.view == "script_saved")
+        _, state = get_json(app, "/api/state")
+        assert state["run"]["status"] == "stopped"
+        assert state["run"]["script_saved"] is True
+        assert state["run"]["script"] == str(script)
+        assert state["run"]["script_command"] == f"python {script}"
+        assert "answer:" not in state["console"]["text"]
+        assert "matching up" not in state["console"]["text"]
+
     def test_stopping_a_run(self, app, tmp_path):
         script = tmp_path / "run.py"
         script.write_text(
@@ -1401,30 +1472,76 @@ def test_the_window_in_a_browser(browser, tmp_path, monkeypatch):
     try:
         page = browser.new_page()
         page.goto(url)
+        assert "Choose what to do. Matchups, scripts and reports are written" not in page.text_content("#view-start")
         page.click('button.choice[data-action="matchup"]')
-        page.fill("#f-simdir", "sim")
-        # the live check fills in the depth, and the years from the names
-        page.wait_for_function("document.querySelector('#f-end').value === '2012'")
-        assert (page.input_value("#f-ndown"), page.input_value("#f-start")) == (
-            "2",
-            "2011",
+        page.wait_for_function(
+            "document.querySelector('#title').textContent === 'Provide some essential information about your simulation data'"
         )
+        assert page.text_content("#title") == "Provide some essential information about your simulation data"
+        assert page.locator("#title").evaluate("node => getComputedStyle(node).whiteSpace") == "nowrap"
+        assert "OceanVal is running from" in page.text_content("#meta")
+        assert "Next, OceanVal reads the simulation, and shows you what it found." not in page.text_content("#bar")
+        page.set_viewport_size({"width": 390, "height": 844})
+        assert page.locator("#title").evaluate("node => getComputedStyle(node).whiteSpace") == "normal"
+        assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+        page.set_viewport_size({"width": 1280, "height": 720})
+        assert page.locator(".ndown-row").evaluate(
+            "node => getComputedStyle(node).display"
+        ) == "grid"
+        assert page.locator("#f-ndown").evaluate(
+            "node => node.getBoundingClientRect().width"
+        ) <= 100
+        assert page.locator("#ndown-example").evaluate(
+            "node => node.getBoundingClientRect().left >= document.querySelector('#f-ndown').getBoundingClientRect().right"
+        )
+        assert page.locator("#ndown-example").evaluate(
+            "node => getComputedStyle(node).color"
+        ) == "rgb(7, 92, 104)"
+        ndown_label = page.locator('label[for="f-ndown"]')
+        assert page.locator("#f-ndown").evaluate("node => node.required")
+        assert ndown_label.evaluate("node => getComputedStyle(node).color") == "rgb(192, 57, 43)"
+        assert ndown_label.evaluate("node => getComputedStyle(node).fontWeight") == "700"
+        assert "Required" in ndown_label.text_content()
+        assert page.is_hidden("#f-start")
+        assert page.is_hidden("#f-end")
+        assert "Years to validate" not in page.locator("#view-setup").text_content()
+        simdir_label = page.locator('label[for="f-simdir"]')
+        assert simdir_label.text_content().startswith("Which directory stores your simulation data?")
+        assert simdir_label.locator(".own-req").text_content() == "Required"
+        assert simdir_label.evaluate("node => getComputedStyle(node).color") == "rgb(192, 57, 43)"
+        assert simdir_label.evaluate("node => getComputedStyle(node).fontWeight") == "700"
+        assert page.text_content("#summary").strip() == ""
+        page.fill("#f-simdir", "sim")
+        # years are inferred, but the user must choose the directory depth
+        page.wait_for_function("document.querySelector('#f-end').value === '2012'")
+        assert page.input_value("#f-ndown") == ""
+        assert page.is_disabled("#continue")
+        assert page.input_value("#f-start") == "2011"
+        page.fill("#f-ndown", "2")
+        assert page.is_enabled("#continue")
         # the output goes where oceanval was started, unless changed
         assert page.input_value("#f-out_dir") == str(tmp_path)
         assert page.text_content("#f-out_dir-label") == "Where do you want matchups to be saved?"
+        assert page.is_hidden("#row-overwrite")
 
         page.click("#continue")
+        assert page.text_content("#summary").strip() == ""
         # no data of our own
         page.click("#own-no")
         page.wait_for_url("**/recipes/**", timeout=90000)
         assert page.text_content("#write") == "Match up"
+        assert page.locator("#meta .meta__k").all_text_contents() == ["Simulation"]
         # chosen with the simulation instead
         assert page.is_hidden("#group-files")
         assert page.is_hidden("#group-output")
+        assert page.is_hidden("#group-report")
+        assert page.is_hidden("#group-detail")
+        assert page.is_hidden("#group-regional")
         # the app always asks
         assert page.is_hidden("#s-ask")
-        # the thickness hint is between its box and Treat as missing
-        assert "Treat as missing" in page.evaluate(
+        fill_required_recipe_years(page)
+        # the thickness hint is between its box and the missing-values label
+        assert "What should be treated as missing values?" in page.evaluate(
             "document.getElementById('g-thickness').nextElementSibling.textContent"
         )
         # a dataset through the water column cannot go ahead without a thickness
@@ -1487,6 +1604,72 @@ def test_the_window_in_a_browser(browser, tmp_path, monkeypatch):
         app.close()
 
 
+def test_storing_the_matchup_script_opens_run_instructions(browser, tmp_path):
+    script = tmp_path / "matchup.py"
+    script.write_text(
+        textwrap.dedent(
+            f"""
+            from oceanval import prompts
+            question = "Are you happy with these matchups? (y/n) "
+            prompts.ask(question, ("y", "n"), details={MATCHUPS!r})
+            print("matching up")
+            """
+        )
+    )
+    app = App(cwd=str(tmp_path))
+    app.action = "matchup_validate"
+    app.start_run(["script", str(script)], f"python {script}")
+    url = app.start()
+    try:
+        page = browser.new_page()
+        page.goto(url)
+        page.wait_for_selector("#review:not([hidden])")
+        page.click('#review-actions button:has-text("No, store the matchup Python script. I will run it later.")')
+        page.wait_for_selector("#view-script-saved:not([hidden])")
+
+        assert page.text_content("#title") == "Your matchup script is saved"
+        assert "The matchup has not been run" in page.text_content("#view-script-saved")
+        assert page.text_content("#script-saved-command") == f"python {script}"
+        assert page.text_content("#script-saved-path") == str(script)
+        assert "matching up" not in page.text_content("#console-text")
+        page.click('#actions button:has-text("Start again")')
+        page.wait_for_function("document.querySelector('#title').textContent === 'Validate an ocean model'")
+    finally:
+        app.close()
+
+
+def test_overwrite_choice_only_appears_for_existing_matchups(browser, tmp_path):
+    write_simulation(tmp_path / "sim")
+    (tmp_path / "old" / "oceanval_matchups").mkdir(parents=True)
+    app = App(cwd=str(tmp_path))
+    url = app.start()
+    try:
+        page = browser.new_page()
+        page.goto(url)
+        page.click('button.choice[data-action="matchup"]')
+        page.fill("#f-simdir", "sim")
+        page.wait_for_function("document.querySelector('#f-end').value === '2012'")
+        page.fill("#f-ndown", "2")
+        assert page.is_hidden("#row-overwrite")
+
+        page.fill("#f-out_dir", "old")
+        page.wait_for_selector("#row-overwrite:not([hidden])")
+        warning = page.locator("#m-out_dir .group__line.is-warn")
+        assert "There are matchups here already" in warning.text_content()
+        assert warning.text_content() == "There are matchups here already, from an earlier run. Choose another directory if you need to keep them apart."
+        assert warning.evaluate("node => getComputedStyle(node).color") == "rgb(184, 83, 47)"
+        assert not page.is_checked("#f-overwrite")
+        assert page.text_content("#row-overwrite").strip() == "Do you want to overwrite existing matchups in this directory?"
+        page.check("#f-overwrite")
+        page.click("#continue")
+        page.click("#own-no")
+        page.wait_for_url("**/recipes/**", timeout=90000)
+        assert page.is_hidden("#s-overwrite")
+        assert app.recipes_page.form["overwrite"] is True
+    finally:
+        app.close()
+
+
 def test_the_units_step_in_a_browser(browser, tmp_path, monkeypatch):
     """The table lists the units of each matchup with the conversion OceanVal
     fills in where they differ, in red and bold for as long as it is OceanVal's,
@@ -1509,9 +1692,11 @@ def test_the_units_step_in_a_browser(browser, tmp_path, monkeypatch):
         page.click('button.choice[data-action="matchup"]')
         page.fill("#f-simdir", "sim")
         page.wait_for_function("document.querySelector('#f-end').value === '2012'")
+        page.fill("#f-ndown", "2")
         page.click("#continue")
         page.click("#own-no")
         page.wait_for_url("**/recipes/**", timeout=90000)
+        fill_required_recipe_years(page)
         page.click("#write")
 
         page.wait_for_selector("#units-body-gridded tr[data-units-row]")
@@ -1606,6 +1791,7 @@ def test_clearing_every_selection_in_a_browser(browser, tmp_path):
         page.click('button.choice[data-action="matchup"]')
         page.fill("#f-simdir", "sim")
         page.wait_for_function("document.querySelector('#f-end').value === '2012'")
+        page.fill("#f-ndown", "2")
         page.click("#continue")
         page.click("#own-no")
         page.wait_for_url("**/recipes/**", timeout=90000)
@@ -1639,11 +1825,24 @@ def test_adding_your_own_data_in_a_browser(browser, tmp_path):
         page.click('button.choice[data-action="matchup"]')
         page.fill("#f-simdir", "sim")
         page.wait_for_function("document.querySelector('#f-end').value === '2012'")
+        page.fill("#f-ndown", "2")
         page.click("#continue")
         page.click("#own-yes")
         page.wait_for_selector("#own-form-point")
 
         assert page.text_content("#own-next") == "Skip"
+        assert page.get_attribute("#o-point-name", "list") == "own-variable-options"
+        suggestions = page.locator("#own-variable-options option").evaluate_all(
+            "nodes => nodes.map(node => node.value)"
+        )
+        assert {"temperature", "nitrate"} <= set(suggestions)
+        optional = page.locator("#own-optional-point")
+        chevron = optional.locator(".own-optional__chevron")
+        assert not optional.evaluate("node => node.open")
+        closed_chevron = chevron.evaluate("node => getComputedStyle(node).transform")
+        page.locator("#own-optional-point > summary").click()
+        assert optional.evaluate("node => node.open")
+        assert chevron.evaluate("node => getComputedStyle(node).transform") != closed_chevron
         red = "rgb(192, 57, 43)"
 
         def field_of(name):
@@ -1672,6 +1871,7 @@ def test_adding_your_own_data_in_a_browser(browser, tmp_path):
 
         page.click("#own-next")
         page.wait_for_selector("#own-form-gridded")
+        assert page.get_attribute("#o-gridded-name", "list") == "own-variable-options"
         assert page.is_visible("#o-gridded-climatology")
         assert app.own_data["point"][0]["name"] == "chl"
     finally:
@@ -1700,7 +1900,7 @@ def test_choosing_directories_in_a_browser(browser, tmp_path):
         # as if it had been typed: the live check fills in the rest
         page.wait_for_function("document.querySelector('#f-end').value === '2012'")
         assert page.input_value("#f-simdir") == "sim"
-        assert page.input_value("#f-ndown") == "2"
+        assert page.input_value("#f-ndown") == ""
 
         page.fill("#f-simdir", "si")
         page.wait_for_function(

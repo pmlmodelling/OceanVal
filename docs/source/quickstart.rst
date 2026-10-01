@@ -33,12 +33,13 @@ through six steps:
 1. **Choose** to match up new data and validate it, to match up only, or to
    validate matchups made earlier.
 2. **Simulation**: where the model output is, how many directories down its
-   files are, which files to skip or keep (the file filters), the domain and
-   the years. Type the directory, with folders suggested as you go, or pick
+   files are, which files to skip or keep (the file filters), and the domain.
+   Type the directory, with folders suggested as you go, or pick
    it with **Browse…**, which looks through the folders on the machine
    OceanVal runs on, so it works on a remote machine too. As you type, the
-   page counts the files that pass the filters, and fills in the years from
-   their names. It also asks where to save the matchups and the report: the
+   page counts the files that pass the filters. The next page starts with
+   years inferred from their names, which you can change there. It also asks
+   where to save the matchups and the report: the
    directory you started ``oceanval`` in, unless you choose another. To
    validate matchups made earlier, you choose the report's options instead.
 3. **Own data**: whether you have observations of your own, as well as
