@@ -543,8 +543,11 @@ def test_word_report_drops_the_heading_bookmarks(tmp_path):
     names = [start.get(qn("w:name")) for start in body.iter(qn("w:bookmarkStart"))]
 
     # Word marks every bookmark in the margin, and the headings' own ones are
-    # never pointed at; the one an internal link needs is kept
-    assert names == ["detail"]
+    # never pointed at; the one an internal link needs is kept. pandoc names it
+    # after the heading's id, with a leading underscore from 3.12 on
+    anchors = [link.get(qn("w:anchor")) for link in body.iter(qn("w:hyperlink"))]
+    assert anchors and names == anchors
+    assert names[0].lstrip("_") == "detail"
     assert [end.get(qn("w:id")) for end in body.iter(qn("w:bookmarkEnd"))] == [
         next(body.iter(qn("w:bookmarkStart"))).get(qn("w:id"))
     ]

@@ -717,6 +717,11 @@ def _style_word_table(table):
             )
 
 
+# the hidden bookmarks Word makes itself. They cannot be told from pandoc's by a
+# leading underscore: from pandoc 3.12 every heading's bookmark has one
+_WORD_BOOKMARKS = ("_GoBack", "_Toc", "_Ref", "_Hlk", "_Hlt")
+
+
 def _strip_word_bookmarks(document):
     """Drop the bookmarks pandoc writes for every heading id.
 
@@ -736,7 +741,7 @@ def _strip_word_bookmarks(document):
     kept = set()
     for start in list(body.iter(qn("w:bookmarkStart"))):
         name = start.get(qn("w:name")) or ""
-        if name in anchors or name.startswith("_"):
+        if name in anchors or name.startswith(_WORD_BOOKMARKS):
             kept.add(start.get(qn("w:id")))
             continue
         start.getparent().remove(start)
