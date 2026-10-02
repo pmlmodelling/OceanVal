@@ -20,8 +20,10 @@ _PROCESS = re.compile(r"_oceanval_output_p(\d+)_")
 
 
 def is_oceanval_temp(path):
-    """Whether a path is named like a temporary file OceanVal made."""
-    return "nctoolkit" in path and any(marker in path for marker in MARKERS)
+    """Whether a path is named like a temporary file OceanVal made. Only the
+    file's own name counts, not the directories above it."""
+    name = os.path.basename(path)
+    return "nctoolkit" in name and any(marker in name for marker in MARKERS)
 
 
 def process_alive(pid):
@@ -88,6 +90,10 @@ def remove_leftovers(paths):
     failed = []
     for item in find_leftovers():
         if item["path"] not in wanted:
+            continue
+        # never remove a file that is not named like one OceanVal made
+        if not is_oceanval_temp(item["path"]):
+            failed.append(item["path"])
             continue
         try:
             os.remove(item["path"])

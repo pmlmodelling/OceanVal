@@ -106,3 +106,23 @@ def test_the_stamp_names_oceanval_and_the_process():
     assert leftovers.is_oceanval_temp("/tmp/nctoolkit_me_abcdnctoolkit_ecoval_output_tmpa1.nc")
     assert not leftovers.is_oceanval_temp("/tmp/nctoolkit_me_abcdnctoolkittmpa1.nc")
     assert not leftovers.is_oceanval_temp("/tmp/oceanval_output_tmpa1.nc")
+
+
+def test_only_the_files_own_name_counts_not_its_directory():
+    assert not leftovers.is_oceanval_temp("/tmp/nctoolkit_oceanval_output_x/data.nc")
+    assert leftovers.is_oceanval_temp("/tmp/x/nctoolkit_me_abcdnctoolkit_oceanval_output_p1_tmp.nc")
+
+
+def test_remove_leftovers_refuses_a_file_not_named_by_oceanval(tmp_path, monkeypatch):
+    other = tmp_path / "precious.nc"
+    other.write_text("")
+    monkeypatch.setattr(
+        leftovers,
+        "find_leftovers",
+        lambda: [{"path": str(other), "size": 0, "mtime": 0}],
+    )
+
+    result = leftovers.remove_leftovers([str(other)])
+
+    assert other.exists()
+    assert result == {"removed": 0, "freed_bytes": 0, "failed": [str(other)]}
