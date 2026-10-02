@@ -957,6 +957,10 @@ def matchup(
     gridded = [x for x in gridded if x[0] in vars_available]
     for key in point.keys():
         point[key] = [x for x in point[key] if x[0] in vars_available]
+    gridded_vertical = [
+        x for x in gridded if definitions[x[0]].gridded_comparisons[x[1]]["vertical"]
+    ]
+    gridded_surface = [x for x in gridded if x not in gridded_vertical]
 
     var_chosen = [vv for vv, source in gridded + point["all"] + point["surface"]]
     var_chosen = list(set(var_chosen))
@@ -1218,12 +1222,10 @@ def matchup(
         builder = live.LiveValidation(
             live_options,
             out_dir,
-            [("gridded", vv, source, None) for vv, source in gridded]
-            + [
-                ("point", vv, source, layer)
-                for layer in ("all", "surface")
-                for vv, source in point[layer]
-            ],
+            [("gridded", vv, source, None) for vv, source in gridded_surface]
+            + [("point", vv, source, "surface") for vv, source in point["surface"]]
+            + [("gridded", vv, source, None) for vv, source in gridded_vertical]
+            + [("point", vv, source, "all") for vv, source in point["all"]],
             session_info["short_title"],
         )
         builder.start()
@@ -1313,312 +1315,302 @@ def matchup(
     df_mapping = all_df
 
     point_all = point["all"] + point["surface"]
-    if len(point_all) > 0:
-        print("********************************")
-        print("Matching up with observational point data")
-        print("********************************")
+    point_announced = False
+
+    def match_point_layer(key):
+        """Match up the point observations of one layer, "surface" or "all"."""
+        nonlocal point_announced
+        if len(point[key]) == 0:
+            return None
+        if not point_announced:
+            print("********************************")
+            print("Matching up with observational point data")
+            print("********************************")
+            point_announced = True
 
         # if model_variable is None remove from all_df
 
-        for key, value in point.items():
-            point_vars = value
-            depths = copy.deepcopy(key)
-            layer = depths
+        value = point[key]
+        point_vars = value
+        depths = copy.deepcopy(key)
+        layer = depths
 
-            # sort the list
-            point_vars.sort()
+        # sort the list
+        point_vars.sort()
 
-            for vv, source in point_vars:
+        for vv, source in point_vars:
 
 
-                variable = vv
+            variable = vv
 
-                out = f"{session_info['out_dir']}/oceanval_matchups/point/{layer}/{variable}/{source}/{source}_{layer}_{variable}.csv"
-                csv = out
+            out = f"{session_info['out_dir']}/oceanval_matchups/point/{layer}/{variable}/{source}/{source}_{layer}_{variable}.csv"
+            csv = out
 
-                if os.path.exists(out) and not overwrite:
-                    # made already, and still in the report
-                    if builder is not None:
-                        builder.matched("point", vv, source, layer)
-                    continue
+            if os.path.exists(out) and not overwrite:
+                # made already, and still in the report
+                if builder is not None:
+                    builder.matched("point", vv, source, layer)
+                continue
 
-                all_df = df_mapping
-                all_df = all_df.query("model_variable in @good_model_vars").reset_index(
-                    drop=True
-                )
+            all_df = df_mapping
+            # not a query: it cannot see good_model_vars from in here
+            all_df = all_df[all_df.model_variable.isin(good_model_vars)].reset_index(
+                drop=True
+            )
 
-                all_df = all_df.dropna()
-                all_df = all_df.query("variable == @vv").reset_index(drop=True)
-                patterns = list(set(all_df.pattern))
+            all_df = all_df.dropna()
+            all_df = all_df.query("variable == @vv").reset_index(drop=True)
+            patterns = list(set(all_df.pattern))
 
-                for pattern in patterns:
-                    final_extension = extension_of_directory(sim_dir)
-                    ensemble = glob.glob(sim_dir + final_extension + pattern)
-                    for exc in exclude:
-                        ensemble = [
-                            x for x in ensemble if f"{exc}" not in os.path.basename(x)
-                        ]
-                    # find length of example file
-                    if strict_names:
-                        len_example = len(os.path.basename(example_files[pattern]))
-                        ensemble = [
-                            x
-                            for x in ensemble
-                            if len(os.path.basename(x)) == len_example
-                        ]
+            for pattern in patterns:
+                final_extension = extension_of_directory(sim_dir)
+                ensemble = glob.glob(sim_dir + final_extension + pattern)
+                for exc in exclude:
+                    ensemble = [
+                        x for x in ensemble if f"{exc}" not in os.path.basename(x)
+                    ]
+                # find length of example file
+                if strict_names:
+                    len_example = len(os.path.basename(example_files[pattern]))
+                    ensemble = [
+                        x
+                        for x in ensemble
+                        if len(os.path.basename(x)) == len_example
+                    ]
 
-                    df_times = []
-                    days = []
-                    for ff in ensemble:
-                        df_ff = times_dict[ff]
-                        df_times.append(
-                            pd.DataFrame(
-                                {
-                                    "month": df_ff.month,
-                                    "year": df_ff.year,
-                                    "day": df_ff.day,
-                                }
-                            ).assign(path=ff)
-                        )
-                    df_times = pd.concat(df_times)
+                df_times = []
+                days = []
+                for ff in ensemble:
+                    df_ff = times_dict[ff]
+                    df_times.append(
+                        pd.DataFrame(
+                            {
+                                "month": df_ff.month,
+                                "year": df_ff.year,
+                                "day": df_ff.day,
+                            }
+                        ).assign(path=ff)
+                    )
+                df_times = pd.concat(df_times)
 
-                    # Idea: figure out if it is monthly or daily data
-                    # This might help speed things up
+                # Idea: figure out if it is monthly or daily data
+                # This might help speed things up
 
-                    sim_paths = list(set(df_times.path))
-                    sim_paths.sort()
-                    # write to the report
+                sim_paths = list(set(df_times.path))
+                sim_paths.sort()
+                # write to the report
 
-                    min_year = df_times.year.min()
-                    max_year = df_times.year.max()
-                    session_info["min_year"] = min_year
-                    # factor in start
-                    session_info["min_year"] = max(session_info["min_year"], sim_start)
-                    session_info["max_year"] = max_year
-                    # factor in end
-                    session_info["max_year"] = min(session_info["max_year"], sim_end)
+                min_year = df_times.year.min()
+                max_year = df_times.year.max()
+                session_info["min_year"] = min_year
+                # factor in start
+                session_info["min_year"] = max(session_info["min_year"], sim_start)
+                session_info["max_year"] = max_year
+                # factor in end
+                session_info["max_year"] = min(session_info["max_year"], sim_end)
 
-                    def point_match(
-                        variable, source, layer="all", ds_depths=None, df_times=None
-                    ):
-                        with warnings.catch_warnings(record=True) as w:
-                            point_variable = variable
-                            model_variable = list(
-                                all_df.query(
-                                    "variable == @point_variable"
-                                ).model_variable
-                            )[0]
+                def point_match(
+                    variable, source, layer="all", ds_depths=None, df_times=None
+                ):
+                    with warnings.catch_warnings(record=True) as w:
+                        point_variable = variable
+                        model_variable = list(
+                            all_df.query(
+                                "variable == @point_variable"
+                            ).model_variable
+                        )[0]
 
-                            comparison = definitions[variable].point_comparisons[source]
+                        comparison = definitions[variable].point_comparisons[source]
 
-                            out = f"{session_info['out_dir']}/oceanval_matchups/point/{layer}/{variable}/{source}/{source}_{layer}_{variable}.csv"
+                        out = f"{session_info['out_dir']}/oceanval_matchups/point/{layer}/{variable}/{source}/{source}_{layer}_{variable}.csv"
 
-                            if comparison["recipe"] is not None:
-                                # recipes download the observations for the
-                                # years and area being matched, instead of
-                                # reading csvs from obs_path
-                                if lon_lim is not None:
-                                    recipe_lon, recipe_lat = lon_lim, lat_lim
-                                else:
-                                    lon_min, lon_max, lat_min, lat_max = _lonlat_bounds(
-                                        nc.open_data(sim_paths[0], checks=False)
-                                    )
-                                    recipe_lon, recipe_lat = [lon_min, lon_max], [lat_min, lat_max]
-                                df = ices.download_point_data(
-                                    comparison["recipe"],
-                                    max(session_info["min_year"], comparison["start"]),
-                                    min(session_info["max_year"], comparison["end"]),
-                                    recipe_lon,
-                                    recipe_lat,
-                                )
+                        if comparison["recipe"] is not None:
+                            # recipes download the observations for the
+                            # years and area being matched, instead of
+                            # reading csvs from obs_path
+                            if lon_lim is not None:
+                                recipe_lon, recipe_lat = lon_lim, lat_lim
                             else:
-                                paths = glob.glob(
-                                    f"{comparison['obs_path']}/**.csv"
+                                lon_min, lon_max, lat_min, lat_max = _lonlat_bounds(
+                                    nc.open_data(sim_paths[0], checks=False)
                                 )
-
-                                for exc in exclude:
-                                    paths = [
-                                        x
-                                        for x in paths
-                                        if f"{exc}" not in os.path.basename(x)
-                                    ]
-
-                                def read_csv_simyears(ff, layer = None):
-                                    df = read_point(ff)
-                                    min_year = session_info["min_year"]
-                                    max_year = session_info["max_year"]
-                                    if "year" in df.columns:
-                                        df = df.query(
-                                            "year >= @min_year and year <= @max_year"
-                                        ).reset_index(drop=True)
-                                    if layer == "surface":
-                                        if "depth" in df.columns:
-                                            df = df.query("depth <= 5").reset_index(
-                                                drop=True
-                                            )
-                                            # drop depth
-                                    return df
-
-                                df = pd.concat([read_csv_simyears(x, layer) for x in paths])
-                            # ensure year is int
-                            if "year" in df.columns:
-                                df = df.assign(year=lambda x: x.year.astype(int))
-                            if "year" in df.columns:
-                                # find point_start
-                                point_start = comparison["start"]
-                                point_end = comparison["end"]
-                                df = df.query(
-                                    "year >= @point_start and year <= @point_end"
-                                ).reset_index(drop=True)
-
-                            if "source" in df.columns:
-                                df = df.drop(columns=["source"])
-                            # if it exists, coerce year to int
-                            if "year" in df.columns:
-                                df = df.assign(year=lambda x: x.year.astype(int))
-                                # subset to
-                            if "month" in df.columns:
-                                df = df.assign(month=lambda x: x.month.astype(int))
-                            if "day" in df.columns:
-                                df = df.assign(day=lambda x: x.day.astype(int))
-                            if layer == "surface":
-                                if "depth" in df.columns:
-                                    df = df.query("depth <= 5").reset_index(drop=True)
-                                    # drop depth
-                                    df = df.drop(columns=["depth"])
-
-                            # a comparison can set its own point_time_res, in
-                            # place of the one given to matchup
-                            point_time_res = copy.deepcopy(
-                                comparison.get("point_time_res")
-                                or session_info["point_time_res"]
+                                recipe_lon, recipe_lat = [lon_min, lon_max], [lat_min, lat_max]
+                            df = ices.download_point_data(
+                                comparison["recipe"],
+                                max(session_info["min_year"], comparison["start"]),
+                                min(session_info["max_year"], comparison["end"]),
+                                recipe_lon,
+                                recipe_lat,
                             )
-                            for x in [
-                                x
-                                for x in ["year", "month", "day"]
-                                if x not in point_time_res
-                            ]:
-                                if x in df.columns:
-                                    df = df.drop(columns=x)
+                        else:
+                            paths = glob.glob(
+                                f"{comparison['obs_path']}/**.csv"
+                            )
 
-                            # observations without a year would otherwise be
-                            # matched with every year of the simulation, so only
-                            # keep model times in the years asked for. Each
-                            # time's position in its file is kept for subsetting
-                            year_start = max(session_info["min_year"], comparison["start"])
-                            year_end = min(session_info["max_year"], comparison["end"])
-                            df_times = df_times.reset_index(drop=True)
-                            df_times["time_index"] = df_times.groupby("path").cumcount()
-                            df_times = df_times.query(
-                                "year >= @year_start and year <= @year_end"
-                            ).reset_index(drop=True)
-
-                            sel_these = point_time_res
-                            sel_these = [x for x in df.columns if x in sel_these]
-                            if "year" in df.columns:
-                                paths = list(
-                                    set(
-                                        df.loc[:, sel_these]
-                                        .drop_duplicates()
-                                        .merge(df_times)
-                                        .path
-                                    )
-                                )
-                            else:
-                                paths = list(set(df_times.path))
-
-                            if len(paths) == 0:
-                                print(f"No matching times for {variable}")
-
-                            manager = Manager()
-
-                            df_times_new = copy.deepcopy(df_times)
-
-                            if fvcom:
-                                # match against regridded copies of the FVCOM files.
-                                # They keep the same times, so time_index still applies
-                                fvcom_paths = fvcom_matchup_files(
-                                    paths,
-                                    model_variable.split("+"),
-                                    session_info["fvcom_dir"],
-                                    vertical=(layer == "all"),
-                                    res=0.05,
-                                    lon_lim=lon_lim,
-                                    lat_lim=lat_lim,
-                                    cores=cores,
-                                )
-                                paths = [fvcom_paths[x] for x in paths]
-                                df_times_new["path"] = [
-                                    fvcom_paths.get(x, x) for x in df_times_new.path
+                            for exc in exclude:
+                                paths = [
+                                    x
+                                    for x in paths
+                                    if f"{exc}" not in os.path.basename(x)
                                 ]
 
+                            def read_csv_simyears(ff, layer = None):
+                                df = read_point(ff)
+                                min_year = session_info["min_year"]
+                                max_year = session_info["max_year"]
+                                if "year" in df.columns:
+                                    df = df.query(
+                                        "year >= @min_year and year <= @max_year"
+                                    ).reset_index(drop=True)
+                                if layer == "surface":
+                                    if "depth" in df.columns:
+                                        df = df.query("depth <= 5").reset_index(
+                                            drop=True
+                                        )
+                                        # drop depth
+                                return df
 
-                            valid_cols = [
-                                "lon",
-                                "lat",
-                                "day",
-                                "month",
-                                "year",
-                                "depth",
-                                "observation",
+                            df = pd.concat([read_csv_simyears(x, layer) for x in paths])
+                        # ensure year is int
+                        if "year" in df.columns:
+                            df = df.assign(year=lambda x: x.year.astype(int))
+                        if "year" in df.columns:
+                            # find point_start
+                            point_start = comparison["start"]
+                            point_end = comparison["end"]
+                            df = df.query(
+                                "year >= @point_start and year <= @point_end"
+                            ).reset_index(drop=True)
+
+                        if "source" in df.columns:
+                            df = df.drop(columns=["source"])
+                        # if it exists, coerce year to int
+                        if "year" in df.columns:
+                            df = df.assign(year=lambda x: x.year.astype(int))
+                            # subset to
+                        if "month" in df.columns:
+                            df = df.assign(month=lambda x: x.month.astype(int))
+                        if "day" in df.columns:
+                            df = df.assign(day=lambda x: x.day.astype(int))
+                        if layer == "surface":
+                            if "depth" in df.columns:
+                                df = df.query("depth <= 5").reset_index(drop=True)
+                                # drop depth
+                                df = df.drop(columns=["depth"])
+
+                        # a comparison can set its own point_time_res, in
+                        # place of the one given to matchup
+                        point_time_res = copy.deepcopy(
+                            comparison.get("point_time_res")
+                            or session_info["point_time_res"]
+                        )
+                        for x in [
+                            x
+                            for x in ["year", "month", "day"]
+                            if x not in point_time_res
+                        ]:
+                            if x in df.columns:
+                                df = df.drop(columns=x)
+
+                        # observations without a year would otherwise be
+                        # matched with every year of the simulation, so only
+                        # keep model times in the years asked for. Each
+                        # time's position in its file is kept for subsetting
+                        year_start = max(session_info["min_year"], comparison["start"])
+                        year_end = min(session_info["max_year"], comparison["end"])
+                        df_times = df_times.reset_index(drop=True)
+                        df_times["time_index"] = df_times.groupby("path").cumcount()
+                        df_times = df_times.query(
+                            "year >= @year_start and year <= @year_end"
+                        ).reset_index(drop=True)
+
+                        sel_these = point_time_res
+                        sel_these = [x for x in df.columns if x in sel_these]
+                        if "year" in df.columns:
+                            paths = list(
+                                set(
+                                    df.loc[:, sel_these]
+                                    .drop_duplicates()
+                                    .merge(df_times)
+                                    .path
+                                )
+                            )
+                        else:
+                            paths = list(set(df_times.path))
+
+                        if len(paths) == 0:
+                            print(f"No matching times for {variable}")
+
+                        manager = Manager()
+
+                        df_times_new = copy.deepcopy(df_times)
+
+                        if fvcom:
+                            # match against regridded copies of the FVCOM files.
+                            # They keep the same times, so time_index still applies
+                            fvcom_paths = fvcom_matchup_files(
+                                paths,
+                                model_variable.split("+"),
+                                session_info["fvcom_dir"],
+                                vertical=(layer == "all"),
+                                res=0.05,
+                                lon_lim=lon_lim,
+                                lat_lim=lat_lim,
+                                cores=cores,
+                            )
+                            paths = [fvcom_paths[x] for x in paths]
+                            df_times_new["path"] = [
+                                fvcom_paths.get(x, x) for x in df_times_new.path
                             ]
-                            select_these = [x for x in df.columns if x in valid_cols]
 
-                            if len(df) == 0:
-                                print("No data for this variable")
-                                return None
 
-                            if "year" not in df.columns:
-                                try:
-                                    point_time_res.remove("year")
-                                except:
-                                    pass
-                            if "month" not in df.columns:
-                                try:
-                                    point_time_res.remove("month")
-                                except:
-                                    pass
-                            if "day" not in df.columns:
-                                try:
-                                    point_time_res.remove("day")
-                                except:
-                                    pass
+                        valid_cols = [
+                            "lon",
+                            "lat",
+                            "day",
+                            "month",
+                            "year",
+                            "depth",
+                            "observation",
+                        ]
+                        select_these = [x for x in df.columns if x in valid_cols]
 
-                            if cores > 1:
-                                nc.options(parallel = True)
-                            df_all = manager.list()
+                        if len(df) == 0:
+                            print("No data for this variable")
+                            return None
 
-                            grid_setup = False
-                            pool = mp.Pool(cores)
+                        if "year" not in df.columns:
+                            try:
+                                point_time_res.remove("year")
+                            except:
+                                pass
+                        if "month" not in df.columns:
+                            try:
+                                point_time_res.remove("month")
+                            except:
+                                pass
+                        if "day" not in df.columns:
+                            try:
+                                point_time_res.remove("day")
+                            except:
+                                pass
 
-                            pbar = tqdm(total=len(paths), position=0, leave=True)
-                            results = dict()
+                        if cores > 1:
+                            nc.options(parallel = True)
+                        df_all = manager.list()
 
-                            if cores > 1:
-                                for ff in paths:
+                        grid_setup = False
+                        pool = mp.Pool(cores)
 
-                                    temp = pool.apply_async(
-                                        mm_match,
-                                        [
-                                            ff,
-                                            model_variable,
-                                            df,
-                                            df_times_new,
-                                            ds_depths,
-                                            point_variable,
-                                            df_all,
-                                            layer,
-                                        ],
-                                    )
+                        pbar = tqdm(total=len(paths), position=0, leave=True)
+                        results = dict()
 
-                                    results[ff] = temp
+                        if cores > 1:
+                            for ff in paths:
 
-                                for k, v in results.items():
-                                    value = v.get()
-                                    pbar.update(1)
-                            else:
-                                for ff in paths:
-                                    value = mm_match(
+                                temp = pool.apply_async(
+                                    mm_match,
+                                    [
                                         ff,
                                         model_variable,
                                         df,
@@ -1627,203 +1619,222 @@ def matchup(
                                         point_variable,
                                         df_all,
                                         layer,
-                                    )
-                                    pbar.update(1)
-
-                            df_all = list(df_all)
-                            df_all = [x for x in df_all if x is not None]
-                            # do nothing when there is no data
-                            if len(df_all) == 0:
-                                print(f"No data for {variable}")
-                                time.sleep(1)
-                                return False
-
-                            df_all = pd.concat(df_all)
-                            nc.options(parallel = False)
-
-                            change_this = [
-                                x
-                                for x in df_all.columns
-                                if x
-                                not in [
-                                    "lon",
-                                    "lat",
-                                    "year",
-                                    "month",
-                                    "day",
-                                    "depth",
-                                    "observation",
-                                ]
-                            ][0]
-                            #
-                            df_all = df_all.rename(
-                                columns={change_this: "model"}
-                            ).merge(df)
-                            # add model to name column names with frac in them
-                            df_all = df_all.dropna().reset_index(drop=True)
-                            # fix the observations based on obs_unit_multiplier
-                            multiplier = comparison["obs_multiplier"]
-                            if multiplier != 1:
-                                df_all = df_all.assign(
-                                    observation=lambda x: x.observation * multiplier
-                                )
-                            adder = comparison["obs_adder"]
-                            if adder != 0:
-                                df_all = df_all.assign(
-                                    observation=lambda x: x.observation + adder
+                                    ],
                                 )
 
-                            grouping = copy.deepcopy(point_time_res)
-                            grouping.append("lon")
-                            grouping.append("lat")
-                            grouping.append("depth")
-                            grouping = [x for x in grouping if x in df_all.columns]
-                            grouping = list(set(grouping))
-                            df_all = df_all.dropna().reset_index(drop=True)
-                            df_all = df_all.groupby(grouping).mean().reset_index()
+                                results[ff] = temp
 
-
-                            # create directory for out if it does not exists
-                            if not os.path.exists(os.path.dirname(out)):
-                                os.makedirs(os.path.dirname(out))
-                            if lon_lim is not None:
-                                df_all = df_all.query(
-                                    f"lon > {lon_lim[0]} and lon < {lon_lim[1]}"
+                            for k, v in results.items():
+                                value = v.get()
+                                pbar.update(1)
+                        else:
+                            for ff in paths:
+                                value = mm_match(
+                                    ff,
+                                    model_variable,
+                                    df,
+                                    df_times_new,
+                                    ds_depths,
+                                    point_variable,
+                                    df_all,
+                                    layer,
                                 )
-                            if lat_lim is not None:
-                                df_all = df_all.query(
-                                    f"lat > {lat_lim[0]} and lat < {lat_lim[1]}"
-                                )
+                                pbar.update(1)
 
-                            if len(df_all) > 0:
+                        df_all = list(df_all)
+                        df_all = [x for x in df_all if x is not None]
+                        # do nothing when there is no data
+                        if len(df_all) == 0:
+                            print(f"No data for {variable}")
+                            time.sleep(1)
+                            return False
 
-                                if "year" not in point_time_res:
-                                    try:
-                                        df_all = df_all.drop(columns="year")
-                                    except:
-                                        pass
-                                if "day" not in point_time_res:
-                                    try:
-                                        df_all = df_all.drop(columns="day")
-                                    except:
-                                        pass
-                                if "month" not in point_time_res:
-                                    try:
-                                        df_all = df_all.drop(columns="month")
-                                    except:
-                                        pass
-                                # special handling of temperature
-                                if variable == "temperature":
-                                    max_model = df_all.model.max()
-                                    max_obs = df_all.observation.max()
-                                    if max_model > 100 and max_obs < 100:
-                                        df_all = df_all.assign(
-                                            observation=lambda x: x.observation + 273.15
-                                        )   
-                                    if max_obs > 100 and max_model < 100:
-                                        df_all = df_all.assign(
-                                            observation=lambda x: x.observation - 273.15
-                                        )
+                        df_all = pd.concat(df_all)
+                        nc.options(parallel = False)
 
-                                df_all.to_csv(out, index=False)
-                                # save the definitions
-                                out_definitions = out.replace(
-                                    ".csv", "_definitions.pkl"
-                                )
-                                import dill
-                                # get the model unit
-                                ds = nc.open_data(paths[0], checks=False)
-                                the_variable = model_variable.split("+")[0]
-                                model_unit = list(
-                                    ds.contents.query(
-                                        "variable == @the_variable"
-                                    ).unit
-                                )[0]
-                                definitions[variable].model_unit = model_unit
-                                dill.dump( definitions, file=open(out_definitions, "wb"))
+                        change_this = [
+                            x
+                            for x in df_all.columns
+                            if x
+                            not in [
+                                "lon",
+                                "lat",
+                                "year",
+                                "month",
+                                "day",
+                                "depth",
+                                "observation",
+                            ]
+                        ][0]
+                        #
+                        df_all = df_all.rename(
+                            columns={change_this: "model"}
+                        ).merge(df)
+                        # add model to name column names with frac in them
+                        df_all = df_all.dropna().reset_index(drop=True)
+                        # fix the observations based on obs_unit_multiplier
+                        multiplier = comparison["obs_multiplier"]
+                        if multiplier != 1:
+                            df_all = df_all.assign(
+                                observation=lambda x: x.observation * multiplier
+                            )
+                        adder = comparison["obs_adder"]
+                        if adder != 0:
+                            df_all = df_all.assign(
+                                observation=lambda x: x.observation + adder
+                            )
 
-                                out1 = out.replace(
-                                    os.path.basename(out), "matchup_dict.pkl"
-                                )
-                                # read in the adhoc dict in mm_match
+                        grouping = copy.deepcopy(point_time_res)
+                        grouping.append("lon")
+                        grouping.append("lat")
+                        grouping.append("depth")
+                        grouping = [x for x in grouping if x in df_all.columns]
+                        grouping = list(set(grouping))
+                        df_all = df_all.dropna().reset_index(drop=True)
+                        df_all = df_all.groupby(grouping).mean().reset_index()
 
-                                point_start = -5000
-                                point_end = 10000
+
+                        # create directory for out if it does not exists
+                        if not os.path.exists(os.path.dirname(out)):
+                            os.makedirs(os.path.dirname(out))
+                        if lon_lim is not None:
+                            df_all = df_all.query(
+                                f"lon > {lon_lim[0]} and lon < {lon_lim[1]}"
+                            )
+                        if lat_lim is not None:
+                            df_all = df_all.query(
+                                f"lat > {lat_lim[0]} and lat < {lat_lim[1]}"
+                            )
+
+                        if len(df_all) > 0:
+
+                            if "year" not in point_time_res:
                                 try:
-                                    point_start = comparison["start"]
-                                    point_end = comparison["end"]
+                                    df_all = df_all.drop(columns="year")
                                 except:
                                     pass
+                            if "day" not in point_time_res:
+                                try:
+                                    df_all = df_all.drop(columns="day")
+                                except:
+                                    pass
+                            if "month" not in point_time_res:
+                                try:
+                                    df_all = df_all.drop(columns="month")
+                                except:
+                                    pass
+                            # special handling of temperature
+                            if variable == "temperature":
+                                max_model = df_all.model.max()
+                                max_obs = df_all.observation.max()
+                                if max_model > 100 and max_obs < 100:
+                                    df_all = df_all.assign(
+                                        observation=lambda x: x.observation + 273.15
+                                    )   
+                                if max_obs > 100 and max_model < 100:
+                                    df_all = df_all.assign(
+                                        observation=lambda x: x.observation - 273.15
+                                    )
 
-                                min_year = session_info["min_year"]
-                                max_year = session_info["max_year"]
+                            df_all.to_csv(out, index=False)
+                            # save the definitions
+                            out_definitions = out.replace(
+                                ".csv", "_definitions.pkl"
+                            )
+                            import dill
+                            # get the model unit
+                            ds = nc.open_data(paths[0], checks=False)
+                            the_variable = model_variable.split("+")[0]
+                            model_unit = list(
+                                ds.contents.query(
+                                    "variable == @the_variable"
+                                ).unit
+                            )[0]
+                            definitions[variable].model_unit = model_unit
+                            dill.dump( definitions, file=open(out_definitions, "wb"))
 
-                                if point_start > min_year:
-                                    min_year = point_start
-                                if point_end < max_year:
-                                    max_year = point_end
+                            out1 = out.replace(
+                                os.path.basename(out), "matchup_dict.pkl"
+                            )
+                            # read in the adhoc dict in mm_match
 
-                                the_dict = {
-                                    "start": min_year,
-                                    "end": max_year,
-                                    "point_time_res": point_time_res,
-                                    "model_variable": model_variable,
-                                }
-                                # remove the adhoc dict
-                                # write to pickle
-                                with open(out1, "wb") as f:
-                                    pickle.dump(the_dict, f)
+                            point_start = -5000
+                            point_end = 10000
+                            try:
+                                point_start = comparison["start"]
+                                point_end = comparison["end"]
+                            except:
+                                pass
 
-                                return None
-                            else:
-                                print(f"No data for {variable}")
-                                time.sleep(1)
-                                return False
+                            min_year = session_info["min_year"]
+                            max_year = session_info["max_year"]
 
-                    vv_variable = definitions[vv].long_name
+                            if point_start > min_year:
+                                min_year = point_start
+                            if point_end < max_year:
+                                max_year = point_end
 
-                    out = glob.glob(
-                        session_info["out_dir"]
-                        + "/"
-                        + f"oceanval_matchups/point/{key}/{vv}/{source}/{source}_{key}_{vv}.csv"
+                            the_dict = {
+                                "start": min_year,
+                                "end": max_year,
+                                "point_time_res": point_time_res,
+                                "model_variable": model_variable,
+                            }
+                            # remove the adhoc dict
+                            # write to pickle
+                            with open(out1, "wb") as f:
+                                pickle.dump(the_dict, f)
+
+                            return None
+                        else:
+                            print(f"No data for {variable}")
+                            time.sleep(1)
+                            return False
+
+                vv_variable = definitions[vv].long_name
+
+                out = glob.glob(
+                    session_info["out_dir"]
+                    + "/"
+                    + f"oceanval_matchups/point/{key}/{vv}/{source}/{source}_{key}_{vv}.csv"
+                )
+
+                if len(out) > 0:
+                    if session_info["overwrite"] is False:
+                        continue
+
+                print(
+                    f"Matching up model output of {key} {vv_variable} with {source} in-situ observational data"
+                )
+
+                # try:
+                if True:
+                    point_match(
+                        vv, source, ds_depths=ds_depths, df_times=df_times, layer=key
                     )
+                # except:
+                #     pass
 
-                    if len(out) > 0:
-                        if session_info["overwrite"] is False:
+                output_warnings = []
+                for ww in session_warnings:
+                    if ww is not None:
+                        if ww in output_warnings:
                             continue
+                        if "CDO found more than one time variable" in ww:
+                            continue
+                        if "coordinates variable time" in ww:
+                            continue
+                        output_warnings.append(str(ww))
 
-                    print(
-                        f"Matching up model output of {key} {vv_variable} with {source} in-situ observational data"
-                    )
+                if len(output_warnings) > 0:
+                    output_warnings = list(set(output_warnings))
+                    print(f"Warnings for {vv_variable}")
+                    for ww in output_warnings:
+                        warnings.warn(message=ww)
+                # empty session warnings
 
-                    # try:
-                    if True:
-                        point_match(
-                            vv, source, ds_depths=ds_depths, df_times=df_times, layer=key
-                        )
-                    # except:
-                    #     pass
-
-                    output_warnings = []
-                    for ww in session_warnings:
-                        if ww is not None:
-                            if ww in output_warnings:
-                                continue
-                            if "CDO found more than one time variable" in ww:
-                                continue
-                            if "coordinates variable time" in ww:
-                                continue
-                            output_warnings.append(str(ww))
-
-                    if len(output_warnings) > 0:
-                        output_warnings = list(set(output_warnings))
-                        print(f"Warnings for {vv_variable}")
-                        for ww in output_warnings:
-                            warnings.warn(message=ww)
-                    # empty session warnings
-
-                if builder is not None and os.path.exists(csv):
-                    builder.matched("point", vv, source, layer)
+            if builder is not None and os.path.exists(csv):
+                builder.matched("point", vv, source, layer)
         while len(session_warnings) > 0:
             session_warnings.pop()
 
@@ -1840,7 +1851,12 @@ def matchup(
         on_matched=None if builder is None else builder.matched,
     )
 
-    gridded_matchup(var_choice=gridded, **gridded_args)
+    # the quick matchups first, so there are results to look at early: the
+    # non-vertical ones, gridded then point, and then the vertical ones
+    gridded_matchup(var_choice=gridded_surface, **gridded_args)
+    match_point_layer("surface")
+    gridded_matchup(var_choice=gridded_vertical, reset_failures=False, **gridded_args)
+    match_point_layer("all")
 
     retry_failed_gridded(ask=ask, **gridded_args)
 

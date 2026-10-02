@@ -189,6 +189,7 @@ def gridded_matchup(
     times_dict=None,
     example_files = {},
     on_matched=None,
+    reset_failures=True,
 ):
     """
     Function to create gridded matchups for a given set of variables
@@ -216,6 +217,9 @@ def gridded_matchup(
     on_matched : callable or None
         Called with ("gridded", variable, source) for each matchup made, or
         kept from an earlier run, as for the interim report (see oceanval.live)
+    reset_failures : bool
+        Whether to start a fresh list of failures. matchup makes the surface and
+        vertical matchups in separate runs and keeps the failures of both.
     Returns
     -------
     None
@@ -226,7 +230,8 @@ def gridded_matchup(
 
     # each run reports its own failures - retry_failed_gridded reads the
     # names it needs out of here before calling back in
-    session_info["failed_gridded"] = []
+    if reset_failures:
+        session_info["failed_gridded"] = []
 
     all_df = df_mapping
     # if model_variable is None remove from all_df
