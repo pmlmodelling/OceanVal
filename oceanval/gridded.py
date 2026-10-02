@@ -187,7 +187,8 @@ def gridded_matchup(
     lon_lim=None,
     lat_lim=None,
     times_dict=None,
-    example_files = {}
+    example_files = {},
+    on_matched=None,
 ):
     """
     Function to create gridded matchups for a given set of variables
@@ -212,6 +213,9 @@ def gridded_matchup(
         Latitude limits for subsetting
     times_dict : dict
         Dictionary with file paths as keys and corresponding time DataFrames as values
+    on_matched : callable or None
+        Called with ("gridded", variable, source) for each matchup made, or
+        kept from an earlier run, as for the interim report (see oceanval.live)
     Returns
     -------
     None
@@ -264,6 +268,8 @@ def gridded_matchup(
                 )
                 if len(out) > 0:
                     if session_info["overwrite"] is False:
+                        if on_matched is not None:
+                            on_matched("gridded", vv, vv_source)
                         continue
                 # figure out the data source
                 #
@@ -857,6 +863,8 @@ def gridded_matchup(
                 var_dict["clim_years"] = [min(sim_years), max(sim_years)]
                 with open(out, "wb") as f:
                     pickle.dump(var_dict, f)
+                if on_matched is not None:
+                    on_matched("gridded", vv, vv_source)
             except Exception as exc:
                 if not retryable:
                     raise

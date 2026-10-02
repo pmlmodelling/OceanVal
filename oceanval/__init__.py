@@ -101,6 +101,44 @@ def _run_jupytext(args, notebook_glob):
         sys.stderr.write(proc.stderr)
 
 
+def _execute_notebooks(notebooks):
+    """Run the notebooks, keeping what they show in them, without the
+    warnings and other diagnostics."""
+    _run_filtered(
+        [
+            "jupyter",
+            "nbconvert",
+            "--to",
+            "notebook",
+            "--execute",
+            "--inplace",
+            "--allow-errors",
+            "--ExecutePreprocessor.timeout=500",
+            *notebooks,
+        ],
+        check=True,
+    )
+    _remove_diagnostic_outputs(notebooks)
+
+
+def _notebooks_to_html(notebooks, html_dir):
+    """Write each run notebook as an HTML page in html_dir, without its code."""
+    os.makedirs(html_dir, exist_ok=True)
+    subprocess.run(
+        [
+            "jupyter",
+            "nbconvert",
+            "--to",
+            "html",
+            "--no-input",
+            "--output-dir",
+            html_dir,
+            *notebooks,
+        ],
+        check=True,
+    )
+
+
 def _build_book(book_dir, validation_links=None, pdf=False, word=False):
     if _jupyter_book_major_version() >= 2:
         notebooks = glob.glob(os.path.join(book_dir, "notebooks", "*.ipynb"))
@@ -109,35 +147,8 @@ def _build_book(book_dir, validation_links=None, pdf=False, word=False):
         )
         output_dir = os.path.join(book_dir, "_build", "html")
         if notebooks:
-            _run_filtered(
-                [
-                    "jupyter",
-                    "nbconvert",
-                    "--to",
-                    "notebook",
-                    "--execute",
-                    "--inplace",
-                    "--allow-errors",
-                    "--ExecutePreprocessor.timeout=500",
-                    *notebooks,
-                ],
-                check=True,
-            )
-            _remove_diagnostic_outputs(notebooks)
-            os.makedirs(os.path.join(output_dir, "notebooks"), exist_ok=True)
-            subprocess.run(
-                [
-                    "jupyter",
-                    "nbconvert",
-                    "--to",
-                    "html",
-                    "--no-input",
-                    "--output-dir",
-                    os.path.join(output_dir, "notebooks"),
-                    *notebooks,
-                ],
-                check=True,
-            )
+            _execute_notebooks(notebooks)
+            _notebooks_to_html(notebooks, os.path.join(output_dir, "notebooks"))
         os.makedirs(output_dir, exist_ok=True)
         # keep the wordmark alongside the notebook pages (not one level up)
         # so the notebooks/ directory is self-contained and can be copied
@@ -863,9 +874,27 @@ def _render_offline_report_pdfs(pages):
             )
 
 
+def _write_atomically(path, text):
+    """Write text to path through a temporary file beside it, so that a
+    browser reading the page never finds it half written."""
+    temporary = f"{path}.{os.getpid()}.tmp"
+    with open(temporary, "w") as file:
+        file.write(text)
+    os.replace(temporary, path)
+
+
 def _write_offline_report_pages(
-    output_dir, notebooks, validation_links=None, pdf=False, word=False
+    output_dir, notebooks, validation_links=None, pdf=False, word=False,
+    raw_dir=None, banner=None,
 ):
+    """Add the navigation (and the download buttons) to each notebook's HTML
+    page in output_dir/notebooks.
+
+    The pages are read from raw_dir, if given, rather than rewritten where
+    they are, so that the navigation can be put in again as pages are
+    added, as it is for the interim report (see oceanval.live). banner, an
+    HTML snippet, goes at the top of every page.
+    """
     validation_links = validation_links or []
     page_validation_links = [
         (label, os.path.relpath(target, os.path.join(output_dir, "notebooks")))
@@ -887,7 +916,8 @@ def _write_offline_report_pages(
     for notebook in notebooks:
         stem = os.path.splitext(os.path.basename(notebook))[0]
         page = os.path.join(output_dir, "notebooks", f"{stem}.html")
-        with open(page, "r") as report_page:
+        source = page if raw_dir is None else os.path.join(raw_dir, f"{stem}.html")
+        with open(source, "r") as report_page:
             raw_html = report_page.read()
 
         page_downloads = []
@@ -945,7 +975,7 @@ def _write_offline_report_pages(
         )
         page_html = re.sub(
             r"(<body[^>]*>)",
-            lambda match: f"{match.group(1)}{page_navigation}{downloads}",
+            lambda match: f"{match.group(1)}{page_navigation}{downloads}{banner or ''}",
             raw_html,
             count=1,
         )
@@ -981,8 +1011,7 @@ def _write_offline_report_pages(
         _render_offline_report_word(word_jobs, os.path.join(output_dir, "notebooks"))
 
     for page, page_html in page_updates:
-        with open(page, "w") as report_page:
-            report_page.write(page_html)
+        _write_atomically(page, page_html)
 
 
 def fix_toc(concise=True, data_dir=None, out_dir=None):
@@ -1147,6 +1176,201 @@ def _check_matchups(data_dir):
             )
 
 
+def _check_report_options(
+    lon_lim=None, lat_lim=None, concise=True, fixed_scale=False, subregions=None,
+    region=None,
+):
+    """
+    Check validate()'s report options, which matchup's live_validation takes
+    too (see oceanval.live).
+
+    Returns (subregions, region_file, n_regions): subregions, with the
+    deprecated region in its place if that was given instead, the full path
+    of a regions file of the user's own, or None, and how many regions the
+    file has, or None.
+    """
+    # if lon_lim  is not None, make sure it's a list
+    if lon_lim is not None:
+        if isinstance(lon_lim, list) == False:
+            raise ValueError("lon_lim must be a list")
+        else:
+            if len(lon_lim) != 2:
+                raise ValueError("lon_lim must be a list of length 2")
+    if lat_lim is not None:
+        if isinstance(lat_lim, list) == False:
+            raise ValueError("lat_lim must be a list")
+        else:
+            if len(lat_lim) != 2:
+                raise ValueError("lat_lim must be a list of length 2")
+
+    # concise must be boolean
+    if isinstance(concise, bool) == False:
+        raise ValueError("concise must be a boolean")
+
+    # checked fixed_scale is bool
+    if isinstance(fixed_scale, bool) == False:
+        raise ValueError("fixed_scale must be a boolean")
+
+    if region is not None:
+        if subregions is not None:
+            raise ValueError("give subregions or region, not both")
+        warnings.warn("region is deprecated, use subregions instead", FutureWarning)
+        subregions = region
+    region_file = None
+    n_regions = None
+    if subregions is not None and subregions not in ["nwes", "global"]:
+        if not str(subregions).endswith(".nc"):
+            raise ValueError("subregions must be 'nwes', 'global' or a path to a .nc file")
+        region_file = os.path.abspath(os.path.expanduser(subregions))
+        n_regions = _check_region_file(region_file)
+    return subregions, region_file, n_regions
+
+
+def _point_notebook_text(source, layer, variable, title, n_levels, data_dir, out_dir):
+    """point_template.ipynb, filled in for the matchup of variable with the
+    point observations of source, at layer."""
+    file1 = importlib.resources.files(__name__).joinpath("data/point_template.ipynb")
+    with open(file1, "r") as file:
+        filedata = file.read()
+
+    if layer in ["all", "surface"]:
+        filedata = filedata.replace("chunk_point_surface", "chunk_point")
+    else:
+        filedata = filedata.replace("chunk_point_surface", "")
+    if layer in ["bottom", "all"]:
+        if variable.lower() not in ["pco2"]:
+            filedata = filedata.replace("chunk_point_bottom", "chunk_point")
+        else:
+            filedata = filedata.replace("chunk_point_bottom", "")
+    else:
+        filedata = filedata.replace("chunk_point_bottom", "")
+
+    # Replace the target string
+    filedata = filedata.replace("point_variable", variable)
+    if layer != "all":
+        if n_levels > 1:
+            filedata = filedata.replace(
+                "Validation of point_layer", f"Validation of {layer}"
+            )
+        else:
+            filedata = filedata.replace("Validation of point_layer", f"Validation of ")
+    else:
+        filedata = filedata.replace("Validation of point_layer", f"Validation of ")
+
+    filedata = filedata.replace("point_layer", layer)
+    filedata = filedata.replace("point_obs_source", source)
+    filedata = filedata.replace("template_title", title)
+    filedata = filedata.replace("data_dir_value", data_dir)
+    filedata = filedata.replace("out_dir_value", out_dir)
+    return filedata
+
+
+def _gridded_seasonal(data_dir, variable, source):
+    """Whether the gridded matchup of variable with source has a full year of
+    months, for the notebook's seasonal section."""
+    ff_nc = glob.glob(
+        f"{data_dir}/oceanval_matchups/gridded/{variable}/{source}_*surface*.nc"
+    )[0]
+    ds = nc.open_data(ff_nc, checks=False)
+    try:
+        n_months = len(ds.months)
+    except:
+        n_months = 12
+    return n_months >= 12
+
+
+def _gridded_notebook_text(
+    source, variable, title, seasonal, data_dir, subregions, region_file, n_regions
+):
+    """gridded_template.ipynb, filled in for the matchup of variable with the
+    gridded observations of source."""
+    file1 = importlib.resources.files(__name__).joinpath("data/gridded_template.ipynb")
+    with open(file1, "r") as file:
+        filedata = file.read()
+
+    # Replace the target string
+    filedata = filedata.replace("template_variable", variable)
+    filedata = filedata.replace("template_title", title)
+    filedata = filedata.replace("data_dir_value", data_dir)
+    filedata = filedata.replace("source_name", source)
+    if subregions == "nwes":
+        filedata = filedata.replace("zonal_height", "6000")
+    elif region_file is not None:
+        filedata = filedata.replace(
+            "zonal_height", str(max(2000, 350 * (n_regions + 1)))
+        )
+    else:
+        filedata = filedata.replace("zonal_height", "2000")
+    # make every letter a capital
+    source_capital = source.upper()
+    filedata = filedata.replace("source_title", source_capital)
+    if seasonal is False:
+        filedata = filedata.replace("chunk_seasonal", "")
+    if region_file is not None:
+        filedata = filedata.replace("sub_regions_value", "custom")
+    elif subregions is not None:
+        filedata = filedata.replace("sub_regions_value", str(subregions))
+    return filedata
+
+
+def _rewrite_notebook_source(path, lon_lim, lat_lim, fixed_scale, concise, test):
+    """Fill in the report options in a notebook's paired .py:percent file,
+    and silence R's warnings in each R cell."""
+    with open(path, "r") as file:
+        filedata = file.read()
+
+    # loop through line by line, and rewrite the original file
+    lines = filedata.split("\n")
+    new_lines = []
+    for line in lines:
+        if "%%R" in line:
+            new_lines.append(line)
+            new_lines.append("options(warn=-1)")
+        else:
+            new_lines.append(line)
+    # loop through all lines in lines and replace the_test_status with True
+    for i in range(len(new_lines)):
+        new_lines[i] = new_lines[i].replace("latexpagebreak", "")
+        if "the_test_status" in new_lines[i]:
+            if test:
+                new_lines[i] = new_lines[i].replace("the_test_status", "True")
+            else:
+                new_lines[i] = new_lines[i].replace("the_test_status", "False")
+        if '"gam"' in new_lines[i]:
+            new_lines[i] = new_lines[i].replace('"gam"', '"lm"')
+
+        new_lines[i] = new_lines[i].replace("the_lon_lim", str(lon_lim))
+        new_lines[i] = new_lines[i].replace("the_lat_lim", str(lat_lim))
+        new_lines[i] = new_lines[i].replace("fixed_scale_value", str(fixed_scale))
+        # replace concice_value with concice
+        if "concise_value" in new_lines[i]:
+            if concise:
+                new_lines[i] = new_lines[i].replace("concise_value", "True")
+            else:
+                new_lines[i] = new_lines[i].replace("concise_value", "False")
+
+    # write the new lines to the file
+    with open(path, "w") as file:
+        for line in new_lines:
+            file.write(line + "\n")
+
+
+def _fill_notebook_paths(path, data_dir, out_dir, fast_plot=False):
+    """Fill in where a notebook reads the matchups from, and writes its
+    results to."""
+    with open(path, "r") as file:
+        filedata = file.read()
+
+    # Replace the target string
+    filedata = filedata.replace("fast_plot_value", str(fast_plot))
+    filedata = filedata.replace("data_dir_value", data_dir)
+    filedata = filedata.replace("out_dir_value", out_dir)
+
+    # Write the file out again
+    with open(path, "w") as file:
+        file.write(filedata)
+
+
 def _remove_notebook_temp_files(book_dir):
     """Remove the temporary files the notebooks of a built report left in
     /tmp, which each marked in its notebooks/.trackers."""
@@ -1211,42 +1435,12 @@ def validate(
     None
     """
 
-    # if lon_lim  is not None, make sure it's a list
-    if lon_lim is not None:
-        if isinstance(lon_lim, list) == False:
-            raise ValueError("lon_lim must be a list")
-        else:
-            if len(lon_lim) != 2:
-                raise ValueError("lon_lim must be a list of length 2")
-    if lat_lim is not None:
-        if isinstance(lat_lim, list) == False:
-            raise ValueError("lat_lim must be a list")
-        else:
-            if len(lat_lim) != 2:
-                raise ValueError("lat_lim must be a list of length 2")
-
-    # concise must be boolean
-    if isinstance(concise, bool) == False:
-        raise ValueError("concise must be a boolean")
-
-    # checked fixed_scale is bool
-    if isinstance(fixed_scale, bool) == False:
-        raise ValueError("fixed_scale must be a boolean")
-
+    subregions, region_file, n_regions = _check_report_options(
+        lon_lim, lat_lim, concise, fixed_scale, subregions, region
+    )
     # convert data_dir to absolute path
     data_dir = os.path.expanduser(data_dir)
     data_dir = os.path.abspath(data_dir)
-    if region is not None:
-        if subregions is not None:
-            raise ValueError("give subregions or region, not both")
-        warnings.warn("region is deprecated, use subregions instead", FutureWarning)
-        subregions = region
-    region_file = None
-    if subregions is not None and subregions not in ["nwes", "global"]:
-        if not str(subregions).endswith(".nc"):
-            raise ValueError("subregions must be 'nwes', 'global' or a path to a .nc file")
-        region_file = os.path.abspath(os.path.expanduser(subregions))
-        n_regions = _check_region_file(region_file)
     # check before removing any previous report or results
     _check_matchups(data_dir)
     # ensure proper handling of ~
@@ -1275,7 +1469,7 @@ def validate(
 
 
 
-    # remove the results directory
+    # remove the results directory, which the notebooks write next to the report
     x_path = os.path.join(out_dir, "oceanval_results")
     if os.path.exists(x_path):
         shutil.rmtree(x_path)
@@ -1370,51 +1564,16 @@ def validate(
                     )
                     == 0
                 ):
-                    file1 = importlib.resources.files(__name__).joinpath(
-                        "data/point_template.ipynb"
-                    )
-                    with open(file1, "r") as file:
-                        filedata = file.read()
-
-                    if layer in ["all", "surface"]:
-                        filedata = filedata.replace(
-                            "chunk_point_surface", "chunk_point"
-                        )
-                    else:
-                        filedata = filedata.replace("chunk_point_surface", "")
-                    if layer in ["bottom", "all"]:
-                        if vv.lower() not in ["pco2"]:
-                            filedata = filedata.replace(
-                                "chunk_point_bottom", "chunk_point"
-                            )
-                        else:
-                            filedata = filedata.replace("chunk_point_bottom", "")
-                    else:
-                        filedata = filedata.replace("chunk_point_bottom", "")
-
-                    # Replace the target string
                     out = f"{book_dir}/notebooks/{source}_{layer}_{variable}.ipynb"
-                    filedata = filedata.replace("point_variable", variable)
-                    n_levels = definitions[variable].n_levels
-                    if layer != "all":
-                        if n_levels > 1:
-                            filedata = filedata.replace(
-                                "Validation of point_layer", f"Validation of {layer}"
-                            )
-                        else:
-                            filedata = filedata.replace(
-                                "Validation of point_layer", f"Validation of "
-                            )
-                    else:
-                        filedata = filedata.replace(
-                            "Validation of point_layer", f"Validation of "
-                        )
-
-                    filedata = filedata.replace("point_layer", layer)
-                    filedata = filedata.replace("point_obs_source", source)
-                    filedata = filedata.replace("template_title", Variable)
-                    filedata = filedata.replace("data_dir_value", data_dir)
-                    filedata = filedata.replace("out_dir_value", out_dir)
+                    filedata = _point_notebook_text(
+                        source,
+                        layer,
+                        variable,
+                        Variable,
+                        definitions[variable].n_levels,
+                        data_dir,
+                        out_dir,
+                    )
 
                     # Write the file out again
                     with open(out, "w") as file:
@@ -1454,19 +1613,8 @@ def validate(
                         )[0]
                         definitions = dill.load(open(ff_def, "rb"))
                         Variable = definitions[variable].short_name
-                        ff_nc = glob.glob(
-                            f"{data_dir}/oceanval_matchups/gridded/{variable}/{source}_*surface*.nc"
-                        )[0]
-                        ds = nc.open_data(ff_nc, checks=False)
-                        try:
-                            n_months = len(ds.months)
-                        except:
-                            n_months = 12
-                        seasonal = n_months >= 12
+                        seasonal = _gridded_seasonal(data_dir, variable, source)
 
-                        file1 = importlib.resources.files(__name__).joinpath(
-                            "data/gridded_template.ipynb"
-                        )
                         if (
                             len(
                                 glob.glob(
@@ -1475,31 +1623,16 @@ def validate(
                             )
                             == 0
                         ):
-                            with open(file1, "r") as file:
-                                filedata = file.read()
-
-                            # Replace the target string
-                            filedata = filedata.replace("template_variable", variable)
-                            filedata = filedata.replace("template_title", Variable)
-                            filedata = filedata.replace("data_dir_value", data_dir)
-                            filedata = filedata.replace("source_name", source)
-                            if subregions == "nwes":
-                                filedata = filedata.replace("zonal_height", "6000")
-                            elif region_file is not None:
-                                filedata = filedata.replace(
-                                    "zonal_height", str(max(2000, 350 * (n_regions + 1)))
-                                )
-                            else:
-                                filedata = filedata.replace("zonal_height", "2000")
-                            # make every letter a capital
-                            source_capital = source.upper()
-                            filedata = filedata.replace("source_title", source_capital)
-                            if seasonal is False:
-                                filedata = filedata.replace("chunk_seasonal", "")
-                            if region_file is not None:
-                                filedata = filedata.replace("sub_regions_value", "custom")
-                            elif subregions is not None:
-                                filedata = filedata.replace("sub_regions_value", str(subregions))
+                            filedata = _gridded_notebook_text(
+                                source,
+                                variable,
+                                Variable,
+                                seasonal,
+                                data_dir,
+                                subregions,
+                                region_file,
+                                n_regions,
+                            )
 
                             # Write the file out again
                             with open(
@@ -1582,45 +1715,7 @@ def validate(
 
         # loop through the notebooks and set r warnings options
         for ff in glob.glob(f"{book_dir}/notebooks/*.py"):
-            with open(ff, "r") as file:
-                filedata = file.read()
-
-            # loop through line by line, and rewrite the original file
-            lines = filedata.split("\n")
-            new_lines = []
-            for line in lines:
-                if "%%R" in line:
-                    new_lines.append(line)
-                    new_lines.append("options(warn=-1)")
-                else:
-                    new_lines.append(line)
-            # loop through all lines in lines and replace the_test_status with True
-            for i in range(len(new_lines)):
-                new_lines[i] = new_lines[i].replace("latexpagebreak", "")
-                if "the_test_status" in new_lines[i]:
-                    if test:
-                        new_lines[i] = new_lines[i].replace("the_test_status", "True")
-                    else:
-                        new_lines[i] = new_lines[i].replace("the_test_status", "False")
-                if '"gam"' in new_lines[i]:
-                    new_lines[i] = new_lines[i].replace('"gam"', '"lm"')
-
-                new_lines[i] = new_lines[i].replace("the_lon_lim", str(lon_lim))
-                new_lines[i] = new_lines[i].replace("the_lat_lim", str(lat_lim))
-                new_lines[i] = new_lines[i].replace(
-                    "fixed_scale_value", str(fixed_scale)
-                )
-                # replace concice_value with concice
-                if "concise_value" in new_lines[i]:
-                    if concise:
-                        new_lines[i] = new_lines[i].replace("concise_value", "True")
-                    else:
-                        new_lines[i] = new_lines[i].replace("concise_value", "False")
-
-            # write the new lines to the file
-            with open(ff, "w") as file:
-                for line in new_lines:
-                    file.write(line + "\n")
+            _rewrite_notebook_source(ff, lon_lim, lat_lim, fixed_scale, concise, test)
 
         # sync the notebooks
         #
@@ -1629,17 +1724,7 @@ def validate(
     # loop through notebooks and change fast_plot_value to fast_plot
 
     for ff in glob.glob(f"{book_dir}/notebooks/*.ipynb"):
-        with open(ff, "r") as file:
-            filedata = file.read()
-
-        # Replace the target string
-        filedata = filedata.replace("fast_plot_value", str(fast_plot))
-        filedata = filedata.replace("data_dir_value", data_dir)
-        filedata = filedata.replace("out_dir_value", out_dir)
-
-        # Write the file out again
-        with open(ff, "w") as file:
-            file.write(filedata)
+        _fill_notebook_paths(ff, data_dir, out_dir, fast_plot)
 
     # fix the toc using the function
 

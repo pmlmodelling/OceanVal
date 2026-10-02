@@ -14,11 +14,15 @@ in, and a page opens in your web browser that takes you through:
    which is printed in the terminal too, and asks any question it asks.
    To match up and validate, once the matchups are checked, a last step
    asks for the report's options before anything is matched up, and
-   validate() is run with them after the script.
+   validate() is run with them after the script. matchup builds an interim
+   report with them as it goes (see oceanval.live), which the page links
+   to once its first page is made.
 
 Like the create_recipes window (see oceanval.recipes_gui), the page is
 served only on 127.0.0.1, only to requests carrying the random token in its
-link, and loads nothing from anywhere else.
+link, and loads nothing from anywhere else. It serves the reports too, the
+interim one and the full one, so that they open from the page, which a
+file:// link would not, and over a forwarded port.
 """
 
 import argparse
@@ -28,6 +32,7 @@ import glob
 import io
 import itertools
 import json
+import mimetypes
 import os
 import queue
 import random
@@ -41,8 +46,8 @@ import traceback
 import urllib.parse
 
 import oceanval
-from oceanval import prompts, recipes_gui
-from oceanval.app_child import QUESTION_MARKER
+from oceanval import live, prompts, recipes_gui
+from oceanval.app_child import ANSWER_MARKER, QUESTION_MARKER
 from oceanval import own_data, units
 from oceanval.create_recipes import (
     DOMAIN_REGIONS,
@@ -255,6 +260,20 @@ def _validate_call(arguments, cwd):
     }
     listed = ", ".join(f"{name}={_literal(value)}" for name, value in shown.items())
     return f"oceanval.validate({listed})"
+
+
+def _served_file(root, path):
+    """The file at path, a URL's path below root, or None. Nothing outside
+    root is served, however the path is written."""
+    root = os.path.realpath(root)
+    found = os.path.realpath(os.path.join(root, urllib.parse.unquote(path)))
+    try:
+        inside = os.path.commonpath([root, found]) == root
+    except ValueError:
+        inside = False
+    if not inside or not os.path.isfile(found):
+        return None
+    return found
 
 
 def _partial_marker(text):
@@ -582,6 +601,9 @@ class App:
         self.matchups_rejected = False
         self.matchup_script_saved = False
         self.script_path = None
+        # the interim report a matchup and validate run builds as it goes:
+        # its status.json, as last read (see _follow_interim), or None
+        self.interim = None
         self._server = None
 
     # ---- state ----
@@ -609,6 +631,7 @@ class App:
             report = None
             if self.action in ("matchup_validate", "validate") and self.results_dir:
                 report = os.path.join(self.results_dir, "oceanval_report.html")
+            report_exists = bool(report and os.path.exists(report))
             return {
                 "version": self.version,
                 "closed": self.closed.is_set(),
@@ -627,6 +650,7 @@ class App:
                     "recipe_variables": sorted(RECIPE_VARIABLES),
                 },
                 "units": {"rows": self.units_rows},
+                "interim": self._interim_state(),
                 "question": self.question.as_dict() if self.question else None,
                 "run": {
                     "label": self.run_label,
@@ -638,8 +662,15 @@ class App:
                         if self.results_dir
                         else None
                     ),
+                    "kind": self.run.args[0] if self.run is not None else None,
                     "report": report,
-                    "report_exists": bool(report and os.path.exists(report)),
+                    "report_exists": report_exists,
+                    # validate links oceanval_report.html to the report's first page
+                    "report_href": (
+                        self._report_href("report", os.path.realpath(report))
+                        if report_exists
+                        else None
+                    ),
                     "identifying": self.identifying,
                     "rejected": self.matchups_rejected,
                     "script_saved": self.matchup_script_saved,
@@ -674,6 +705,76 @@ class App:
             },
         )
 
+    # ---- the reports, which the page links to ----
+
+    def report_root(self, which):
+        """The directory of the HTML pages served at /<which>/<token>/:
+        which is "interim", for the interim report a matchup and validate
+        run builds as it goes, or "report", for the full report."""
+        if self.results_dir is None:
+            return None
+        if which == "interim":
+            return os.path.join(
+                self.results_dir, live.FOLDER, "oceanval_report", "_build", "html"
+            )
+        if which == "report":
+            return os.path.join(self.results_dir, "oceanval_report", "_build", "html")
+        return None
+
+    def _report_href(self, which, page):
+        """The page's link to page, one of a report's pages, or None if it
+        is not one of them."""
+        root = self.report_root(which)
+        if root is None or not page:
+            return None
+        relative = os.path.relpath(os.path.realpath(page), os.path.realpath(root))
+        if relative.startswith(".."):
+            return None
+        return f"{which}/{self.token}/{urllib.parse.quote(relative)}"
+
+    def _interim_state(self):
+        """What the page shows of the interim report, if this run builds one."""
+        if self.interim is None:
+            return None
+        status = self.interim["status"] or {}
+        return {
+            "state": status.get("state", "waiting"),
+            "pages": status.get("pages", 0),
+            "expected": status.get("expected"),
+            "href": self._report_href("interim", status.get("landing")),
+        }
+
+    def _follow_interim(self, interim):
+        """Keep interim["status"] up to date with the status.json the
+        interim report's builder writes (see oceanval.live), for as long as
+        it is this run's, until the report is complete or stopped."""
+        seen = None
+        while not self.closed.wait(1):
+            with self._lock:
+                if self.interim is not interim:
+                    return
+            try:
+                info = os.stat(interim["status_path"])
+            except OSError:
+                continue
+            # it is replaced, rather than written over, each time
+            stamp = (info.st_ino, info.st_mtime_ns, info.st_size)
+            if stamp == seen:
+                continue
+            try:
+                with open(interim["status_path"]) as file:
+                    status = json.load(file)
+            except (OSError, ValueError):
+                continue
+            seen = stamp
+            with self._lock:
+                if self.interim is not interim:
+                    return
+                interim["status"] = status
+                self._notify()
+            if status.get("state") in ("complete", "stopped"):
+                return
+
     # ---- the steps ----
 
     def choose(self, action, data_dir=None):
@@ -684,6 +785,7 @@ class App:
                 return False
             self.action = action
             self.question = None
+            self.interim = None
             if action == "validate":
                 # the full path, never "." for the directory worked in
                 self.validate_form["data_dir"] = _path(data_dir or self.out_dir, self.cwd)
@@ -1077,8 +1179,36 @@ class App:
                 self.console.write(
                     f"The script could not be written again with the report options: {error}\n"
                 )
-        if question is not None:
-            # yes, the matchups are right, as answered at a terminal
+        if question is not None and live.available():
+            # matchup builds an interim report with the report's options as
+            # it goes, which the page links to (see oceanval.live)
+            status_path = os.path.join(directory, live.FOLDER, "status.json")
+            # an earlier run's, which would be shown until matchup clears it
+            with contextlib.suppress(OSError):
+                os.remove(status_path)
+            interim = {"status_path": status_path, "status": None}
+            with self._lock:
+                self.interim = interim
+                self._notify()
+            threading.Thread(
+                target=self._follow_interim,
+                args=(interim,),
+                name="oceanval-interim",
+                daemon=True,
+            ).start()
+            options = {
+                name: value for name, value in report.items() if name not in live.EXPORTS
+            }
+            # yes, the matchups are right, as answered at a terminal, with
+            # the report's options along with it
+            self.console.write("y\n")
+            question.respond(
+                ANSWER_MARKER
+                + json.dumps({"answer": "y", "settings": {"live_validation": options}})
+            )
+        elif question is not None:
+            # with jupyter-book 1 there is no interim report: the report is
+            # built once the matchups are made
             self.console.write("y\n")
             question.respond("y")
         else:
@@ -1290,6 +1420,9 @@ class App:
             self.returncode = None
             self.question = None
             script = args[:1] in (["script"], ["matchup"])
+            if script:
+                # a report run after it keeps the interim report's link
+                self.interim = None
             self.identifying = script
             self.matchups_rejected = False
             self.matchup_script_saved = False
@@ -1399,8 +1532,9 @@ class App:
         there is then nothing for it to do. Yes, in a matchup and validate
         run, is held back while the report options are chosen (see report),
         so that nothing is matched up before then."""
-        # one line, as typed at a terminal
-        text = str(text).replace("\r", " ").replace("\n", " ")
+        # one line, as typed at a terminal, which cannot pose as an answer
+        # with settings (see app_child.ANSWER_MARKER)
+        text = str(text).replace("\r", " ").replace("\n", " ").replace("\x1e", "")
         with self._lock:
             question = self.question
             if (
@@ -1491,8 +1625,44 @@ class _Handler(recipes_gui._Handler):
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
 
+    def _report_file(self, path):
+        """A file of the interim report, or of the full report: path is
+        /interim/<token>/<page> or /report/<token>/<page>. The token is in
+        the path, not the query, so that the reports' own relative links
+        carry it from page to page."""
+        which, _, rest = path[1:].partition("/")
+        token, _, page = rest.partition("/")
+        if not self.app.authorised(urllib.parse.unquote(token)):
+            self._reply(
+                403,
+                "This is not the link oceanval printed.",
+                "text/plain; charset=utf-8",
+            )
+            return
+        root = self.app.report_root(which)
+        found = None if root is None else _served_file(root, page)
+        data = None
+        if found is not None:
+            with contextlib.suppress(OSError):
+                with open(found, "rb") as file:
+                    data = file.read()
+        if data is None:
+            self._reply(404, "Not found", "text/plain; charset=utf-8")
+            return
+        content_type = mimetypes.guess_type(found)[0] or "application/octet-stream"
+        if content_type.startswith("text/") or content_type in (
+            "application/javascript",
+            "application/json",
+            "image/svg+xml",
+        ):
+            content_type += "; charset=utf-8"
+        self._reply(200, data, content_type)
+
     def do_GET(self):
         url = urllib.parse.urlsplit(self.path)
+        if url.path.startswith(("/interim/", "/report/")):
+            self._report_file(url.path)
+            return
         query = {
             key: values[0] for key, values in urllib.parse.parse_qs(url.query).items()
         }

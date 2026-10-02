@@ -10,7 +10,9 @@ options chosen once the matchups are checked, and the third validate(). What
 they print is shown in the oceanval window (see oceanval.app), which reads
 it from this process's stdout. A question asked through oceanval.prompts is
 written there as one line, QUESTION_MARKER followed by the question as JSON,
-and the answer given in the window is read back from stdin.
+and the answer given in the window is read back from stdin: a line as
+typed, or ANSWER_MARKER followed by {"answer": ..., "settings": {...}} as
+JSON, for an answer that comes with settings (see oceanval.prompts.Answer).
 """
 
 import json
@@ -19,6 +21,7 @@ import sys
 import webbrowser
 
 QUESTION_MARKER = "\x1eoceanval-question "
+ANSWER_MARKER = "\x1eoceanval-answer "
 
 
 def _ask_the_window(question, choices, details=None):
@@ -35,7 +38,13 @@ def _ask_the_window(question, choices, details=None):
     answer = sys.stdin.readline()
     if not answer:
         raise EOFError("The oceanval window stopped before the question was answered")
-    return answer.rstrip("\r\n")
+    answer = answer.rstrip("\r\n")
+    if answer.startswith(ANSWER_MARKER):
+        from oceanval.prompts import Answer
+
+        given = json.loads(answer[len(ANSWER_MARKER) :])
+        return Answer(given["answer"], given.get("settings"))
+    return answer
 
 
 def _say_where(url, *args, **kwargs):

@@ -23,9 +23,9 @@ import pytest
 import xarray as xr
 
 import oceanval
-from oceanval import app_child, prompts
-from oceanval.app import App, Console, Run, check_report, check_setup, check_validate
-from oceanval.app_child import QUESTION_MARKER
+from oceanval import app_child, live, prompts
+from oceanval.app import App, Console, Question, Run, check_report, check_setup, check_validate
+from oceanval.app_child import ANSWER_MARKER, QUESTION_MARKER
 from oceanval.gridded import _ask_minutes, _ask_yes_no
 from simulations import write_fvcom, write_simulation
 
@@ -352,6 +352,20 @@ class TestChildProcess:
             )
             + "\n"
         )
+
+    def test_an_answer_can_come_with_settings(self, monkeypatch):
+        # yes to the matchups, with the report's options for the interim report
+        settings = {"live_validation": {"concise": False}}
+        monkeypatch.setattr(
+            "sys.stdin",
+            io.StringIO(ANSWER_MARKER + json.dumps({"answer": "y", "settings": settings}) + "\n"),
+        )
+        answer = app_child._ask_the_window("Happy? (y/n) ", ["y", "n"])
+
+        assert answer == "y"
+        assert answer.settings == settings
+        monkeypatch.setattr("sys.stdin", io.StringIO("y\n"))
+        assert not hasattr(app_child._ask_the_window("Happy? ", None), "settings")
 
     def test_validate_is_given_its_arguments(self, monkeypatch):
         called = []
@@ -860,7 +874,11 @@ class TestServer:
         assert f'oceanval.validate(\n    data_dir="{results}",\n    out_dir="{results}",\n)' in text
         assert app.results_dir == results
 
-    def test_the_report_options_are_written_into_the_script(self, app, tmp_path, runs):
+    def test_the_report_options_are_written_into_the_script(
+        self, app, tmp_path, runs, monkeypatch
+    ):
+        # as with jupyter-book 2, which the interim report needs
+        monkeypatch.setattr(live, "available", lambda: True)
         write_simulation(tmp_path / "sim")
         app.choose("matchup_validate")
         post(app, "/api/setup", {"form": SETUP_FORM})
@@ -882,8 +900,15 @@ class TestServer:
             "\noceanval.validate(\n    lon_lim=[-20, 10],\n    lat_lim=[40, 65],\n"
             "    pdf=True,\n    concise=False,\n)\n"
         ) in text
-        # the subset is the report's, not matchup's
-        assert "lon_lim" not in text[text.index("oceanval.matchup(") : text.index("\noceanval.validate(")]
+        # the subset is the report's, not matchup's, which the interim report
+        # matchup builds as it goes has too
+        call = text[text.index("oceanval.matchup(") : text.index("\noceanval.validate(")]
+        assert "    lon_lim=" not in call
+        assert (
+            '    live_validation={"lon_lim": [-20, 10], "lat_lim": [40, 65], "concise": False},\n)'
+        ) in call
+        # matchup has run already, so builds none
+        assert get_json(app, "/api/state")[1]["interim"] is None
         assert runs[-1] == (
             ["validate", json.dumps({"data_dir": str(tmp_path), "out_dir": str(tmp_path),
                                      "lon_lim": [-20.0, 10.0], "lat_lim": [40.0, 65.0],
@@ -1543,6 +1568,185 @@ class TestServer:
             )
         ]
 
+    def test_the_report_options_go_with_yes_to_the_matchups(
+        self, app, tmp_path, monkeypatch
+    ):
+        """matchup builds the interim report with them as it goes (see
+        oceanval.live), so they are sent with yes, without the full
+        report's other forms."""
+        # as with jupyter-book 2, which the interim report needs
+        monkeypatch.setattr(live, "available", lambda: True)
+        validated = self.validate_runs(app, monkeypatch)
+        script = tmp_path / "run.py"
+        script.write_text(
+            textwrap.dedent(
+                f"""
+                import json
+                from oceanval import prompts
+                question = "Are you happy with these matchups? (y/n) "
+                answer = prompts.ask(question, ("y", "n"), details={MATCHUPS!r})
+                print("answer:", answer)
+                print("settings:", json.dumps(answer.settings, sort_keys=True))
+                """
+            )
+        )
+        stale = tmp_path / "oceanval_interim_report" / "status.json"
+        stale.parent.mkdir()
+        stale.write_text(json.dumps({"state": "complete", "pages": 4}))
+        app.action = "matchup_validate"
+        app.start_run(["matchup", str(script)], "python run.py")
+        wait_for(lambda: app.question is not None)
+        assert post(app, "/api/answer", {"id": app.question.id, "answer": "y"})[0] == 200
+
+        form = {"lon_min": "-20", "lon_max": "10", "lat_min": "40", "lat_max": "65",
+                "pdf": True, "zip": True, "concise": False}
+        assert post(app, "/api/report", {"form": form})[0] == 200
+        # until matchup's builder says how far it has got, the page says it is coming
+        assert get_json(app, "/api/state")[1]["interim"] == {
+            "state": "waiting", "pages": 0, "expected": None, "href": None,
+        }
+        # what an earlier run left is not taken for this run's
+        assert not stale.exists()
+        wait_for(lambda: validated)
+        text = app.console.since(0, None)["text"]
+        # shown as typed at a terminal
+        assert "Are you happy with these matchups? (y/n) y\nanswer: y\n" in text
+        assert (
+            'settings: {"live_validation": {"concise": false, '
+            '"lat_lim": [40.0, 65.0], "lon_lim": [-20.0, 10.0]}}'
+        ) in text
+        # the full report still has them all
+        assert json.loads(validated[0][0][1])["pdf"] is True
+
+    def test_without_jupyter_book_2_there_is_no_interim_report(
+        self, app, tmp_path, monkeypatch
+    ):
+        monkeypatch.setattr(live, "available", lambda: False)
+        validated = self.validate_runs(app, monkeypatch)
+        script = tmp_path / "run.py"
+        script.write_text(
+            textwrap.dedent(
+                f"""
+                from oceanval import prompts
+                question = "Are you happy with these matchups? (y/n) "
+                answer = prompts.ask(question, ("y", "n"), details={MATCHUPS!r})
+                print("settings:", getattr(answer, "settings", None))
+                """
+            )
+        )
+        app.action = "matchup_validate"
+        app.start_run(["matchup", str(script)], "python run.py")
+        wait_for(lambda: app.question is not None)
+        assert post(app, "/api/answer", {"id": app.question.id, "answer": "y"})[0] == 200
+        assert post(app, "/api/report", {"form": {"concise": False}})[0] == 200
+
+        # the report is built once the matchups are made, as before
+        assert get_json(app, "/api/state")[1]["interim"] is None
+        wait_for(lambda: validated)
+        assert "(y/n) y\nsettings: None\n" in app.console.since(0, None)["text"]
+
+    def test_the_interim_reports_progress_is_followed(self, app, tmp_path):
+        app.results_dir = str(tmp_path)
+        folder = tmp_path / "oceanval_interim_report"
+        pages = folder / "oceanval_report" / "_build" / "html" / "notebooks"
+        pages.mkdir(parents=True)
+        (pages / "summary.html").write_text("<p>So far</p>")
+        status = folder / "status.json"
+        interim = {"status_path": str(status), "status": None}
+        app.interim = interim
+        threading.Thread(target=app._follow_interim, args=(interim,), daemon=True).start()
+
+        def interim_state():
+            return get_json(app, "/api/state")[1]["interim"]
+
+        status.write_text(json.dumps({"state": "starting", "pages": 0, "expected": 3, "landing": None}))
+        wait_for(lambda: interim_state()["expected"] == 3, timeout=15)
+        assert interim_state()["href"] is None
+        status.write_text(
+            json.dumps(
+                {"state": "building", "pages": 1, "expected": 3, "landing": str(pages / "summary.html")}
+            )
+        )
+        wait_for(lambda: interim_state()["pages"] == 1, timeout=15)
+
+        assert interim_state() == {
+            "state": "building",
+            "pages": 1,
+            "expected": 3,
+            "href": f"interim/{app.token}/notebooks/summary.html",
+        }
+        # the link opens the report from the window
+        with urllib.request.urlopen(
+            f"http://127.0.0.1:{app.port}/{interim_state()['href']}", timeout=30
+        ) as response:
+            assert response.read() == b"<p>So far</p>"
+        status.write_text(
+            json.dumps(
+                {"state": "complete", "pages": 3, "expected": 3, "landing": str(pages / "summary.html")}
+            )
+        )
+        wait_for(lambda: interim_state()["state"] == "complete", timeout=15)
+
+    def test_the_reports_are_served_from_the_window(self, app, tmp_path):
+        """A file:// link cannot be opened from the page, nor over a
+        forwarded port, so the window serves the reports itself."""
+        app.results_dir = str(tmp_path)
+        interim = tmp_path / "oceanval_interim_report" / "oceanval_report" / "_build" / "html"
+        report = tmp_path / "oceanval_report" / "_build" / "html"
+        (interim / "notebooks").mkdir(parents=True)
+        (report / "notebooks").mkdir(parents=True)
+        (report / "_static").mkdir()
+        (interim / "notebooks" / "summary.html").write_text("<p>interim</p>")
+        (interim / "notebooks" / "oceanval_wordmark.svg").write_text("<svg/>")
+        (report / "notebooks" / "004_summary.html").write_text("<p>full</p>")
+        (report / "_static" / "custom.css").write_text("p {}")
+        (tmp_path / "oceanval_interim_report" / "status.json").write_text("{}")
+        (tmp_path / "secret.txt").write_text("secret")
+        token = app.token
+
+        def fetch(path):
+            try:
+                with urllib.request.urlopen(f"http://127.0.0.1:{app.port}/{path}", timeout=30) as response:
+                    return response.status, response.headers["Content-Type"], response.read().decode()
+            except urllib.error.HTTPError as error:
+                return error.code, None, None
+
+        assert fetch(f"interim/{token}/notebooks/summary.html") == (
+            200, "text/html; charset=utf-8", "<p>interim</p>",
+        )
+        assert fetch(f"interim/{token}/notebooks/oceanval_wordmark.svg")[:2] == (
+            200, "image/svg+xml; charset=utf-8",
+        )
+        assert fetch(f"report/{token}/notebooks/004_summary.html")[2] == "<p>full</p>"
+        # the full report's pages link to its stylesheets a directory up
+        assert fetch(f"report/{token}/_static/custom.css")[:2] == (200, "text/css; charset=utf-8")
+        # only with the token, and nothing but the reports' pages
+        assert fetch("interim/wrong/notebooks/summary.html")[0] == 403
+        assert fetch(f"interim/{token}/../../status.json")[0] == 404
+        assert fetch(f"interim/{token}/..%2F..%2F..%2F..%2Fsecret.txt")[0] == 404
+        assert fetch(f"report/{token}/notebooks/")[0] == 404
+        assert fetch(f"report/{token}/notebooks/missing.html")[0] == 404
+        assert fetch(f"elsewhere/{token}/secret.txt")[0] == 404
+
+        # the finished page links to the full report, as validate leaves it
+        app.action = "validate"
+        assert get_json(app, "/api/state")[1]["run"]["report_href"] is None
+        os.symlink(
+            os.path.join("oceanval_report", "_build", "html", "notebooks", "004_summary.html"),
+            tmp_path / "oceanval_report.html",
+        )
+        assert get_json(app, "/api/state")[1]["run"]["report_href"] == (
+            f"report/{token}/notebooks/004_summary.html"
+        )
+
+    def test_a_typed_answer_cannot_pose_as_one_with_settings(self, app):
+        answered = []
+        app.view = "running"
+        app.question = Question("Go? ", None, answered.append)
+
+        assert app.answer(app.question.id, ANSWER_MARKER + '{"answer": "y"}')
+        assert answered == ['oceanval-answer {"answer": "y"}']
+
     def test_a_failed_matchup_builds_no_report(self, app, tmp_path, monkeypatch):
         validated = self.validate_runs(app, monkeypatch)
         script = tmp_path / "run.py"
@@ -1884,6 +2088,83 @@ def test_the_report_options_in_a_browser(browser, tmp_path, monkeypatch):
             "pdf": True,
             "concise": False,
         }
+    finally:
+        app.close()
+
+
+def test_the_interim_report_in_a_browser(browser, tmp_path):
+    """While matchup builds the interim report, the page says so, then links
+    to it once its first page is made; and once the full report is built,
+    the page links to that too."""
+    app = App(cwd=str(tmp_path))
+    folder = tmp_path / "oceanval_interim_report"
+    pages = folder / "oceanval_report" / "_build" / "html" / "notebooks"
+    pages.mkdir(parents=True)
+    (pages / "summary.html").write_text("<html><body><p>Summary so far</p></body></html>")
+    status = folder / "status.json"
+    interim = {"status_path": str(status), "status": None}
+    with app._lock:
+        app.action, app.view, app.status = "matchup_validate", "running", "running"
+        app.results_dir = str(tmp_path)
+        app.interim = interim
+    threading.Thread(target=app._follow_interim, args=(interim,), daemon=True).start()
+    url = app.start()
+    try:
+        page = browser.new_page()
+        page.goto(url)
+        page.wait_for_selector("#interim:not([hidden])")
+        assert page.text_content("#interim h2") == (
+            "Interim validation report is being generated. Please wait..."
+        )
+        assert page.locator("#interim a").count() == 0
+
+        status.write_text(
+            json.dumps(
+                {"state": "building", "pages": 1, "expected": 3, "landing": str(pages / "summary.html")}
+            )
+        )
+        page.wait_for_selector("#interim a")
+        assert page.text_content("#interim h2") == "Interim validation report"
+        assert page.text_content("#interim p").startswith("1 of 3 matchups is in it so far.")
+        link = page.locator("#interim a")
+        assert link.text_content() == "Open the interim validation report"
+        assert link.get_attribute("target") == "_blank"
+        # it opens from the window, in a tab of its own
+        with page.expect_popup() as opened:
+            link.click()
+        report = opened.value
+        report.wait_for_load_state()
+        assert "Summary so far" in report.text_content("body")
+        report.close()
+
+        # the full report is built, once every matchup is in the interim one
+        full = tmp_path / "oceanval_report" / "_build" / "html" / "notebooks"
+        full.mkdir(parents=True)
+        (full / "004_summary.html").write_text("<html><body><p>The full report</p></body></html>")
+        os.symlink(
+            os.path.relpath(full / "004_summary.html", tmp_path), tmp_path / "oceanval_report.html"
+        )
+        status.write_text(
+            json.dumps(
+                {"state": "complete", "pages": 3, "expected": 3, "landing": str(pages / "summary.html")}
+            )
+        )
+        wait_for(lambda: (app.interim["status"] or {}).get("state") == "complete")
+        with app._lock:
+            app.view, app.status, app.returncode = "finished", "finished", 0
+            app._notify()
+        page.wait_for_selector("#result:not([hidden]) a")
+        assert page.text_content("#result h2") == "The validation report is ready"
+        assert page.text_content("#result a") == "Open the validation report"
+        assert page.text_content("#interim p") == (
+            "All 3 matchups are in it. The full validation report above is built "
+            "from the same matchups."
+        )
+        with page.expect_popup() as opened:
+            page.click("#result a")
+        report = opened.value
+        report.wait_for_load_state()
+        assert "The full report" in report.text_content("body")
     finally:
         app.close()
 

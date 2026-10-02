@@ -70,7 +70,23 @@ that takes you through these steps:
 8. **Run**: matchup, then, to validate as well, `validate()` with the
    report's options. The output appears as it comes, in the page and in the
    terminal, and anything else OceanVal asks, such as whether to try again
-   for observations a server could not supply, is asked in the page.
+   for observations a server could not supply, is asked in the page. With
+   jupyter-book 2 or later, the matchup builds an interim validation report
+   as it goes: the page says "Interim validation report is being generated.
+   Please wait..." until the first matchup's page is in it, then links to
+   it. Each matchup's page is added as soon as the matchup is made, and the
+   full report (with PDF and Word, if asked for) is built once they all are.
+   The finished page links to the full report.
+
+Outside the window, `matchup(live_validation=...)` builds the same interim
+report (HTML only, in `oceanval_interim_report`), with `True` or a dict of
+`validate()`'s report options, before `validate()` builds the full report:
+
+```python
+oceanval.matchup(sim_dir="/path/to/output", start=2000, end=2010,
+                 live_validation={"lon_lim": [-20, 10], "lat_lim": [40, 65]})
+oceanval.validate(lon_lim=[-20, 10], lat_lim=[40, 65], pdf=True)
+```
 
 The script it runs is written first, to `matchup.py` unless you choose
 another name, so you can run it again later with `python matchup.py`. On a

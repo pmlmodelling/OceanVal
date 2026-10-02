@@ -171,6 +171,7 @@ The following optional parameters can also be specified:
 - `point_time_res`: The time resolution for the point (in-situ) observation matchup. This defaults ["year", "month", "day"] for totally precise matchups. Set to ["month", "day"], if you want to compare climatological simulation output with observations.
 - `n_check`: The number of files to check when identifying the file naming convention. OceanVal checks all files in a random subdirectory. Set n_check for a random subset in cases where all simulation files are in a single directory.
 - `as_missing`: A float or list of floats providing a range , i.e [min, max], specifying values to be treated as missing in the model output.
+- `live_validation`: Build an interim HTML validation report as the matchups are made, so that each one's results can be looked at as soon as it is made. Needs jupyter-book 2 or later. See "Looking at the results while the matchups run" below.
 
 An example is shown below:
 
@@ -264,6 +265,22 @@ The following options are available:
 - `concise`: A boolean indicating whether to generate a concise HTML summary page. This defaults to True.
 
 This will then generate and open an html page that can be viewed in a web browser.
+
+**Looking at the results while the matchups run**
+
+Matching up a long simulation can take hours. With jupyter-book 2 or later, `oceanval.matchup` can build an interim validation report as it goes, so that you can look at each matchup's results as soon as it is made:
+
+.. code:: ipython3
+
+    oceanval.matchup(
+        sim_dir="/path/to/simulation/output/",
+        start=2000,
+        end=2010,
+        live_validation={"lon_lim": [-20, 10], "lat_lim": [40, 65]},
+    )
+    oceanval.validate(lon_lim=[-20, 10], lat_lim=[40, 65], pdf=True)
+
+Each matchup's page is added to the interim report as soon as the matchup is made, and the summary is run again each time. `live_validation` takes `True`, for `validate`'s defaults, or a dict of `validate`'s report options: `out_dir`, `lon_lim`, `lat_lim`, `subregions`, `fixed_scale` and `concise`. The interim report is HTML only, so PDF, Word and zip versions are left to `validate`. It is built in `oceanval_interim_report`, in `out_dir`: open `oceanval_interim_report/oceanval_report/_build/html/notebooks/summary.html`, and reload it to see the latest. Each page says how many of the matchups it has. `matchup` waits for the interim report to be finished before it returns, and the full report is then built by `validate`, as usual. The `oceanval` command does all of this for you.
 
 Using built-in observation recipes
 ----------------------------------

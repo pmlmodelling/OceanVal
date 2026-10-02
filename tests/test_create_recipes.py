@@ -6,6 +6,7 @@ import pytest
 import xarray as xr
 
 import oceanval
+from oceanval import live
 from oceanval.create_recipes import (
     POINT_RECIPE_CATALOGUE,
     RECIPE_CATALOGUE,
@@ -1094,6 +1095,34 @@ class TestSettings:
         assert "pdf=True" not in script.split("oceanval.validate(")[-1]
         # the report's defaults
         assert "oceanval.validate()\n" in self.build(settings=settings(pdf=True), report={})
+
+    def test_the_interim_report_has_the_report_options_chosen_later(self, monkeypatch):
+        # matchup builds it as the matchups are made (see oceanval.live), and
+        # it is HTML only, so it takes no pdf, word or zip
+        monkeypatch.setattr(live, "available", lambda: True)
+        script = self.build(
+            settings=settings(out_dir="/run"),
+            report={"lon_lim": [-20.0, 10.0], "pdf": True, "zip": True, "concise": False},
+        )
+        ast.parse(script)
+
+        assert (
+            '    out_dir="/run",\n'
+            '    live_validation={"lon_lim": [-20, 10], "concise": False},\n'
+            ")"
+        ) in matchup_call(script)
+        assert "live_validation builds an interim HTML report" in script
+        # the report's defaults
+        assert "    live_validation=True,\n)" in matchup_call(
+            self.build(settings=settings(), report={"word": True})
+        )
+        # without the window's report options, there is none
+        assert "live_validation" not in self.build(settings=settings(pdf=True))
+        # nor without jupyter-book 2, which it needs
+        monkeypatch.setattr(live, "available", lambda: False)
+        script = self.build(settings=settings(), report={"concise": False})
+        assert "live_validation" not in script
+        assert "oceanval.validate(\n    concise=False,\n)" in script
 
     def test_a_full_report_is_asked_for_with_concise_false(self):
         assert "concise" not in self.build(settings=settings()).split("oceanval.validate")[-1]

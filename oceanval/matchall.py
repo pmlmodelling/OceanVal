@@ -1,4 +1,5 @@
 import copy
+import functools
 import gc
 import time
 import nctoolkit as nc
@@ -31,6 +32,7 @@ from oceanval.parsers import generate_mapping
 from oceanval.gridded import gridded_matchup, retry_failed_gridded, _lonlat_bounds
 from oceanval.fvcom import fvcom_matchup_files, fvcom_extent, fvcom_times
 from oceanval import ices
+from oceanval import live
 from oceanval import prompts
 
 
@@ -534,6 +536,21 @@ def extract_variable_mapping(folder, exclude=[], n_check=None):
 DEFAULT_CORES = min(6, os.cpu_count() or 6)
 
 
+def _stops_live_validation(function):
+    """matchup, stopping the interim report it started (see oceanval.live)
+    if it does not get to finish it: an error, or Ctrl+C."""
+
+    @functools.wraps(function)
+    def wrapper(*args, **kwargs):
+        try:
+            return function(*args, **kwargs)
+        finally:
+            live.abandon()
+
+    return wrapper
+
+
+@_stops_live_validation
 def matchup(
     sim_dir=None,
     start=None,
@@ -554,6 +571,7 @@ def matchup(
     as_missing=None,
     strict_names = True,
     fvcom = False,
+    live_validation = None,
 ):
     """
     Match up model with observational data
@@ -612,6 +630,15 @@ def matchup(
         gridded comparisons use a grid at twice the resolution of the observations.
         thickness is not needed, and lon_lim and lat_lim default to the extent of the mesh.
         The regridded files are deleted once the matchups are done.
+    live_validation : bool or dict
+        Build an interim validation report, HTML only, as the matchups are made: each matchup's
+        page is added as soon as the matchup is made, and the summary is run again, so the
+        results can be looked at long before the last matchup is made. True builds it with
+        validate's defaults. A dict gives validate's report options: out_dir, lon_lim, lat_lim,
+        subregions, fixed_scale and concise (pdf, word and zip are for validate's full report).
+        It is built in oceanval_interim_report, in out_dir (matchup's, unless the dict gives
+        another), and matchup waits for it to be finished before returning. Build the full
+        report with validate afterwards, as usual. Default is None, no interim report.
 
     Returns
     -------------
@@ -713,6 +740,9 @@ def matchup(
     out_dir = os.path.abspath(out_dir)
     # add out_dir to session_info
     session_info["out_dir"] = out_dir + "/"
+
+    # the interim report, built as the matchups are made (see oceanval.live)
+    live_options = live.check_options(live_validation, out_dir)
 
     # regridded FVCOM files only live for the duration of the matchup
     session_info["fvcom_dir"] = session_info["out_dir"] + "oceanval_matchups/fvcom_tmp"
@@ -1178,6 +1208,26 @@ def matchup(
         print("Please adjust your variable names and try again")
         return None
 
+    # in the oceanval window, the report's options are chosen along with yes,
+    # and the interim report is built with them
+    chosen = getattr(x, "settings", {}).get("live_validation")
+    if chosen is not None:
+        live_options = live.check_options(chosen, out_dir)
+    builder = None
+    if live_options is not None:
+        builder = live.LiveValidation(
+            live_options,
+            out_dir,
+            [("gridded", vv, source, None) for vv, source in gridded]
+            + [
+                ("point", vv, source, layer)
+                for layer in ("all", "surface")
+                for vv, source in point[layer]
+            ],
+            session_info["short_title"],
+        )
+        builder.start()
+
     out = session_info["out_dir"] + "/oceanval_matchups/mapping.csv"
     # check directory exists for out
     out_folder = os.path.dirname(out)
@@ -1284,8 +1334,12 @@ def matchup(
                 variable = vv
 
                 out = f"{session_info['out_dir']}/oceanval_matchups/point/{layer}/{variable}/{source}/{source}_{layer}_{variable}.csv"
+                csv = out
 
                 if os.path.exists(out) and not overwrite:
+                    # made already, and still in the report
+                    if builder is not None:
+                        builder.matched("point", vv, source, layer)
                     continue
 
                 all_df = df_mapping
@@ -1767,6 +1821,9 @@ def matchup(
                         for ww in output_warnings:
                             warnings.warn(message=ww)
                     # empty session warnings
+
+                if builder is not None and os.path.exists(csv):
+                    builder.matched("point", vv, source, layer)
         while len(session_warnings) > 0:
             session_warnings.pop()
 
@@ -1780,6 +1837,7 @@ def matchup(
         lat_lim=lat_lim,
         times_dict=times_dict,
         example_files=example_files,
+        on_matched=None if builder is None else builder.matched,
     )
 
     gridded_matchup(var_choice=gridded, **gridded_args)
@@ -1829,5 +1887,8 @@ def matchup(
         _remove_fvcom_dir(session_info["fvcom_dir"])
         session_info["fvcom_files"] = dict()
         session_info["fvcom"] = False
+
+    if builder is not None:
+        builder.finish()
 
 

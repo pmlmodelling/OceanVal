@@ -18,12 +18,15 @@ def is_chunk(x):
         return False
 
 
-def add_chunks( dir=None):
+def add_chunks( dir=None, paths=None):
+    """Put the chunk_* templates in place in the report's .py:percent
+    notebooks, or only in those listed in paths."""
 
-    paths = glob.glob(f"{dir}/oceanval_report/notebooks/*.py")
-    paths += glob.glob(f"oceanval_comparison/compare/notebooks/*.py")
-    if dir is not None:
-        paths += glob.glob(f"{dir}/*.py")
+    if paths is None:
+        paths = glob.glob(f"{dir}/oceanval_report/notebooks/*.py")
+        paths += glob.glob(f"oceanval_comparison/compare/notebooks/*.py")
+        if dir is not None:
+            paths += glob.glob(f"{dir}/*.py")
 
     for path in paths:
         # read file line by line

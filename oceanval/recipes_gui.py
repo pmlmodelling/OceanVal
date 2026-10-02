@@ -538,7 +538,8 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         pass
 
     def _reply(self, status, body, content_type):
-        data = body.encode("utf-8")
+        # text, or the bytes of a file (as the oceanval window serves its reports)
+        data = body.encode("utf-8") if isinstance(body, str) else body
         try:
             self.send_response(status)
             self.send_header("Content-Type", content_type)

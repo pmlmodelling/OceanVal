@@ -16,6 +16,21 @@ import sys
 _answerer = None
 
 
+class Answer(str):
+    """An answer given in a window, with settings chosen along with it.
+
+    It is the answer as typed, so it is compared as any other is, and its
+    settings are a dict: in the oceanval window, yes to whether the
+    matchups are right comes with the report's options, as live_validation
+    (see matchup).
+    """
+
+    def __new__(cls, text, settings=None):
+        answer = super().__new__(cls, text)
+        answer.settings = dict(settings or {})
+        return answer
+
+
 def interactive():
     """Whether a question can be put to anyone: a window is answering them,
     or input comes from a terminal."""
@@ -29,7 +44,8 @@ def ask(question, choices=None, details=None):
     as buttons. details is what a window can show along with the question,
     such as the matchups matchup() asks about, which a terminal has been
     shown already. The caller still checks the answer, as anything can be
-    typed at a terminal. Raises EOFError where input() would.
+    typed at a terminal. A window can answer with an Answer, which carries
+    settings chosen along with it. Raises EOFError where input() would.
     """
     if _answerer is not None:
         return _answerer(question, tuple(choices) if choices else None, details)

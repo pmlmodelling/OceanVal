@@ -32,6 +32,7 @@ import nctoolkit as nc
 import xarray as xr
 
 from oceanval import prompts
+from oceanval import live as interim_report
 from oceanval.fvcom import fvcom_contents
 from oceanval.own_data import FIELDS as OWN_DATA_FIELDS
 
@@ -414,6 +415,12 @@ def _literal(value):
         return repr(value)
     if isinstance(value, str):
         return json.dumps(value, ensure_ascii=False)
+    if isinstance(value, dict):
+        return (
+            "{"
+            + ", ".join(f"{_literal(key)}: {_literal(item)}" for key, item in value.items())
+            + "}"
+        )
     return "[" + ", ".join(_literal(item) for item in value) + "]"
 
 
@@ -1033,9 +1040,25 @@ def _footer(
             '# thickness - either "z_level" or the name of a cell thickness variable.',
         ]
     matchup_changed, validate_changed = _changed_settings(settings)
+    interim = None
     if report is not None:
         # the report options chosen in the oceanval window, after the recipes
         validate_changed = list(report.items())
+    if report is not None and interim_report.available():
+        # which the interim report matchup builds as it goes has too, other
+        # than the full report's other forms
+        interim = {
+            name: value
+            for name, value in report.items()
+            if name not in interim_report.EXPORTS
+        }
+        note = [
+            *note,
+            "#",
+            "# live_validation builds an interim HTML report as the matchups are made,",
+            "# in oceanval_interim_report, with the report's options other than pdf,",
+            "# word and zip.",
+        ]
     validate_arguments = [
         f"{name}={_literal(value)}," for name, value in validate_changed
     ]
@@ -1068,6 +1091,11 @@ def _footer(
         f"    n_dirs_down={ndown},",
         *[f"    {name}={_literal(value)}," for name, value in matchup_changed],
         *(["    fvcom=True,"] if fvcom else []),
+        *(
+            [f"    live_validation={_literal(interim or True)},"]
+            if interim is not None
+            else []
+        ),
         ")",
         "",
         *(
