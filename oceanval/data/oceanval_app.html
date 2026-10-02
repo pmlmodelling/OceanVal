@@ -376,6 +376,19 @@
   .files__notice { display: flex; gap: 8px; align-items: flex-start; margin: 0 22px; padding: 10px 12px; border: 1px solid #f3d5c8; border-radius: 10px; background: #fff8f4; color: var(--coral-dark); font-size: 13.5px; font-weight: 500; line-height: 1.45; }
   .picker__info code { overflow-wrap: anywhere; }
   #files-intro { margin-bottom: 10px; }
+  .picker__card--narrow { max-width: 540px; }
+  .leftovers__intro { margin-top: 0; margin-bottom: 14px; font-size: 14px; color: var(--ink-soft); }
+  #leftovers-notice { margin-bottom: 4px; }
+  #leftovers-info:empty { display: none; }
+  .leftovers__foot { align-items: center; }
+  .leftovers__foot #leftovers-view { margin-right: auto; padding-left: 0; }
+  #leftovers-files .picker__list { margin-top: 4px; }
+  .leftover { display: flex; justify-content: space-between; gap: 6px 16px; flex-wrap: wrap; }
+  .leftover__path { min-width: 0; overflow-wrap: anywhere; }
+  .leftover__meta { flex: none; color: var(--muted); font: 400 12px/1.4 var(--font-body); }
+  .btn--danger { background: var(--red); color: #fff; box-shadow: 0 1px 2px rgba(192, 57, 43, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.14); }
+  .btn--danger:hover { background: #a93226; }
+  .btn--danger:disabled { background: #e3b4ae; box-shadow: none; cursor: not-allowed; }
 
   @media (max-width: 1000px) {
     .choices { grid-template-columns: 1fr; }
@@ -747,6 +760,34 @@
     <div class="picker__list" id="files-list" tabindex="-1" aria-label="Files"></div>
     <div class="picker__foot">
       <button type="button" class="btn btn--primary" id="files-close">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="picker" id="leftovers" hidden>
+  <div class="picker__card picker__card--narrow" role="dialog" aria-modal="true" aria-labelledby="leftovers-title">
+    <div class="picker__head">
+      <h2 id="leftovers-title">Files left over from earlier OceanVal sessions</h2>
+    </div>
+    <p class="picker__info leftovers__intro" id="leftovers-intro"></p>
+    <p class="files__notice" id="leftovers-notice"></p>
+    <p class="picker__info" id="leftovers-info" aria-live="polite"></p>
+    <div class="picker__foot leftovers__foot">
+      <button type="button" class="btn btn--text" id="leftovers-view">View the files</button>
+      <button type="button" class="btn btn--ghost" id="leftovers-keep">Keep them</button>
+      <button type="button" class="btn btn--danger" id="leftovers-remove">Remove these files</button>
+    </div>
+  </div>
+</div>
+
+<div class="picker" id="leftovers-files" hidden>
+  <div class="picker__card" role="dialog" aria-modal="true" aria-labelledby="leftovers-files-title">
+    <div class="picker__head">
+      <h2 id="leftovers-files-title">Leftover files</h2>
+    </div>
+    <div class="picker__list" id="leftovers-list" tabindex="-1" aria-label="Leftover files"></div>
+    <div class="picker__foot">
+      <button type="button" class="btn btn--primary" id="leftovers-files-close">Close</button>
     </div>
   </div>
 </div>
@@ -2191,6 +2232,107 @@
     }
   });
 
+  // ---- files left behind by earlier sessions ----
+  const leftoversDialog = { shown: false };
+
+  function formatBytes(bytes) {
+    const units = ["bytes", "KB", "MB", "GB", "TB"];
+    let value = bytes;
+    let unit = 0;
+    while (value >= 1024 && unit < units.length - 1) {
+      value /= 1024;
+      unit += 1;
+    }
+    return unit === 0 ? `${value} ${units[0]}` : `${value.toFixed(value < 10 ? 1 : 0)} ${units[unit]}`;
+  }
+
+  function openLeftovers() {
+    const found = state.leftovers;
+    leftoversDialog.shown = true;
+    $("leftovers-notice").replaceChildren(icon("warn"), el("span", {
+      text: "Only remove these files if nobody else is sharing this disk space or using OceanVal on this machine. " +
+        "Another person's session, or one of your own running elsewhere, may still be using them. " +
+        "If you are not sure, keep them.",
+    }));
+    $("leftovers-intro").textContent =
+      `${plural(found.count, "temporary file")} (${formatBytes(found.bytes)}) from earlier sessions ${found.count === 1 ? "was" : "were"} left behind. ` +
+      "Would you like to remove them?";
+    $("leftovers-list").replaceChildren(...found.files.map((item) => el("div", { class: "picker__file leftover" },
+      el("span", { class: "leftover__path", text: item.path }),
+      el("span", { class: "leftover__meta", text: `${formatBytes(item.size)}, ${new Date(item.mtime * 1000).toLocaleString()}` }))));
+    $("leftovers-files-title").textContent = plural(found.count, "leftover file");
+    $("leftovers-info").textContent = "";
+    $("leftovers-info").className = "picker__info";
+    $("leftovers-remove").textContent = `Remove ${plural(found.count, "file")}`;
+    $("leftovers").hidden = false;
+    BEHIND.forEach((node) => { node.inert = true; });
+    // keeping is the safe default
+    $("leftovers-keep").focus();
+  }
+
+  function openLeftoverFiles() {
+    $("leftovers").inert = true;
+    $("leftovers-files").hidden = false;
+    $("leftovers-list").scrollTop = 0;
+    $("leftovers-files-close").focus();
+  }
+
+  function closeLeftoverFiles() {
+    if ($("leftovers-files").hidden) return;
+    $("leftovers-files").hidden = true;
+    $("leftovers").inert = false;
+    $("leftovers-view").focus();
+  }
+
+  function closeLeftovers() {
+    closeLeftoverFiles();
+    $("leftovers").hidden = true;
+    BEHIND.forEach((node) => { node.inert = false; });
+  }
+
+  async function answerLeftovers(action) {
+    $("leftovers-keep").disabled = true;
+    $("leftovers-remove").disabled = true;
+    const reply = await post("api/leftovers", { action });
+    $("leftovers-keep").disabled = false;
+    $("leftovers-remove").disabled = false;
+    if (!reply.ok) {
+      // answered already, say from another tab: nothing more to ask
+      if (reply.error === "That has been answered.") closeLeftovers();
+      else {
+        $("leftovers-info").className = "picker__info is-error";
+        $("leftovers-info").textContent = reply.error;
+      }
+      return;
+    }
+    closeLeftovers();
+    if (action === "remove") {
+      toast(reply.failed.length
+        ? `Removed ${plural(reply.removed, "file")}. ${plural(reply.failed.length, "file")} could not be removed.`
+        : `Removed ${plural(reply.removed, "file")}, freeing ${formatBytes(reply.freed_bytes)}.`);
+    }
+  }
+
+  $("leftovers-view").addEventListener("click", openLeftoverFiles);
+  $("leftovers-files-close").addEventListener("click", closeLeftoverFiles);
+  $("leftovers-files").addEventListener("click", (event) => { if (event.target === $("leftovers-files")) closeLeftoverFiles(); });
+  $("leftovers-files").addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      closeLeftoverFiles();
+    }
+  });
+  $("leftovers-keep").addEventListener("click", () => answerLeftovers("keep"));
+  $("leftovers-remove").addEventListener("click", () => answerLeftovers("remove"));
+  // a click outside must not remove files, or dismiss the question unanswered
+  $("leftovers").addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      answerLeftovers("keep");
+    }
+  });
+
   // ---- keeping up with oceanval ----
   let version = null;
 
@@ -2204,6 +2346,10 @@
     }
     render();
     if (next.view === "setup") renderSetupError();
+    // asked once, when the window first opens
+    if (!leftoversDialog.shown && next.leftovers.count && !next.leftovers.asked) openLeftovers();
+    // answered from another tab
+    else if (leftoversDialog.shown && next.leftovers.asked && !$("leftovers").hidden) closeLeftovers();
     return true;
   }
 

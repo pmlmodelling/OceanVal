@@ -182,14 +182,20 @@ OceanVal generates some temporary files during the validation process, which sho
 However, files can sometimes be left behind due to system crashes etc.
 OceanVal will tell you this when you import it.
 
-If this happens, you can remove them as follows:
+The ``oceanval`` window also checks when it opens. If it finds files that you own and that no running session is using, it lists them in a pop-up and asks whether to remove them.
+Files belonging to an OceanVal session that is still running are not listed.
+Only remove them if nobody else is sharing the disk space or using OceanVal on the same machine, as they may still be in use.
+If you are not sure, keep them.
+
+Outside the window, you can remove them as follows:
 
 .. code:: ipython3
 
     import oceanval
     oceanval.deep_clean()
 
-Alternatively, you can just go to your temporary directory and just find files with "_ecoval_output" in them and delete them.
+Alternatively, you can just go to your temporary directory and just find files with "_oceanval_output" in them and delete them.
+Files left by older versions of OceanVal have "_ecoval_output" in their names instead.
 
 How do I ensure the model and observational data have the same units?
 ---------------------------------------------------------------------

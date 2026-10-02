@@ -23,7 +23,7 @@ import pytest
 import xarray as xr
 
 import oceanval
-from oceanval import app_child, live, prompts
+from oceanval import app_child, leftovers, live, prompts
 from oceanval.app import App, Console, Question, Run, check_report, check_setup, check_validate
 from oceanval.app_child import ANSWER_MARKER, QUESTION_MARKER
 from oceanval.gridded import _ask_minutes, _ask_yes_no
@@ -678,6 +678,32 @@ def get_json(app, route, **params):
 def post(app, route, body=None, token=None):
     status, reply = _request(app, route, data=body or {}, token=token)
     return status, json.loads(reply)
+
+
+@pytest.fixture(autouse=True)
+def leftover_dir(tmp_path_factory, monkeypatch):
+    """The only directory the window looks in for files earlier sessions
+    left behind, empty, so the real temp directory never shows a question."""
+    directory = tmp_path_factory.mktemp("leftovers")
+    monkeypatch.setattr(leftovers, "_directories", lambda: [str(directory)])
+    return directory
+
+
+def _finished_process():
+    """The id of a process that has finished, so is not running."""
+    process = subprocess.Popen([sys.executable, "-c", "pass"])
+    process.wait()
+    return process.pid
+
+
+DEAD_PID = _finished_process()
+
+
+def _leftover(directory, name="nctoolkit_me_abcdnctoolkit_oceanval_output_p999999_tmp1.nc", size=2048):
+    # p999999 stands for a process that has finished
+    path = directory / name.replace("p999999", f"p{DEAD_PID}")
+    path.write_bytes(b"x" * size)
+    return str(path)
 
 
 @pytest.fixture
@@ -2500,3 +2526,217 @@ def test_viewing_files_in_a_random_directory_in_a_browser(browser, tmp_path):
         assert page.is_hidden("#sample")
     finally:
         app.close()
+
+
+class TestLeftovers:
+    """The temporary files earlier sessions left behind, which the window
+    offers to remove."""
+
+    def test_found_files_are_in_the_state(self, leftover_dir, tmp_path):
+        path = _leftover(leftover_dir)
+        _leftover(leftover_dir, "unrelated.nc")
+        _leftover(leftover_dir, "nctoolkit_me_abcdnctoolkit_other_tmp2.nc")
+        state = App(cwd=str(tmp_path)).state(console=False)["leftovers"]
+
+        assert state["asked"] is False
+        assert state["count"] == 1
+        assert state["bytes"] == 2048
+        assert [item["path"] for item in state["files"]] == [path]
+
+    def test_nothing_to_ask_when_there_are_none(self, tmp_path):
+        state = App(cwd=str(tmp_path)).state(console=False)["leftovers"]
+
+        assert state["count"] == 0
+        assert state["files"] == []
+
+    def test_this_sessions_files_are_not_offered(self, leftover_dir):
+        stamp = leftovers.nc.session_info["stamp"]
+        _leftover(leftover_dir, f"{stamp}tmpzz.nc")
+        earlier = _leftover(leftover_dir, "nctoolkit_me_zzzznctoolkit_oceanval_output_p999999_tmpyy.nc")
+
+        assert [item["path"] for item in leftovers.find_leftovers()] == [earlier]
+
+    def test_files_from_before_the_rename_are_offered(self, leftover_dir):
+        legacy = _leftover(leftover_dir, "nctoolkit_me_abcdnctoolkit_ecoval_output_tmp5.nc")
+
+        assert [item["path"] for item in leftovers.find_leftovers()] == [legacy]
+
+    def test_files_of_a_running_session_are_not_offered(self, leftover_dir):
+        # another process that is running, as a session in another terminal is
+        running = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
+        try:
+            _leftover(leftover_dir, f"nctoolkit_me_abcdnctoolkit_oceanval_output_p{running.pid}_tmp1.nc")
+            finished = _leftover(leftover_dir, "nctoolkit_me_abcdnctoolkit_oceanval_output_p999999_tmp2.nc")
+
+            assert [item["path"] for item in leftovers.find_leftovers()] == [finished]
+            # nor can they be removed by asking
+            names = [os.path.join(leftover_dir, name) for name in os.listdir(leftover_dir)]
+            assert leftovers.remove_leftovers(names)["removed"] == 1
+            assert len(os.listdir(leftover_dir)) == 1
+        finally:
+            running.kill()
+            running.wait()
+
+    def test_a_process_that_has_gone_is_not_alive(self):
+        assert leftovers.process_alive(os.getpid())
+        assert not leftovers.process_alive(DEAD_PID)
+
+    def test_other_users_files_and_links_are_skipped(self, leftover_dir, monkeypatch, tmp_path):
+        mine = _leftover(leftover_dir)
+        theirs = _leftover(leftover_dir, "nctoolkit_you_abcdnctoolkit_oceanval_output_p999999_tmp9.nc")
+        link = leftover_dir / "nctoolkit_me_linknctoolkit_oceanval_output_p999999_tmp8.nc"
+        link.symlink_to(mine)
+        real_lstat = os.lstat
+
+        def lstat(path, *args, **kwargs):
+            info = real_lstat(path, *args, **kwargs)
+            if str(path) == theirs:
+                return os.stat_result((info.st_mode, info.st_ino, info.st_dev, info.st_nlink,
+                                       os.getuid() + 1, info.st_gid, info.st_size,
+                                       info.st_atime, info.st_mtime, info.st_ctime))
+            return info
+
+        monkeypatch.setattr(leftovers.os, "lstat", lstat)
+
+        assert [item["path"] for item in leftovers.find_leftovers()] == [mine]
+
+    def test_only_found_files_can_be_removed(self, leftover_dir, tmp_path):
+        path = _leftover(leftover_dir)
+        outside = tmp_path / "precious.nc"
+        outside.write_text("keep")
+
+        result = leftovers.remove_leftovers([path, str(outside)])
+
+        assert result == {"removed": 1, "freed_bytes": 2048, "failed": []}
+        assert not os.path.exists(path)
+        assert outside.exists()
+
+    def test_a_file_that_cannot_be_removed_is_reported(self, leftover_dir, monkeypatch):
+        path = _leftover(leftover_dir)
+
+        def refuse(target):
+            raise PermissionError(target)
+
+        monkeypatch.setattr(leftovers.os, "remove", refuse)
+
+        result = leftovers.remove_leftovers([path])
+        assert result == {"removed": 0, "freed_bytes": 0, "failed": [path]}
+
+    def test_removing_through_the_window(self, leftover_dir, tmp_path):
+        # the window scans when it is made, so make one with files in place
+        path = _leftover(leftover_dir)
+        other = App(cwd=str(tmp_path))
+        other.start()
+        try:
+            status, reply = post(other, "/api/leftovers", {"action": "remove"})
+            assert (status, reply["removed"], reply["freed_bytes"]) == (200, 1, 2048)
+            assert not os.path.exists(path)
+            assert other.state(console=False)["leftovers"]["asked"] is True
+
+            # not asked, or removed, twice
+            assert post(other, "/api/leftovers", {"action": "remove"})[0] == 409
+        finally:
+            other.close()
+
+    def test_keeping_leaves_the_files(self, leftover_dir, tmp_path):
+        path = _leftover(leftover_dir)
+        other = App(cwd=str(tmp_path))
+        other.start()
+        try:
+            status, reply = post(other, "/api/leftovers", {"action": "keep"})
+            assert (status, reply["removed"]) == (200, 0)
+            assert os.path.exists(path)
+            assert other.state(console=False)["leftovers"]["asked"] is True
+        finally:
+            other.close()
+
+    def test_the_answer_must_be_remove_or_keep(self, leftover_dir, tmp_path):
+        path = _leftover(leftover_dir)
+        other = App(cwd=str(tmp_path))
+        other.start()
+        try:
+            assert post(other, "/api/leftovers", {"action": "delete"})[0] == 400
+            assert os.path.exists(path)
+            assert other.state(console=False)["leftovers"]["asked"] is False
+        finally:
+            other.close()
+
+    def test_a_token_is_needed(self, leftover_dir, tmp_path):
+        path = _leftover(leftover_dir)
+        other = App(cwd=str(tmp_path))
+        other.start()
+        try:
+            assert post(other, "/api/leftovers", {"action": "remove"}, token="wrong")[0] == 403
+            assert os.path.exists(path)
+        finally:
+            other.close()
+
+    def test_the_question_in_a_browser(self, browser, leftover_dir, tmp_path):
+        first = _leftover(leftover_dir)
+        second = _leftover(leftover_dir, "nctoolkit_me_wxyznctoolkit_oceanval_output_p999999_tmp2.nc")
+        app = App(cwd=str(tmp_path))
+        url = app.start()
+        try:
+            page = browser.new_page()
+            page.goto(url)
+            page.wait_for_selector("#leftovers:not([hidden])")
+            assert "nobody else is sharing this disk space" in page.text_content("#leftovers-notice")
+            assert page.text_content("#leftovers-remove") == "Remove 2 files"
+
+            # the files are listed in a pop-out of their own
+            assert page.is_hidden("#leftovers-files")
+            page.click("#leftovers-view")
+            page.wait_for_selector("#leftovers-files:not([hidden])")
+            assert sorted(
+                page.eval_on_selector_all(
+                    "#leftovers-list .leftover__path", "nodes => nodes.map(n => n.textContent)"
+                )
+            ) == sorted([first, second])
+            # closing it returns to the question, which is still open
+            page.keyboard.press("Escape")
+            assert page.is_hidden("#leftovers-files")
+            assert page.is_visible("#leftovers")
+            assert os.path.exists(first)
+
+            # a click outside the box answers nothing
+            page.mouse.click(2, 2)
+            assert page.is_visible("#leftovers")
+
+            page.click("#leftovers-remove")
+            page.wait_for_selector("#leftovers", state="hidden")
+            assert not os.path.exists(first) and not os.path.exists(second)
+            assert "Removed 2 files" in page.text_content("#toast")
+
+            # reloading does not ask again
+            page.reload()
+            page.wait_for_selector('button.choice[data-action="matchup"]')
+            assert page.is_hidden("#leftovers")
+        finally:
+            app.close()
+
+    def test_keeping_in_a_browser(self, browser, leftover_dir, tmp_path):
+        path = _leftover(leftover_dir)
+        app = App(cwd=str(tmp_path))
+        url = app.start()
+        try:
+            page = browser.new_page()
+            page.goto(url)
+            page.wait_for_selector("#leftovers:not([hidden])")
+            assert page.text_content("#leftovers-remove") == "Remove 1 file"
+            page.keyboard.press("Escape")
+            page.wait_for_selector("#leftovers", state="hidden")
+            assert os.path.exists(path)
+            page.click('button.choice[data-action="matchup"]')
+        finally:
+            app.close()
+
+    def test_no_question_without_files_in_a_browser(self, browser, tmp_path):
+        app = App(cwd=str(tmp_path))
+        url = app.start()
+        try:
+            page = browser.new_page()
+            page.goto(url)
+            page.wait_for_selector('button.choice[data-action="matchup"]')
+            assert page.is_hidden("#leftovers")
+        finally:
+            app.close()

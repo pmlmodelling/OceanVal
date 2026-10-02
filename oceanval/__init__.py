@@ -6,7 +6,10 @@ import sys
 import warnings
 import nctoolkit as nc
 
-nc.session_info["stamp"] = nc.session_info["stamp"] + "_ecoval_output_"
+from oceanval import leftovers
+from oceanval.leftovers import STAMP, in_use, is_oceanval_temp
+
+nc.session_info["stamp"] = nc.session_info["stamp"] + STAMP
 import copy
 from oceanval.matchall import matchup
 from oceanval.create_recipes import create_recipes
@@ -140,6 +143,15 @@ def _notebooks_to_html(notebooks, html_dir):
 
 
 def _build_book(book_dir, validation_links=None, pdf=False, word=False):
+    try:
+        _build_book_pages(book_dir, validation_links, pdf, word)
+    finally:
+        # also when the build fails or is interrupted, as the next build
+        # removes the trackers that say which temporary files these are
+        _remove_notebook_temp_files(book_dir)
+
+
+def _build_book_pages(book_dir, validation_links=None, pdf=False, word=False):
     if _jupyter_book_major_version() >= 2:
         notebooks = glob.glob(os.path.join(book_dir, "notebooks", "*.ipynb"))
         notebooks.sort(
@@ -1372,8 +1384,8 @@ def _fill_notebook_paths(path, data_dir, out_dir, fast_plot=False):
 
 
 def _remove_notebook_temp_files(book_dir):
-    """Remove the temporary files the notebooks of a built report left in
-    /tmp, which each marked in its notebooks/.trackers."""
+    """Remove the temporary files the notebooks of a report left, which each
+    marked in its notebooks/.trackers."""
     # a tracker is the session's stamp, which some notebooks give a .txt suffix
     stamps = [
         os.path.basename(x).removesuffix(".txt")
@@ -1382,12 +1394,13 @@ def _remove_notebook_temp_files(book_dir):
 
     delete = []
     for x in stamps:
-        delete += glob.glob("/tmp/*" + glob.escape(x) + "*")
+        for directory in leftovers.TEMP_DIRS:
+            delete += glob.glob(os.path.join(directory, "*" + glob.escape(x) + "*"))
 
     for ff in delete:
         name = os.path.basename(ff)
         # only files made by nctoolkit in an oceanval session
-        if "nctoolkit" in name and "ecoval_output" in name and os.path.isfile(ff):
+        if is_oceanval_temp(name) and os.path.isfile(ff):
             os.remove(ff)
 
 
@@ -1465,6 +1478,9 @@ def validate(
     i = 0
 
     if os.path.exists(book_dir):
+        # the old trackers say which temporary files a build that did not
+        # finish left behind, and are removed with the book
+        _remove_notebook_temp_files(book_dir)
         shutil.rmtree(book_dir)
 
 
@@ -1754,8 +1770,6 @@ def validate(
             os.path.join(out_dir, "oceanval_report.zip"),
         )
 
-    _remove_notebook_temp_files(book_dir)
-
     out_ff = _summary_report_page(f"{book_dir}/_build/html")
 
     # create a symlink to the html file
@@ -1972,9 +1986,7 @@ def temp_check():
     mylist = [f for f in glob.glob("/tmp/*")]
     mylist = mylist + [f for f in glob.glob("/var/tmp/*")]
     mylist = mylist + [f for f in glob.glob("/usr/tmp/*")]
-    mylist = [f for f in mylist if "nctoolkit" in f]
-
-    mylist = [x for x in mylist if "ecoval_output" in x]
+    mylist = [f for f in mylist if is_oceanval_temp(f) and not in_use(f)]
 
     session_info["old_files"] = mylist
 
@@ -2003,8 +2015,7 @@ def deep_clean():
 
     candidates = session_info["old_files"]
 
-    mylist = [f for f in candidates if "nctoolkit" in f and "ecoval_output" in f]
+    mylist = [f for f in candidates if is_oceanval_temp(f)]
     for ff in mylist:
         if ff in session_info["old_files"]:
-            if "nctoolkit" in ff and "ecoval_output" in ff:
-                os.remove(ff)
+            os.remove(ff)

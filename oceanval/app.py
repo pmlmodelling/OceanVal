@@ -46,7 +46,7 @@ import traceback
 import urllib.parse
 
 import oceanval
-from oceanval import live, prompts, recipes_gui
+from oceanval import leftovers, live, prompts, recipes_gui
 from oceanval.app_child import ANSWER_MARKER, QUESTION_MARKER
 from oceanval import own_data, units
 from oceanval.create_recipes import (
@@ -604,6 +604,10 @@ class App:
         # the interim report a matchup and validate run builds as it goes:
         # its status.json, as last read (see _follow_interim), or None
         self.interim = None
+        # the temporary files earlier sessions left behind, which the page
+        # offers to remove once, and whether the user has answered
+        self.leftovers = leftovers.find_leftovers()
+        self.leftovers_asked = False
         self._server = None
 
     # ---- state ----
@@ -650,6 +654,12 @@ class App:
                     "recipe_variables": sorted(RECIPE_VARIABLES),
                 },
                 "units": {"rows": self.units_rows},
+                "leftovers": {
+                    "asked": self.leftovers_asked,
+                    "count": len(self.leftovers),
+                    "bytes": sum(item["size"] for item in self.leftovers),
+                    "files": self.leftovers,
+                },
                 "interim": self._interim_state(),
                 "question": self.question.as_dict() if self.question else None,
                 "run": {
@@ -813,6 +823,22 @@ class App:
             self.view = earlier[self.view]
             self._notify()
             return True
+
+    def answer_leftovers(self, action):
+        """Remove the temporary files earlier sessions left behind, or keep
+        them. Either way the question is not asked again."""
+        if action not in ("remove", "keep"):
+            return 400, {"ok": False, "error": "Choose to remove or keep the files."}
+        with self._lock:
+            if self.leftovers_asked:
+                return 409, {"ok": False, "error": "That has been answered."}
+            self.leftovers_asked = True
+            found = self.leftovers
+        result = {"removed": 0, "freed_bytes": 0, "failed": []}
+        if action == "remove":
+            result = leftovers.remove_leftovers([item["path"] for item in found])
+        self._notify()
+        return 200, dict(result, ok=True)
 
     def restart(self):
         with self._lock:
@@ -1771,6 +1797,9 @@ class _Handler(recipes_gui._Handler):
             self._reply_json(
                 *app.add_own_data(payload.get("kind"), payload.get("form"))
             )
+            return
+        if path == "/api/leftovers":
+            self._reply_json(*app.answer_leftovers(payload.get("action")))
             return
         if path == "/api/quit":
             try:

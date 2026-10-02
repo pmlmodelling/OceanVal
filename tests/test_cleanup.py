@@ -5,6 +5,7 @@ import os
 import pytest
 
 import oceanval
+from oceanval import leftovers
 
 
 class _Stop(Exception):
@@ -34,8 +35,15 @@ def test_validate_clears_results_in_out_dir_not_cwd(tmp_path, monkeypatch):
     assert (work / "oceanval_results" / "keep.txt").exists()
 
 
-def test_notebook_temp_files_only_removes_oceanval_files(tmp_path, monkeypatch):
-    stamp = "nctoolkit_someone_abcdnctoolkit_ecoval_output_"
+# a stamp as the notebooks' kernels now make, and as older versions made it
+STAMPS = [
+    "nctoolkit_someone_abcdnctoolkit_oceanval_output_p999999_",
+    "nctoolkit_someone_abcdnctoolkit_ecoval_output_",
+]
+
+
+@pytest.mark.parametrize("stamp", STAMPS)
+def test_notebook_temp_files_only_removes_oceanval_files(tmp_path, monkeypatch, stamp):
     trackers = tmp_path / "notebooks" / ".trackers"
     trackers.mkdir(parents=True)
     # the notebooks name a tracker with the stamp, or with a .txt suffix
@@ -43,30 +51,58 @@ def test_notebook_temp_files_only_removes_oceanval_files(tmp_path, monkeypatch):
     (trackers / (stamp + ".txt")).write_text("")
 
     temp = tmp_path / "tmp"
+    other_temp = tmp_path / "vartmp"
     temp.mkdir()
+    other_temp.mkdir()
     mine = temp / f"{stamp}tmpa1.nc"
     mine.write_text("")
-    other_session = temp / "nctoolkit_someone_zzzznctoolkit_ecoval_output_tmpb2.nc"
+    # nctoolkit moves to a second temporary directory when the first is short of space
+    moved = other_temp / f"{stamp}tmpa2.nc"
+    moved.write_text("")
+    other_session = temp / "nctoolkit_someone_zzzznctoolkit_oceanval_output_p999998_tmpb2.nc"
     other_session.write_text("")
-    not_oceanval = temp / f"{stamp[: -len('_ecoval_output_')]}tmpc3.nc"
+    # the same session, but not named by nctoolkit in an oceanval session
+    not_oceanval = temp / f"{stamp.split('_oceanval_output_')[0].split('_ecoval_output_')[0]}tmpc3.nc"
     not_oceanval.write_text("")
     a_directory = temp / f"{stamp}tmpdir"
     a_directory.mkdir()
 
-    real_glob = oceanval.glob.glob
-    monkeypatch.setattr(
-        oceanval.glob,
-        "glob",
-        lambda pattern, *a, **k: real_glob(
-            str(temp) + pattern[len("/tmp") :] if pattern.startswith("/tmp/*") else pattern,
-            *a,
-            **k,
-        ),
-    )
+    monkeypatch.setattr(leftovers, "TEMP_DIRS", (str(temp) + "/", str(other_temp) + "/"))
     oceanval._remove_notebook_temp_files(str(tmp_path))
 
     assert not mine.exists()
+    assert not moved.exists()
     assert other_session.exists()
     assert not_oceanval.exists()
     assert a_directory.exists()
     assert os.path.exists(trackers / stamp)
+
+
+def test_a_failed_build_still_removes_the_notebooks_temp_files(tmp_path, monkeypatch):
+    stamp = STAMPS[0]
+    trackers = tmp_path / "notebooks" / ".trackers"
+    trackers.mkdir(parents=True)
+    (trackers / stamp).write_text("")
+    leftover = tmp_path / f"{stamp}tmpa1.nc"
+    leftover.write_text("")
+    monkeypatch.setattr(leftovers, "TEMP_DIRS", (str(tmp_path) + "/",))
+
+    def fail(*args, **kwargs):
+        raise _Stop
+
+    monkeypatch.setattr(oceanval, "_build_book_pages", fail)
+    with pytest.raises(_Stop):
+        oceanval._build_book(str(tmp_path))
+
+    assert not leftover.exists()
+
+
+def test_the_stamp_names_oceanval_and_the_process():
+    stamp = oceanval.nc.session_info["stamp"]
+
+    assert stamp.endswith(f"_oceanval_output_p{os.getpid()}_")
+    assert leftovers.is_oceanval_temp(f"/tmp/{stamp}tmpa1.nc")
+    # files from before the name changed are still recognised
+    assert leftovers.is_oceanval_temp("/tmp/nctoolkit_me_abcdnctoolkit_ecoval_output_tmpa1.nc")
+    assert not leftovers.is_oceanval_temp("/tmp/nctoolkit_me_abcdnctoolkittmpa1.nc")
+    assert not leftovers.is_oceanval_temp("/tmp/oceanval_output_tmpa1.nc")
