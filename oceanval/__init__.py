@@ -1147,6 +1147,26 @@ def _check_matchups(data_dir):
             )
 
 
+def _remove_notebook_temp_files(book_dir):
+    """Remove the temporary files the notebooks of a built report left in
+    /tmp, which each marked in its notebooks/.trackers."""
+    # a tracker is the session's stamp, which some notebooks give a .txt suffix
+    stamps = [
+        os.path.basename(x).removesuffix(".txt")
+        for x in glob.glob(f"{book_dir}/notebooks/.trackers/*")
+    ]
+
+    delete = []
+    for x in stamps:
+        delete += glob.glob("/tmp/*" + glob.escape(x) + "*")
+
+    for ff in delete:
+        name = os.path.basename(ff)
+        # only files made by nctoolkit in an oceanval session
+        if "nctoolkit" in name and "ecoval_output" in name and os.path.isfile(ff):
+            os.remove(ff)
+
+
 def validate(
     lon_lim=None,
     lat_lim=None,
@@ -1256,10 +1276,9 @@ def validate(
 
 
     # remove the results directory
-    x_path = "oceanval_results"
+    x_path = os.path.join(out_dir, "oceanval_results")
     if os.path.exists(x_path):
-        if x_path == "oceanval_results":
-            shutil.rmtree(x_path)
+        shutil.rmtree(x_path)
 
     # keep a copy of the regions file with the results, so the notebooks and
     # compare can find it
@@ -1650,19 +1669,7 @@ def validate(
             os.path.join(out_dir, "oceanval_report.zip"),
         )
 
-    stamps = [
-        os.path.basename(x) for x in glob.glob(f"{book_dir}/notebooks/.trackers/*")
-    ]
-    stamps.append("nctoolkit_rwi_uhosarcenctoolkittmp")
-
-    delete = []
-    for x in stamps:
-        delete += glob.glob("/tmp/*" + x + "*")
-
-    for ff in delete:
-        if os.path.exists(ff):
-            if "nctoolkit" in x:
-                os.remove(ff)
+    _remove_notebook_temp_files(book_dir)
 
     out_ff = _summary_report_page(f"{book_dir}/_build/html")
 
