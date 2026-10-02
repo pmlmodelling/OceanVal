@@ -18,6 +18,13 @@ jobs:
 
     runs-on: "ubuntu-latest" 
 
+    # The suite is split over two jobs that run side by side. Each job has its own
+    # checkout, which matters: the matchup tests share cwd-relative output folders.
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [1, 2]
+
     steps:
       - uses: actions/checkout@v7
       - uses: mamba-org/setup-micromamba@v3
@@ -44,8 +51,15 @@ jobs:
           pip install rioxarray
           pip install pytest
 
-      - name: Test with pytest
+      - name: Test with pytest (group ${{ matrix.group }} of 2)
         shell: bash -l {0}
         run: |
-          pytest tests/test*.py
+          # Group 1 is the slow matchup tests; group 2 is every other test file, so a
+          # new test file is always picked up by one of the two groups.
+          GROUP1="tests/test_gridded_matchups.py tests/test_point_matchups.py tests/test_matchup_formula.py"
+          if [ "${{ matrix.group }}" = "1" ]; then
+            pytest $GROUP1
+          else
+            pytest tests $(for f in $GROUP1; do echo --ignore=$f; done)
+          fi
       
