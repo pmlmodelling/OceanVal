@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Version the shared stylesheet and script
         # Pages serves assets with a 10-minute cache, and every page links
         # them by the same fixed URL - so after a deploy that pairs new HTML

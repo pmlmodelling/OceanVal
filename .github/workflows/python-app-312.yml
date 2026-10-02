@@ -26,8 +26,8 @@ jobs:
         group: [1, 2]
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: mamba-org/setup-micromamba@v1
+      - uses: actions/checkout@v7
+      - uses: mamba-org/setup-micromamba@v3
       # - uses: mamba-org/provision-with-micromamba@v15
         env:
           ACTIONS_ALLOW_UNSECURE_COMMANDS: true
@@ -37,7 +37,6 @@ jobs:
           create-args: nctoolkit cmocean cartopy pandoc python=3.12 rpy2 r-base r-tidyverse r-ggtext jupyter-book r-mapdata texlive-core nodejs=22.23.2
           init-shell: >-
             bash
-            powershell
           cache-environment: true
           post-cleanup: 'all'
       - name: Install dependencies
