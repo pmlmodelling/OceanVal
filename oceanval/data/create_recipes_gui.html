@@ -131,6 +131,11 @@
   }
   .settings__column { display: grid; align-content: start; gap: 26px; min-width: 0; }
   .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
+  .lede-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 20px; }
+  .lede-row .lede { margin: 0; }
+  .btn--clear { flex: none; height: 44px; margin-bottom: -3px; padding: 0 20px; border: 1.5px solid #c5d7da; background: var(--bg-alt); color: var(--ink-soft); font-size: 15px; white-space: nowrap; }
+  .btn--clear:hover:not(:disabled) { border-color: #a9c5c9; background: var(--teal-100); }
+  .btn--clear:disabled { border-color: var(--line); background: var(--bg); color: var(--muted-light); }
   .settings__ticks { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px 24px; padding: 0 22px 20px; }
   .g-label.is-required { color: var(--red); font-weight: 700; }
   .year-required { margin-left: 6px; color: var(--red); font-size: 10.5px; font-weight: 700; text-transform: uppercase; }
@@ -183,6 +188,8 @@
     thead th, tbody td { padding-left: 14px; padding-right: 14px; }
   }
   @media (max-width: 760px) {
+    .lede-row { flex-direction: column; align-items: flex-start; gap: 14px; }
+    .btn--clear { margin-bottom: 0; }
     table, tbody, tr, td { display: block; width: 100%; }
     thead, colgroup { display: none; }
     tbody tr { padding: 14px 16px 10px; border-bottom: 1px solid var(--line-soft); }
@@ -353,9 +360,11 @@
 
   <div class="section-head">
     <h2 class="section-title">Variables</h2>
-    <button type="button" class="btn btn--text btn--small" id="clear-selections">Clear all selections</button>
   </div>
-  <p class="lede" id="lede"></p>
+  <div class="lede-row">
+    <p class="lede" id="lede"></p>
+    <button type="button" class="btn btn--ghost btn--clear" id="clear-selections">Clear all selections</button>
+  </div>
   <div class="card">
     <table>
       <colgroup><col class="c-obs"><col class="c-model"><col class="c-gridded"><col class="c-point"></colgroup>
