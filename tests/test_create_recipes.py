@@ -305,6 +305,29 @@ class TestArguments:
         assert "start=2011," in open(out).read()
 
 
+class TestDeprecation:
+    def test_create_recipes_warns_that_it_is_deprecated(self):
+        with pytest.warns(FutureWarning, match="create_recipes is deprecated"):
+            with pytest.raises(ValueError, match="simdir"):
+                oceanval.create_recipes()
+
+    def test_the_warning_points_at_the_caller(self, recwarn):
+        with pytest.raises(ValueError):
+            oceanval.create_recipes()
+        assert recwarn.pop(FutureWarning).filename == __file__
+
+    def test_the_signature_and_docstring_are_kept(self):
+        import inspect
+
+        assert "simdir" in inspect.signature(oceanval.create_recipes).parameters
+        assert "Deprecated" in oceanval.create_recipes.__doc__
+
+    def test_the_oceanval_app_does_not_call_the_deprecated_function(self):
+        from oceanval import app
+
+        assert app._create_recipes is not oceanval.create_recipes
+
+
 class TestVariableIdentification:
     def test_model_variables_are_found_from_their_long_names(self, simulation):
         mapping = extract_recipe_variable_mapping(simulation, 2)

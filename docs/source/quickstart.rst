@@ -17,8 +17,8 @@ Install the released package from conda-forge:
 
 For full installation options, see :doc:`installing`.
 
-The OceanVal window
--------------------
+The OceanVal App
+----------------
 
 The quickest way needs no Python at all. In a terminal, in the directory to
 work in, run:
@@ -27,69 +27,26 @@ work in, run:
 
    oceanval
 
-``OceanVal`` works too. A page opens in your web browser that takes you
-through these steps:
+A page opens in your web browser that takes you from a folder of model
+output to a validation report:
 
-1. **Choose** to match up new data and validate it, to match up only, or to
-   validate matchups made earlier.
-2. **Simulation**: where the model output is, how many directories down its
-   files are, which files to skip or keep (the file filters), and the domain.
-   Type the directory, with folders suggested as you go, or pick
-   it with **Browse…**, which looks through the folders on the machine
-   OceanVal runs on, so it works on a remote machine too. As you type, the
-   page counts the files that pass the filters. The next page starts with
-   years inferred from their names, which you can change there. It also asks
-   where to save the matchups and the report: the
-   directory you started ``oceanval`` in, unless you choose another. To
-   validate matchups made earlier, you choose the report's options instead.
-3. **Own data**: whether you have observations of your own, as well as
-   OceanVal's built-in datasets. If you do, a page for point data (csv
-   files) and one for gridded data (netCDF) let you add them one at a time,
-   with every argument of ``add_point_comparison`` or
-   ``add_gridded_comparison``; the ones that have to be given are marked in
-   red. Skip a page if you have none of that kind. The calls are written
-   into the matchup script.
-4. **Recipes**: the ``create_recipes`` window, to check the model variables
-   found and choose the observations to validate against. A dataset
-   validated through the water column (Vertical) needs a thickness before
-   you can carry on.
-5. **Units**: a table of the units of every gridded and point matchup, read
-   from the model's netCDF files and, for the observations, from the recipes
-   (the Units column on the recipes page) or from your own netCDF file. Where
-   OceanVal thinks they differ, it suggests a multiplier and an adder for the
-   observations, in red and bold, and says what it assumed, such as a seawater
-   density of 1025 kg/m³ between per kilogram and per volume. It can get this
-   wrong, so check every row, and fill in any it could not work out. Your own
-   point data is csv files, which have no units, so it is up to you to make
-   sure they match the model's. The units always have to be confirmed, with a
-   box under the tables, before the button starts the matchup. The
-   conversions are written into the matchup script as ``obs_multiplier`` and
-   ``obs_adder``.
-6. **Files**: the page says it is identifying the files that meet your
-   criteria, then shows what it found as a table: each variable, its model
-   variable, the observations it is compared with and the files it is in,
-   with **List all files** for each (OceanVal applies temporal subsetting to
-   them). Carry on if the matchups are right; No stops the run.
-7. **Report** (to match up and validate): "One last thing... How would you
-   like your validation report?" The report's options, asked for before
-   anything is matched up: a subregion to validate, regional summaries,
-   fixed colour scales, PDF and Word versions, a zipped copy, and a concise
-   or detailed report. The report is built beside the matchups, in the
-   directory chosen in step 2. **Back** shows the matchups again. The options
-   are written into the matchup script's ``validate()`` call.
-8. **Run**: matchup, then, to validate as well, ``validate()`` with the
-   report's options. The output appears as it comes, in the page and in the
-   terminal, and anything else OceanVal asks, such as whether to try again
-   for observations a server could not supply, is asked in the page.
+1. **Choose** what to do: match up and validate, match up only, or validate
+   matchups made earlier.
+2. **Simulation**: where the model output is, and which files to use.
+3. **Own data**: add observations of your own, if you have any.
+4. **Recipes**: check the model variables found, and choose the
+   observations to validate against.
+5. **Units**: check and confirm the units, with conversions suggested where
+   they differ.
+6. **Files** and **Report**: check the matchups, then choose the report's
+   options.
+7. **Run**: the matchup and the report, with the output shown as it comes.
 
-The script it runs is written first, to ``matchup.py`` unless you choose
-another name, so you can read it, and run it again later with
-``python matchup.py``.
-
-If ``oceanval`` cannot open a browser for you, it prints the link to open.
-VS Code forwards its port for you; over plain SSH, choose the port with
-``--port`` and forward it first: ``oceanval --port 8765``, with
-``ssh -L 8765:127.0.0.1:8765 you@server``.
+The script it runs is written first, to ``matchup.py``, so you can read it
+and run it again later. Every step is described on the website, in
+`Validating from your browser
+<https://pmlmodelling.github.io/OceanVal/browser.html>`_, including how to
+use it on a remote machine.
 
 The sections below do the same in Python.
 

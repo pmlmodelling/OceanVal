@@ -36,7 +36,6 @@
           <a href="api.html" data-page="api.html">API</a>
         </div>
       </div>
-      <a href="create-recipes.html" data-page="create-recipes.html">A rapid workflow</a>
       <div class="nav-drop">
         <button class="nav-drop-toggle" type="button" aria-expanded="false" aria-haspopup="true">
           Info
@@ -70,7 +69,7 @@
   <aside class="docs-toc">
     <div class="docs-toc-title">On this page</div>
     <ul>
-      <li><a href="#app">The OceanVal window</a></li>
+      <li><a href="#app">The OceanVal App</a></li>
       <li><a href="#register">Step 1: Register</a></li>
       <li><a href="#match">Step 2: Matchup</a></li>
       <li><a href="#report">Step 3: Build the validation report</a></li>
@@ -82,10 +81,10 @@
   <div class="docs-content">
     <p>Validating ecosystem models with OceanVal is a three step process. First you register the model-observation mappings you want to validate against. Next, you matchup your model output with those observations. Finally, you build the validation report, which computes statistics and generates the HTML report you can view in your browser.</p>
 
-    <h2 id="app">The OceanVal window</h2>
+    <h2 id="app">The OceanVal App</h2>
     <div class="callout warn">
       <div class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Development version only</div>
-      <p>The <code>oceanval</code> window is on the <code>main</code> branch but not yet in a tagged release. See <a href="browser.html">Validating from your browser</a> for how to install it, and a video of it in use.</p>
+      <p>The OceanVal App is on the <code>main</code> branch but not yet in a tagged release. See <a href="browser.html">Validating from your browser</a> for how to install it, and a video of it in use.</p>
     </div>
     <p>The quickest way needs no Python at all. In a terminal, in the directory to work in, run:</p>
     <div class="code-block">
@@ -99,22 +98,17 @@
       </div>
       <pre id="qs-code-0">oceanval</pre>
     </div>
-    <p><code>OceanVal</code> works too. A page opens in your web browser that takes you through these steps:</p>
+    <p>A page opens in your web browser that takes you from a folder of model output to a validation report:</p>
     <ol>
-      <li><strong>Choose</strong> to match up new data and validate it, to match up only, or to validate matchups made earlier.</li>
-      <li><strong>Simulation</strong> &mdash; where the model output is, how many directories down its files are, which files to skip or keep (the file filters), and the domain. Type the directory, with folders suggested as you go, or pick it with <strong>Browse…</strong>, which looks through the folders on the machine OceanVal runs on, so it works on a remote machine too. As you type, the page counts the files that pass the filters. The next page starts with years inferred from their names, which you can change there. It also asks where to save the matchups and the report: the directory you started <code>oceanval</code> in, unless you choose another. To validate matchups made earlier, you choose the report's options instead.</li>
-      <li><strong>Own data</strong> &mdash; whether you have observations of your own, as well as OceanVal's built-in datasets. If you do, a page for point data (csv files) and one for gridded data (netCDF) let you add them one at a time, with every argument of <code>add_point_comparison</code> or <code>add_gridded_comparison</code>; the ones that have to be given are marked in red. Skip a page if you have none of that kind. The calls are written into the matchup script.</li>
-      <li><strong>Recipes</strong> &mdash; the <a href="create-recipes.html#gui">create_recipes window</a>, to check the model variables found and choose the observations to validate against. A dataset validated through the water column (Vertical) needs a thickness before you can carry on.</li>
-      <li><strong>Units</strong> &mdash; a table of the units of every gridded and point matchup, read from the model's netCDF files and, for the observations, from the recipes (the Units column of the <a href="recipes.html">recipes page</a>) or from your own netCDF file. Where OceanVal thinks they differ, it suggests a multiplier and an adder for the observations, in red and bold, and says what it assumed, such as a seawater density of 1025 kg/m&sup3; between per kilogram and per volume. It can get this wrong, so check every row, and fill in any it could not work out. Your own point data is csv files, which have no units, so it is up to you to make sure they match the model's. The units always have to be confirmed, with a box under the tables, before the button starts the matchup. The conversions are written into the matchup script as <code>obs_multiplier</code> and <code>obs_adder</code>.</li>
-      <li><strong>Files</strong> &mdash; the page says it is identifying the files that meet your criteria, then shows what it found as a table: each variable, its model variable, the observations it is compared with and the files it is in, with <strong>List all files</strong> for each (OceanVal applies temporal subsetting to them). Carry on if the matchups are right; No stops the run.</li>
-      <li><strong>Report</strong> (to match up and validate) &mdash; &ldquo;One last thing... How would you like your validation report?&rdquo; The report&rsquo;s options, asked for before anything is matched up: a subregion to validate, regional summaries, fixed colour scales, PDF and Word versions, a zipped copy, and a concise or detailed report. The report is built beside the matchups, in the directory chosen in step 2. <strong>Back</strong> shows the matchups again. The options are written into the matchup script&rsquo;s <code>validate()</code> call.</li>
-      <li><strong>Run</strong> &mdash; matchup, then, to validate as well, <code>validate()</code> with the report&rsquo;s options. The output appears as it comes, in the page and in the terminal, and anything else OceanVal asks, such as whether to try again for observations a server could not supply, is asked in the page.</li>
+      <li><strong>Choose</strong> what to do: match up and validate, match up only, or validate matchups made earlier.</li>
+      <li><strong>Simulation</strong> &mdash; where the model output is, and which files to use.</li>
+      <li><strong>Own data</strong> &mdash; add observations of your own, if you have any.</li>
+      <li><strong>Recipes</strong> &mdash; check the model variables found, and choose the observations to validate against.</li>
+      <li><strong>Units</strong> &mdash; check and confirm the units, with conversions suggested where they differ.</li>
+      <li><strong>Files</strong> and <strong>Report</strong> &mdash; check the matchups, then choose the report&rsquo;s options.</li>
+      <li><strong>Run</strong> &mdash; the matchup and the report, with the output shown as it comes.</li>
     </ol>
-    <p>The script it runs is written first, to <code>matchup.py</code> unless you choose another name, so you can read it, and run it again later with <code>python matchup.py</code>.</p>
-    <div class="callout">
-      <div class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>On a remote machine</div>
-      <p>If <code>oceanval</code> cannot open a browser for you, it prints the link to open. VS Code forwards its port for you; over plain SSH, choose the port with <code>--port</code> and forward it first &mdash; <code>oceanval --port 8765</code>, with <code>ssh -L 8765:127.0.0.1:8765 you@server</code>.</p>
-    </div>
+    <p>The script it runs is written first, to <code>matchup.py</code>, so you can read it and run it again later. Every step is described in <a href="browser.html">Validating from your browser</a>, including how to use it on a remote machine.</p>
     <p>The steps below do the same in Python.</p>
 
     <h2 id="register">Step 1: Register the model-observation mappings</h2>
@@ -212,7 +206,6 @@ oceanval.<a href="api.html#validate"><span class="tok-fn">validate</span></a>()<
         <li><a href="installing.html">Installing</a></li>
         <li><a href="quickstart.html">Quickstart</a></li>
         <li><a href="how-to-use.html">How to use OceanVal</a></li>
-        <li><a href="create-recipes.html">Validating a model with a few lines of code</a></li>
         <li><a href="browser.html">Validating from your browser</a></li>
         <li><a href="api.html">API reference</a></li>
       </ul>

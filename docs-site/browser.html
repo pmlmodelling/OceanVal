@@ -36,7 +36,6 @@
           <a href="api.html" data-page="api.html">API</a>
         </div>
       </div>
-      <a href="create-recipes.html" data-page="create-recipes.html">A rapid workflow</a>
       <div class="nav-drop">
         <button class="nav-drop-toggle" type="button" aria-expanded="false" aria-haspopup="true">
           Info
@@ -122,7 +121,7 @@
     <h3>3. Own data</h3>
     <p>Whether you have observations of your own as well as OceanVal&rsquo;s built-in datasets. If you do, a page for point data (csv files) and one for gridded data (netCDF) let you add them one at a time, with every argument of <a href="api.html#add_point_comparison"><code>add_point_comparison</code></a> or <a href="api.html#add_gridded_comparison"><code>add_gridded_comparison</code></a>; the ones that have to be given are marked in red.</p>
     <h3>4. Recipes</h3>
-    <p>OceanVal reads one file of each kind from the simulation, works out which model variable holds each observational variable, and shows the <a href="create-recipes.html#gui">create_recipes window</a>. Check the variables it found, tick the datasets to validate against, and set the global settings (years, the spatial subset to match up, cores, thickness and missing values). The report&rsquo;s options are asked for later, once you have checked the matchups (see step 7). <strong>Clear all selections</strong> unticks everything so you can start from none. The output directory is the one chosen in step 2, and OceanVal always asks you to check the matchups before matching (see step 6). A dataset set to <strong>Vertical</strong> needs a thickness &mdash; <code>z_level</code>, a cell thickness variable or a file &mdash; before you can carry on.</p>
+    <p>OceanVal reads one file of each kind from the simulation, works out which model variable holds each observational variable, and shows the recipes window. Check the variables it found, tick the datasets to validate against, and set the global settings (years, the spatial subset to match up, cores, thickness and missing values). The report&rsquo;s options are asked for later, once you have checked the matchups (see step 7). <strong>Clear all selections</strong> unticks everything so you can start from none. The output directory is the one chosen in step 2, and OceanVal always asks you to check the matchups before matching (see step 6). A dataset set to <strong>Vertical</strong> needs a thickness &mdash; <code>z_level</code>, a cell thickness variable or a file &mdash; before you can carry on.</p>
     <h3>5. Units</h3>
     <p>The model&rsquo;s and the observations&rsquo; units, with a conversion suggested where OceanVal thinks they differ, to check and always confirm. See <a href="#units">below</a>.</p>
     <h3>6. Files</h3>
@@ -163,7 +162,6 @@
     <h2 id="more">More</h2>
     <ul>
       <li><a href="quickstart.html">Quickstart</a>: the same steps in Python.</li>
-      <li><a href="create-recipes.html">Validating a model with a few lines of code</a>: the create_recipes window in detail.</li>
       <li><a href="recipes.html">Observation recipes</a>: every built-in dataset, with its units.</li>
       <li><a href="installing.html">Installing</a></li>
     </ul>
@@ -194,7 +192,6 @@
         <li><a href="installing.html">Installing</a></li>
         <li><a href="quickstart.html">Quickstart</a></li>
         <li><a href="how-to-use.html">How to use OceanVal</a></li>
-        <li><a href="create-recipes.html">Validating a model with a few lines of code</a></li>
         <li><a href="browser.html">Validating from your browser</a></li>
         <li><a href="api.html">API reference</a></li>
       </ul>

@@ -20,6 +20,7 @@ does, so the match is made on the variables' ``long_name`` attributes
 rather than on their names.
 """
 
+import functools
 import glob
 import inspect
 import json
@@ -1291,7 +1292,7 @@ def _words(value, name):
     return value or None
 
 
-def create_recipes(
+def _create_recipes(
     simdir=None,
     ndown=None,
     out=None,
@@ -1307,6 +1308,10 @@ def create_recipes(
     own_data=None,
 ):
     """Write a matchup script for a simulation, with its variables filled in.
+
+    Deprecated: use the ``oceanval`` command, which opens the same window
+    in your web browser and goes on to run the matchup and the report. This
+    function will be removed in a future release.
 
     Scans the netCDF files in simdir, identifies which model variable holds
     each observational variable OceanVal has a recipe for, and writes out a
@@ -1539,3 +1544,15 @@ def create_recipes(
 
     _report(out, mapping, selection, settings)
     return out
+
+
+@functools.wraps(_create_recipes)
+def create_recipes(*args, **kwargs):
+    warnings.warn(
+        "create_recipes is deprecated and will be removed in a future "
+        "release. Run the oceanval command instead, which opens the same "
+        "window in your web browser.",
+        FutureWarning,
+        stacklevel=2,
+    )
+    return _create_recipes(*args, **kwargs)

@@ -12,7 +12,6 @@ quickstart.html       \
 browser.html           Development-version page: the `oceanval` browser window
 how-to-use.html         Documentation, mirrors docs/source/*.rst in the
 recipes.html             oceanVal package, redesigned
-create-recipes.html      /
 obs-data.html            /
 qa.html                 /
 api.html               /
@@ -131,4 +130,4 @@ Page content is authored by hand to match the current oceanVal docs
 so if the underlying package docs change, update the corresponding `.html`
 file(s) directly. Shared header/nav/footer markup is duplicated across pages
 (no static-site generator), so a nav or footer change should be applied to
-all twelve `.html` files (eleven content pages plus `version-history.html`).
+all eleven `.html` files (ten content pages plus `version-history.html`).

@@ -39,7 +39,7 @@ that takes you through these steps:
    with every argument of `add_point_comparison` or `add_gridded_comparison`;
    the ones that have to be given are marked in red. Skip a page if you have
    none of that kind. The calls are written into the matchup script.
-4. **Recipes**: the `create_recipes` window (see below), to check the model
+4. **Recipes**: the recipes window, to check the model
    variables found and choose the observations to validate against. A
    dataset validated through the water column (Vertical) needs a thickness
    before you can carry on.
@@ -131,6 +131,10 @@ oceanval.add_point_comparison(
 ```
 
 ### Generating a matchup script
+
+> **Deprecated:** `create_recipes` will be removed in a future release, and
+> warns when called. Run the `oceanval` command instead, which opens the same
+> window and goes on to run the matchup and the report.
 
 `create_recipes` writes the script for you. It scans your model output,
 works out which model variable holds each observational variable — matching

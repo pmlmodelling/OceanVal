@@ -52,8 +52,8 @@ from oceanval import own_data, units
 from oceanval.create_recipes import (
     DOMAIN_REGIONS,
     RECIPE_VARIABLES,
+    _create_recipes,
     _literal,
-    create_recipes,
     simulation_paths,
     simulation_years,
 )
@@ -935,7 +935,7 @@ class App:
                 with prompts.answered_by(self._ask_in_window), recipes_gui.hosted_by(
                     self
                 ):
-                    out = create_recipes(
+                    out = _create_recipes(
                         **arguments,
                         ask=True,
                         gui=True,
