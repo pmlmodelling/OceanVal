@@ -106,12 +106,12 @@
     </div>
     <p>Required parameters:</p>
     <ul class="param-list">
-      <li><code class="param-name">name</code><span class="param-tag">required</span><p>A name for the dataset, e.g. "temperature".</p></li>
-      <li><code class="param-name">source</code><span class="param-tag">required</span><p>The source of the observational data, e.g. "CMEMS".</p></li>
-      <li><code class="param-name">model_variable</code><span class="param-tag">required</span><p>The name of the model variable to compare against the observations.</p></li>
-      <li><code class="param-name">obs_path</code><span class="param-tag">required</span><p>Path to the directory containing the observational data files.</p></li>
+      <li><code class="param-name">name</code> <span class="param-tag">required</span><p>A name for the dataset, e.g. "temperature".</p></li>
+      <li><code class="param-name">source</code> <span class="param-tag">required</span><p>The source of the observational data, e.g. "CMEMS".</p></li>
+      <li><code class="param-name">model_variable</code> <span class="param-tag">required</span><p>The name of the model variable to compare against the observations.</p></li>
+      <li><code class="param-name">obs_path</code> <span class="param-tag">required</span><p>Path to the directory containing the observational data files.</p></li>
       <li><code class="param-name">obs_variable</code><p>Name of the variable in the observational files. If omitted, OceanVal assumes a single variable is present.</p></li>
-      <li><code class="param-name">climatology</code><span class="param-tag">required</span><p>Whether the observational data is a climatology.</p></li>
+      <li><code class="param-name">climatology</code> <span class="param-tag">required</span><p>Whether the observational data is a climatology.</p></li>
     </ul>
     <details class="param-optional">
       <summary>Optional parameters</summary>
@@ -180,10 +180,10 @@
     </div>
     <p>Required parameters:</p>
     <ul class="param-list">
-      <li><code class="param-name">name</code><span class="param-tag">required</span><p>A name for the dataset, e.g. "temperature" — used internally to keep track of things. Letters and numbers only.</p></li>
-      <li><code class="param-name">source</code><span class="param-tag">required</span><p>The source of the observational data, e.g. "NOAA".</p></li>
-      <li><code class="param-name">model_variable</code><span class="param-tag">required</span><p>The name of the model variable to compare against the observations.</p></li>
-      <li><code class="param-name">obs_path</code><span class="param-tag">required</span><p>Path to a file or directory containing the observational data. If a directory, ensure it only contains files relevant to this variable — OceanVal recursively uses all NetCDF files inside it.</p></li>
+      <li><code class="param-name">name</code> <span class="param-tag">required</span><p>A name for the dataset, e.g. "temperature" — used internally to keep track of things. Letters and numbers only.</p></li>
+      <li><code class="param-name">source</code> <span class="param-tag">required</span><p>The source of the observational data, e.g. "NOAA".</p></li>
+      <li><code class="param-name">model_variable</code> <span class="param-tag">required</span><p>The name of the model variable to compare against the observations.</p></li>
+      <li><code class="param-name">obs_path</code> <span class="param-tag">required</span><p>Path to a file or directory containing the observational data. If a directory, ensure it only contains files relevant to this variable — OceanVal recursively uses all NetCDF files inside it.</p></li>
     </ul>
     <details class="param-optional">
       <summary>Optional parameters</summary>
@@ -246,11 +246,11 @@ oceanval.<a href="api.html#add_gridded_comparison"><span class="tok-fn">add_grid
     </div>
     <p>Required parameters:</p>
     <ul class="param-list">
-      <li><code class="param-name">sim_dir</code><span class="param-tag">required</span><p>Path to the directory containing the model simulation output files.</p></li>
-      <li><code class="param-name">start</code> / <code class="param-name">end</code><span class="param-tag">required</span><p>First / last year of the simulation to use for validation.</p></li>
+      <li><code class="param-name">sim_dir</code> <span class="param-tag">required</span><p>Path to the directory containing the model simulation output files.</p></li>
+      <li><code class="param-name">start</code> / <code class="param-name">end</code> <span class="param-tag">required</span><p>First / last year of the simulation to use for validation.</p></li>
       <li><code class="param-name">cores</code><p>Number of CPU cores to use for parallel processing.</p></li>
       <li><code class="param-name">lon_lim</code> / <code class="param-name">lat_lim</code><p>Longitude / latitude limits for the validation region, e.g. <code>[-180, 180]</code>.</p></li>
-      <li><code class="param-name">thickness</code><span class="param-tag">vertical only</span><p><code>"z_level"</code> or a variable name containing cell thickness — required for vertical validation.</p></li>
+      <li><code class="param-name">thickness</code> <span class="param-tag">vertical only</span><p><code>"z_level"</code> or a variable name containing cell thickness — required for vertical validation.</p></li>
     </ul>
     <details class="param-optional">
       <summary>Optional parameters</summary>
@@ -265,7 +265,7 @@ oceanval.<a href="api.html#add_gridded_comparison"><span class="tok-fn">add_grid
         <li><code class="param-name">n_check</code><p>Number of files checked when identifying the file naming convention.</p></li>
         <li><code class="param-name">as_missing</code><p>A float or <code>[min, max]</code> range of values to treat as missing in the model output.</p></li>
         <li><code class="param-name">strict_names</code><p>Whether to strictly enforce variable naming conventions. Defaults to <code>True</code>.</p></li>
-        <li><code class="param-name">live_validation</code><span class="param-tag">jupyter-book 2</span><p>Build an interim HTML validation report as the matchups are made, so that each one&rsquo;s results can be looked at as soon as it is made. See <a href="#live">Looking at the results while the matchups run</a>.</p></li>
+        <li><code class="param-name">live_validation</code> <span class="param-tag">jupyter-book 2</span><p>Build an interim HTML validation report as the matchups are made, so that each one&rsquo;s results can be looked at as soon as it is made. See <a href="#live">Looking at the results while the matchups run</a>.</p></li>
       </ul>
     </details>
     <div class="callout">

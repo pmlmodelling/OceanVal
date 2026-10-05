@@ -95,10 +95,10 @@
           <summary>Parameters</summary>
           <p>Required:</p>
           <ul class="param-list">
-            <li><code class="param-name">name</code><span class="param-tag">required</span><p>A name for the dataset, e.g. "temperature" — used internally to keep track of things. Letters and numbers only.</p></li>
-            <li><code class="param-name">source</code><span class="param-tag">required</span><p>The source of the observational data, e.g. "NOAA".</p></li>
-            <li><code class="param-name">model_variable</code><span class="param-tag">required</span><p>The name of the model variable to compare against the observations. Not currently enforced by the function but should always be supplied.</p></li>
-            <li><code class="param-name">obs_path</code><span class="param-tag">required</span><p>Path to a file or directory containing the observational data. If a directory, ensure it only contains files relevant to this variable — OceanVal recursively uses all NetCDF files inside it.</p></li>
+            <li><code class="param-name">name</code> <span class="param-tag">required</span><p>A name for the dataset, e.g. "temperature" — used internally to keep track of things. Letters and numbers only.</p></li>
+            <li><code class="param-name">source</code> <span class="param-tag">required</span><p>The source of the observational data, e.g. "NOAA".</p></li>
+            <li><code class="param-name">model_variable</code> <span class="param-tag">required</span><p>The name of the model variable to compare against the observations. Not currently enforced by the function but should always be supplied.</p></li>
+            <li><code class="param-name">obs_path</code> <span class="param-tag">required</span><p>Path to a file or directory containing the observational data. If a directory, ensure it only contains files relevant to this variable — OceanVal recursively uses all NetCDF files inside it.</p></li>
           </ul>
           <p>Optional:</p>
           <ul class="param-list">
@@ -125,11 +125,11 @@
           <summary>Parameters</summary>
           <p>Required:</p>
           <ul class="param-list">
-            <li><code class="param-name">name</code><span class="param-tag">required</span><p>A name for the dataset, e.g. "temperature".</p></li>
-            <li><code class="param-name">source</code><span class="param-tag">required</span><p>The source of the observational data, e.g. "CMEMS".</p></li>
-            <li><code class="param-name">model_variable</code><span class="param-tag">required</span><p>The name of the model variable to compare against the observations.</p></li>
-            <li><code class="param-name">obs_path</code><span class="param-tag">required</span><p>Path to the directory containing the observational data files.</p></li>
-            <li><code class="param-name">climatology</code><span class="param-tag">required</span><p>Whether the observational data is a climatology.</p></li>
+            <li><code class="param-name">name</code> <span class="param-tag">required</span><p>A name for the dataset, e.g. "temperature".</p></li>
+            <li><code class="param-name">source</code> <span class="param-tag">required</span><p>The source of the observational data, e.g. "CMEMS".</p></li>
+            <li><code class="param-name">model_variable</code> <span class="param-tag">required</span><p>The name of the model variable to compare against the observations.</p></li>
+            <li><code class="param-name">obs_path</code> <span class="param-tag">required</span><p>Path to the directory containing the observational data files.</p></li>
+            <li><code class="param-name">climatology</code> <span class="param-tag">required</span><p>Whether the observational data is a climatology.</p></li>
           </ul>
           <p>Optional:</p>
           <ul class="param-list">
@@ -158,9 +158,9 @@
           <summary>Parameters</summary>
           <p>Required:</p>
           <ul class="param-list">
-            <li><code class="param-name">sim_dir</code><span class="param-tag">required</span><p>Path to the directory containing the model simulation output files.</p></li>
-            <li><code class="param-name">start</code> / <code class="param-name">end</code><span class="param-tag">required</span><p>First / last year of the simulation to use for validation.</p></li>
-            <li><code class="param-name">thickness</code><span class="param-tag">vertical only</span><p><code>"z_level"</code> or a variable name containing cell thickness — required for vertical validation.</p></li>
+            <li><code class="param-name">sim_dir</code> <span class="param-tag">required</span><p>Path to the directory containing the model simulation output files.</p></li>
+            <li><code class="param-name">start</code> / <code class="param-name">end</code> <span class="param-tag">required</span><p>First / last year of the simulation to use for validation.</p></li>
+            <li><code class="param-name">thickness</code> <span class="param-tag">vertical only</span><p><code>"z_level"</code> or a variable name containing cell thickness — required for vertical validation.</p></li>
           </ul>
           <p>Optional:</p>
           <ul class="param-list">
@@ -177,7 +177,7 @@
             <li><code class="param-name">as_missing</code><p>A float or <code>[min, max]</code> range of values to treat as missing in the model output.</p></li>
             <li><code class="param-name">strict_names</code><p>Whether to strictly enforce variable naming conventions. Default <code>True</code>.</p></li>
             <li><code class="param-name">fvcom</code><p>Set to <code>True</code> if <code>sim_dir</code> contains raw FVCOM output. Each file is regridded with <code>fvcom_preprocess</code> before matching: surface values for comparisons with <code>vertical=False</code>, and 0&ndash;150&nbsp;m every 5&nbsp;m for <code>vertical=True</code>. Point comparisons use a 0.05&deg; grid; gridded comparisons use twice the resolution of the observations. <code>thickness</code> is not needed, <code>lon_lim</code> / <code>lat_lim</code> default to the mesh extent, and the regridded files are deleted afterwards. Default <code>False</code>.</p></li>
-            <li><code class="param-name">live_validation</code><span class="param-tag">jupyter-book 2</span><p>Build an interim validation report, HTML only, as the matchups are made: each matchup&rsquo;s page is added as soon as the matchup is made, and the summary is run again, so the results can be read long before the last matchup is made. <code>True</code> builds it with <a href="#validate"><code>validate</code></a>&rsquo;s defaults; a dict gives <code>validate</code>&rsquo;s report options &mdash; <code>out_dir</code>, <code>lon_lim</code>, <code>lat_lim</code>, <code>subregions</code>, <code>fixed_scale</code>, <code>concise</code> and <code>transect</code> (<code>pdf</code>, <code>word</code> and <code>zip</code> are for the full report). It is built in <code>oceanval_interim_report</code> in <code>out_dir</code>, starting at <code>oceanval_report/_build/html/notebooks/summary.html</code>, and <code>matchup</code> waits for it to be finished before returning. Build the full report with <code>validate</code> afterwards, as usual. Needs jupyter-book 2 or later. Default <code>None</code>.</p></li>
+            <li><code class="param-name">live_validation</code> <span class="param-tag">jupyter-book 2</span><p>Build an interim validation report, HTML only, as the matchups are made: each matchup&rsquo;s page is added as soon as the matchup is made, and the summary is run again, so the results can be read long before the last matchup is made. <code>True</code> builds it with <a href="#validate"><code>validate</code></a>&rsquo;s defaults; a dict gives <code>validate</code>&rsquo;s report options &mdash; <code>out_dir</code>, <code>lon_lim</code>, <code>lat_lim</code>, <code>subregions</code>, <code>fixed_scale</code>, <code>concise</code> and <code>transect</code> (<code>pdf</code>, <code>word</code> and <code>zip</code> are for the full report). It is built in <code>oceanval_interim_report</code> in <code>out_dir</code>, starting at <code>oceanval_report/_build/html/notebooks/summary.html</code>, and <code>matchup</code> waits for it to be finished before returning. Build the full report with <code>validate</code> afterwards, as usual. Needs jupyter-book 2 or later. Default <code>None</code>.</p></li>
           </ul>
         </details>
       </div>
@@ -245,7 +245,7 @@
         <details class="param-details">
           <summary>Parameters</summary>
           <ul class="param-list">
-            <li><code class="param-name">model_dict</code><span class="param-tag">required</span><p>Dictionary mapping a short model name to the path of its validation output.</p></li>
+            <li><code class="param-name">model_dict</code> <span class="param-tag">required</span><p>Dictionary mapping a short model name to the path of its validation output.</p></li>
             <li><code class="param-name">view</code><p>Open the comparison report in a browser once built. Default <code>True</code>.</p></li>
             <li><code class="param-name">ask</code><p>Ask for confirmation before replacing an existing comparison directory. Default <code>True</code>.</p></li>
             <li><code class="param-name">pdf</code><p>Whether to also generate PDF downloads of the comparison report. Default <code>False</code>.</p></li>
@@ -287,7 +287,7 @@
           <summary>Parameters</summary>
           <p>Required:</p>
           <ul class="param-list">
-            <li><code class="param-name">out_dir</code><span class="param-tag">required</span><p>Output directory for the processed data — an error is raised if not supplied.</p></li>
+            <li><code class="param-name">out_dir</code> <span class="param-tag">required</span><p>Output directory for the processed data — an error is raised if not supplied.</p></li>
           </ul>
           <p>Optional:</p>
           <ul class="param-list">

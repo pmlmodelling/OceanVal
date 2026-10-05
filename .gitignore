@@ -14,6 +14,8 @@ data/soc/*
 matched/*
 /oceanval_*
 /hidden/
+# the site search index, built by .github/workflows/pages.yml
+docs-site/pagefind/
 
 
 

@@ -58,6 +58,17 @@ jobs:
               exit 1
             fi
           done
+      - name: Build search index
+        # Writes docs-site/pagefind/ (client-side search index + UI), which the
+        # header's search bar uses (see docs-site/README.md). --glob "*.html"
+        # indexes only the top-level pages: not the archive/ snapshots (stale
+        # copies of index.html and api.html) nor example-report/ (notebook output).
+        run: >
+          npx -y pagefind@1.5.2
+          --site docs-site
+          --glob "*.html"
+          --exclude-selectors ".docs-toc"
+          --exclude-selectors ".back-to-top"
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact
