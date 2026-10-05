@@ -57,7 +57,7 @@ jobs:
         run: |
           # Group 1 is the slow matchup tests; group 2 is every other test file, so a
           # new test file is always picked up by one of the two groups.
-          GROUP1="tests/test_gridded_matchups.py tests/test_point_matchups.py tests/test_matchup_formula.py"
+          GROUP1="tests/test_gridded_matchups.py tests/test_point_matchups.py tests/test_matchup_formula.py tests/test_transect_report.py"
           if [ "${{ matrix.group }}" = "1" ]; then
             pytest $GROUP1
           else

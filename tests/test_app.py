@@ -649,6 +649,146 @@ class TestValidateChecks:
         assert check_report({"lon_min": "x"}, str(tmp_path))[1]["lon_min"] == "Limits must be numbers."
 
 
+needs_to_transect = pytest.mark.skipif(
+    not oceanval.transects.available(), reason="needs nctoolkit 1.3.6 or later"
+)
+
+TRANSECT_FORM = {
+    "transect": True,
+    "transect_start_lon": "-30",
+    "transect_start_lat": "0",
+    "transect_end_lon": "-30",
+    "transect_end_lat": "65",
+}
+
+
+class TestTransectChecks:
+    """The report options step's transect: the boxes of its two ends."""
+
+    @needs_to_transect
+    def test_a_north_south_transect(self, tmp_path):
+        arguments, errors = check_report(TRANSECT_FORM, str(tmp_path))
+
+        assert errors == {}
+        assert arguments == {"transect": {"start": [-30, 0], "end": [-30, 65]}}
+
+    @needs_to_transect
+    def test_an_east_west_transect(self, tmp_path):
+        form = dict(
+            TRANSECT_FORM, transect_start_lon="-10", transect_start_lat="55",
+            transect_end_lon="8", transect_end_lat="55",
+        )
+
+        assert check_report(form, str(tmp_path)) == (
+            {"transect": {"start": [-10, 55], "end": [8, 55]}}, {},
+        )
+
+    def test_a_transect_that_is_not_asked_for_is_not_used(self, tmp_path):
+        # even though its boxes are filled in, and even if they would not do
+        form = dict(TRANSECT_FORM, transect=False, transect_end_lon="x")
+
+        assert check_report(form, str(tmp_path)) == ({}, {})
+        assert check_report({}, str(tmp_path)) == ({}, {})
+
+    def test_the_boxes_must_all_be_filled_in(self, tmp_path):
+        form = dict(TRANSECT_FORM, transect_end_lat="")
+        arguments, errors = check_report(form, str(tmp_path))
+
+        assert arguments == {}
+        assert errors == {"transect_end_lat": "Fill in the longitude and latitude of both ends."}
+        # all empty: every box is marked
+        errors = check_report({"transect": True}, str(tmp_path))[1]
+        assert sorted(errors) == sorted(
+            ["transect_start_lon", "transect_start_lat", "transect_end_lon", "transect_end_lat"]
+        )
+
+    def test_the_boxes_must_be_numbers(self, tmp_path):
+        form = dict(TRANSECT_FORM, transect_start_lat="north")
+
+        assert check_report(form, str(tmp_path))[1] == {
+            "transect_start_lat": "Coordinates must be numbers."
+        }
+        assert check_report(dict(TRANSECT_FORM, transect_start_lat="nan"), str(tmp_path))[1] == {
+            "transect_start_lat": "Coordinates must be numbers."
+        }
+
+    @pytest.mark.parametrize(
+        "box, value, message",
+        [
+            ("transect_start_lon", "-181", "Longitude must be between -180 and 360."),
+            ("transect_end_lon", "361", "Longitude must be between -180 and 360."),
+            ("transect_start_lat", "-91", "Latitude must be between -90 and 90."),
+            ("transect_end_lat", "91", "Latitude must be between -90 and 90."),
+        ],
+    )
+    def test_the_boxes_must_be_on_the_globe(self, tmp_path, box, value, message):
+        form = dict(TRANSECT_FORM, **{box: value})
+        # keep the line straight, so the range is what is wrong with it
+        if box.endswith("_lon"):
+            form["transect_start_lon"] = form["transect_end_lon"] = value
+        else:
+            form["transect_start_lat"] = form["transect_end_lat"] = value
+
+        arguments, errors = check_report(form, str(tmp_path))
+        assert arguments == {}
+        assert set(errors.values()) == {message}
+
+    def test_the_two_ends_cannot_be_the_same_point(self, tmp_path):
+        form = dict(TRANSECT_FORM, transect_end_lat="0")
+
+        assert check_report(form, str(tmp_path))[1] == {
+            "transect_end_lon": "The two ends are the same point.",
+            "transect_end_lat": "The two ends are the same point.",
+        }
+
+    @pytest.mark.parametrize(
+        "end", [("-20", "65"), ("-29.99", "0.5"), ("0", "1")]
+    )
+    def test_a_diagonal_transect_is_refused(self, tmp_path, end):
+        form = dict(TRANSECT_FORM, transect_end_lon=end[0], transect_end_lat=end[1])
+
+        arguments, errors = check_report(form, str(tmp_path))
+        assert arguments == {}
+        # every box is marked, and the reason is the rule
+        assert sorted(errors) == sorted(
+            ["transect_start_lon", "transect_start_lat", "transect_end_lon", "transect_end_lat"]
+        )
+        assert set(errors.values()) == {
+            "The transect must run north–south or east–west: give both ends the same "
+            "longitude, or the same latitude."
+        }
+
+    def test_an_nctoolkit_that_cannot_extract_it_is_reported(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(oceanval.transects, "available", lambda: False)
+
+        arguments, errors = check_report(TRANSECT_FORM, str(tmp_path))
+        assert arguments == {}
+        assert "nctoolkit 1.3.6 or later" in errors["transect"]
+
+    @needs_to_transect
+    def test_validating_matchups_made_before_needs_gridded_ones(self, tmp_path):
+        write_matchups(tmp_path)
+        form = dict(TRANSECT_FORM)
+
+        arguments, errors = check_validate(form, str(tmp_path))
+        assert errors == {}
+        assert arguments["transect"] == {"start": [-30, 0], "end": [-30, 65]}
+
+        # point matchups only
+        gridded = tmp_path / "oceanval_matchups" / "gridded"
+        for found in gridded.rglob("*.nc"):
+            found.unlink()
+        point = tmp_path / "oceanval_matchups" / "point" / "temperature" / "surface" / "bar"
+        point.mkdir(parents=True)
+        (point / "bar_temperature_surface.csv").write_text("x\n")
+        errors = check_validate(form, str(tmp_path))[1]
+        assert errors == {
+            "transect": "There are no gridded matchups here to validate along a transect."
+        }
+        # and nothing is said if no transect is asked for
+        assert check_validate({}, str(tmp_path))[1] == {}
+
+
 def _request(app, route, data=None, token=None, **params):
     token = app.token if token is None else token
     url = f"http://127.0.0.1:{app.port}{route}"
@@ -942,6 +1082,85 @@ class TestServer:
             'oceanval.validate(data_dir=".", out_dir=".", lon_lim=[-20, 10], '
             'lat_lim=[40, 65], pdf=True, concise=False)',
         )
+
+    def report_step(self, app, tmp_path, runs, selected):
+        """Get to the report options step, after the recipes window chose
+        these observations of temperature."""
+        write_simulation(tmp_path / "sim")
+        app.choose("matchup_validate")
+        post(app, "/api/setup", {"form": SETUP_FORM})
+        post(app, "/api/own_data", {"answer": False})
+        wait_for(lambda: app.view == "recipes")
+        rows = [{"variable": "temperature", "model_variable": "thetao", "selected": selected}]
+        assert post(app, "/recipes/write", {"rows": rows, "settings": recipe_settings(app)})[0] == 200
+        units_match(app)
+        wait_for(lambda: runs)
+        # as when the script has run without asking about the matchups
+        app.view = "report_options"
+
+    @needs_to_transect
+    def test_a_transect_is_written_into_the_script(
+        self, app, tmp_path, runs, monkeypatch
+    ):
+        monkeypatch.setattr(live, "available", lambda: True)
+        self.report_step(app, tmp_path, runs, ["cobe2"])
+        assert get_json(app, "/api/state")[1]["report"]["gridded"] is True
+
+        assert post(app, "/api/report", {"form": TRANSECT_FORM})[0] == 200
+        text = open(tmp_path / "matchup.py").read()
+
+        # so it can be run again from a terminal, as the window ran it
+        assert (
+            '\noceanval.validate(\n    transect={"start": [-30, 0], "end": [-30, 65]},\n)\n'
+        ) in text
+        # and the interim report matchup builds as it goes has it too
+        call = text[text.index("oceanval.matchup(") : text.index("\noceanval.validate(")]
+        assert (
+            '    live_validation={"transect": {"start": [-30, 0], "end": [-30, 65]}},\n)'
+        ) in call
+        assert runs[-1] == (
+            ["validate", json.dumps({
+                "data_dir": str(tmp_path), "out_dir": str(tmp_path),
+                "transect": {"start": [-30.0, 0.0], "end": [-30.0, 65.0]},
+            })],
+            'oceanval.validate(data_dir=".", out_dir=".", '
+            'transect={"start": [-30, 0], "end": [-30, 65]})',
+        )
+
+    def test_a_transect_that_cannot_be_used_is_refused(self, app, tmp_path, runs):
+        self.report_step(app, tmp_path, runs, ["cobe2"])
+        diagonal = dict(TRANSECT_FORM, transect_end_lon="-20")
+
+        status, reply = post(app, "/api/report", {"form": diagonal})
+
+        assert status == 400
+        assert set(reply["errors"]) == {
+            "transect_start_lon", "transect_start_lat", "transect_end_lon", "transect_end_lat",
+        }
+        # the step carries on being asked, and nothing was run or written with it
+        assert app.view == "report_options"
+        assert len(runs) == 1
+        assert "transect=" not in open(tmp_path / "matchup.py").read()
+        # the boxes are kept, to be put right
+        assert get_json(app, "/api/state")[1]["validate"]["form"]["transect_end_lon"] == "-20"
+
+    def test_a_transect_is_not_asked_for_without_gridded_matchups(
+        self, app, tmp_path, runs
+    ):
+        self.report_step(app, tmp_path, runs, ["ices"])
+        assert get_json(app, "/api/state")[1]["report"]["gridded"] is False
+
+        # the page does not send one, but if it did, there is nothing to draw it for
+        assert post(app, "/api/report", {"form": TRANSECT_FORM})[0] == 200
+        assert "transect=" not in open(tmp_path / "matchup.py").read()
+        assert '"transect"' not in runs[-1][0][1]
+
+    def test_the_users_own_gridded_data_is_gridded(self, app):
+        assert app._report_gridded() is None
+        app._script_writer = (None, ({}, []))
+        assert app._report_gridded() is False
+        app.own_data["gridded"].append({"name": "mine"})
+        assert app._report_gridded() is True
 
     def test_the_recipes_step_always_asks_and_needs_a_thickness(self, app, tmp_path, runs):
         write_simulation(tmp_path / "sim")
@@ -1535,7 +1754,8 @@ class TestServer:
         assert state["view"] == "report_options"
         # matchup still waits for the answer, so nothing is matched up yet
         assert state["question"]["id"] == number
-        assert state["report"] == {"given": False, "dir": str(tmp_path)}
+        # whether the matchups are gridded is only known from the recipes window's choices
+        assert state["report"] == {"given": False, "dir": str(tmp_path), "gridded": None}
         time.sleep(0.5)
         assert "answer:" not in app.console.since(0, None)["text"]
         assert post(app, "/api/answer", {"id": number, "answer": "y"})[0] == 409
@@ -2114,6 +2334,163 @@ def test_the_report_options_in_a_browser(browser, tmp_path, monkeypatch):
             "pdf": True,
             "concise": False,
         }
+    finally:
+        app.close()
+
+
+def report_options_app(tmp_path, monkeypatch, gridded=None):
+    """An app held at the report options step of a matchup and validate run,
+    with the validate runs it starts recorded. gridded is what the recipes
+    window chose, if it is to be known."""
+    script = tmp_path / "matchup.py"
+    script.write_text(
+        textwrap.dedent(
+            f"""
+            from oceanval import prompts
+            question = "Are you happy with these matchups? (y/n) "
+            print("answer:", prompts.ask(question, ("y", "n"), details={MATCHUPS!r}))
+            print("matching up")
+            """
+        )
+    )
+    app = App(cwd=str(tmp_path))
+    app.action = "matchup_validate"
+    if gridded is not None:
+        # the recipes window's choices: a gridded one, or none
+        selection = [("temperature", "cobe2")] if gridded else []
+        app._script_writer = (lambda *choices, **options: None, ({"temperature": "thetao"}, selection))
+    validated = []
+    start_run = app.start_run
+    monkeypatch.setattr(
+        app,
+        "start_run",
+        lambda args, label: validated.append(args) if args[0] == "validate" else start_run(args, label),
+    )
+    app.start_run(["matchup", str(script)], f"python {script}")
+    return app, validated
+
+
+def go_to_report_options(page, url):
+    page.goto(url)
+    page.wait_for_selector("#review:not([hidden])")
+    page.click("#review-actions button:has-text('Yes')")
+    page.wait_for_selector("#view-validate:not([hidden])")
+
+
+@needs_to_transect
+def test_a_transect_in_a_browser(browser, tmp_path, monkeypatch):
+    """The report options ask whether to validate along a transect, which must
+    run north-south or east-west, and the report cannot be asked for until it
+    does."""
+    red_bold = ["rgb(192, 57, 43)", "700"]
+    app, validated = report_options_app(tmp_path, monkeypatch, gridded=True)
+    url = app.start()
+    try:
+        page = browser.new_page()
+        posts = []
+        page.on("request", lambda request: posts.append(request.url) if request.method == "POST" else None)
+        go_to_report_options(page, url)
+
+        # asked in a group of its own, before the other options, and not ticked
+        assert page.is_visible("#v-group-transect")
+        assert page.text_content("#v-group-transect legend") == "Transect"
+        assert page.locator("#v-transect").evaluate("node => node.closest('label').textContent") == (
+            "Do you want to validate against gridded datasets along a transect?"
+        )
+        assert not page.is_checked("#v-transect")
+        assert page.is_hidden("#row-transect")
+        assert page.is_enabled("#build")
+
+        # ticked, it says what a transect has to be, and asks for both ends
+        page.check("#v-transect")
+        assert page.is_visible("#row-transect")
+        rule = page.text_content(".transect-rule")
+        assert "north–south" in rule and "east–west" in rule
+        assert "same longitude" in rule and "same latitude" in rule
+        assert page.locator("#row-transect .span-row__label").all_text_contents() == ["Start", "End"]
+        # empty, so the report cannot be asked for yet
+        assert page.is_disabled("#build")
+        assert page.get_attribute("#build", "title") == "Fill in both ends of the transect, or untick it"
+
+        # a diagonal line is refused, in red and bold, and every box is marked
+        for name, value in [("start_lon", "-30"), ("start_lat", "0"), ("end_lon", "-20"), ("end_lat", "65")]:
+            page.fill(f"#v-transect_{name}", value)
+        problem = page.locator("#vm-transect .group__line")
+        assert problem.text_content() == (
+            "The transect must run north–south or east–west: give both ends the same "
+            "longitude, or the same latitude."
+        )
+        assert problem.evaluate("node => [getComputedStyle(node).color, getComputedStyle(node).fontWeight]") == red_bold
+        for name in ("start_lon", "start_lat", "end_lon", "end_lat"):
+            assert "is-invalid" in page.get_attribute(f"#v-transect_{name}", "class")
+        assert page.is_disabled("#build")
+        assert page.get_attribute("#build", "title") == "Fix what is marked in red first"
+        # Enter in a box does not get past the disabled button
+        page.press("#v-transect_end_lat", "Enter")
+        page.wait_for_timeout(300)
+        assert not [url for url in posts if url.split("?")[0].endswith("api/report")]
+        assert app.report_arguments is None
+
+        # north-south: the same longitude at both ends
+        page.fill("#v-transect_end_lon", "-30")
+        assert page.text_content("#vm-transect") == "North–south along 30°W, from 0° to 65°N."
+        assert "is-ok" in page.get_attribute("#vm-transect .group__line", "class")
+        assert page.locator("#v-transect_end_lon").evaluate("node => node.classList.contains('is-invalid')") is False
+        assert page.is_enabled("#build")
+        assert page.get_attribute("#build", "title") in ("", None)
+
+        # east-west: the same latitude at both ends
+        for name, value in [("start_lon", "-10"), ("start_lat", "55"), ("end_lon", "8"), ("end_lat", "55")]:
+            page.fill(f"#v-transect_{name}", value)
+        assert page.text_content("#vm-transect") == "East–west along 55°N, from 10°W to 8°E."
+        assert page.is_enabled("#build")
+
+        # the other things that cannot be used
+        page.fill("#v-transect_end_lat", "95")
+        assert "Latitude must be between -90 and 90." in page.text_content("#vm-transect")
+        assert page.is_disabled("#build")
+        page.fill("#v-transect_end_lat", "north")
+        assert "Coordinates must be numbers." in page.text_content("#vm-transect")
+        page.fill("#v-transect_end_lat", "55")
+        page.fill("#v-transect_end_lon", "-10")
+        assert "The two ends are the same point." in page.text_content("#vm-transect")
+        assert page.is_disabled("#build")
+        page.fill("#v-transect_end_lon", "")
+        assert "Fill in the longitude and latitude of both ends." in page.text_content("#vm-transect")
+        assert page.is_disabled("#build")
+
+        # unticked, whatever is in its boxes no longer matters
+        page.uncheck("#v-transect")
+        assert page.is_hidden("#row-transect")
+        assert page.text_content("#vm-transect") == ""
+        assert page.is_enabled("#build")
+
+        # a transect that can be used is sent with the rest of the options
+        page.check("#v-transect")
+        page.fill("#v-transect_end_lon", "8")
+        assert page.is_enabled("#build")
+        page.click("#build")
+        wait_for(lambda: validated)
+        assert json.loads(validated[0][1]) == {
+            "data_dir": str(tmp_path),
+            "out_dir": str(tmp_path),
+            "transect": {"start": [-10, 55], "end": [8, 55]},
+        }
+    finally:
+        app.close()
+
+
+def test_a_transect_is_not_asked_for_without_gridded_matchups_in_a_browser(
+    browser, tmp_path, monkeypatch
+):
+    app, _ = report_options_app(tmp_path, monkeypatch, gridded=False)
+    url = app.start()
+    try:
+        page = browser.new_page()
+        go_to_report_options(page, url)
+
+        assert page.is_hidden("#v-group-transect")
+        assert page.is_enabled("#build")
     finally:
         app.close()
 

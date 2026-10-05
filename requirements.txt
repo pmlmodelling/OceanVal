@@ -8,7 +8,7 @@ dill
 python-dateutil
 matplotlib
 jupytext
-nctoolkit>=1.1.1
+nctoolkit>=1.3.6
 geopandas
 holoviews
 jupyter-book

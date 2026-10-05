@@ -48,7 +48,7 @@ import urllib.parse
 import oceanval
 from oceanval import leftovers, live, prompts, recipes_gui
 from oceanval.app_child import ANSWER_MARKER, QUESTION_MARKER
-from oceanval import own_data, units
+from oceanval import own_data, transects, units
 from oceanval.create_recipes import (
     DOMAIN_REGIONS,
     RECIPE_VARIABLES,
@@ -104,7 +104,29 @@ def default_validate_form():
         "word": False,
         "zip": False,
         "concise": True,
+        "transect": False,
+        "transect_start_lon": "",
+        "transect_start_lat": "",
+        "transect_end_lon": "",
+        "transect_end_lat": "",
     }
+
+
+# the boxes of the transect's two ends, in validate()'s order: [lon, lat] of
+# the start, then of the end
+TRANSECT_BOXES = (
+    "transect_start_lon",
+    "transect_start_lat",
+    "transect_end_lon",
+    "transect_end_lat",
+)
+
+# why the transect boxes cannot be used, as the page says it too
+TRANSECT_EMPTY = "Fill in the longitude and latitude of both ends."
+TRANSECT_RULE = (
+    "The transect must run north–south or east–west: give both ends the same "
+    "longitude, or the same latitude."
+)
 
 
 def _path(text, cwd):
@@ -212,6 +234,11 @@ def check_validate(form, cwd):
     report, report_errors = check_report(form, cwd)
     arguments.update(report)
     errors.update(report_errors)
+    # the matchups are there to look at, unlike when they are still to be made
+    if "transect" in report and not glob.glob(
+        os.path.join(glob.escape(arguments["data_dir"]), "oceanval_matchups", "gridded", "*", "*.nc")
+    ):
+        errors["transect"] = "There are no gridded matchups here to validate along a transect."
     return arguments, errors
 
 
@@ -243,6 +270,9 @@ def check_report(form, cwd):
             errors["subregions_file"] = str(error)
     if subregions is not None:
         arguments["subregions"] = subregions
+    transect = check_transect_boxes(form, errors)
+    if transect is not None:
+        arguments["transect"] = transect
     for name in ("fixed_scale", "pdf", "word", "zip"):
         if form[name]:
             arguments[name] = True
@@ -250,6 +280,50 @@ def check_report(form, cwd):
     if not form["concise"]:
         arguments["concise"] = False
     return arguments, errors
+
+
+def check_transect_boxes(form, errors):
+    """validate()'s transect, from the report options step's boxes, if the
+    transect is ticked. None if it is not, or if the boxes cannot be used, in
+    which case errors says why, box by box, as the page does while they are
+    typed in."""
+    if not form["transect"]:
+        return None
+    given = [name for name in TRANSECT_BOXES if form[name]]
+    values = {}
+    for name in given:
+        values[name] = recipes_gui._number(form[name])
+        if values[name] is None:
+            errors[name] = "Coordinates must be numbers."
+    for name in TRANSECT_BOXES:
+        if name not in given:
+            errors[name] = TRANSECT_EMPTY
+    if any(name in errors for name in TRANSECT_BOXES):
+        return None
+    for name in TRANSECT_BOXES:
+        label, low, high = (
+            ("Longitude", -180, 360) if name.endswith("_lon") else ("Latitude", -90, 90)
+        )
+        if not low <= values[name] <= high:
+            errors[name] = f"{label} must be between {low} and {high}."
+    if any(name in errors for name in TRANSECT_BOXES):
+        return None
+    lon0, lat0, lon1, lat1 = (values[name] for name in TRANSECT_BOXES)
+    if lon0 == lon1 and lat0 == lat1:
+        errors["transect_end_lon"] = errors["transect_end_lat"] = (
+            "The two ends are the same point."
+        )
+        return None
+    if lon0 != lon1 and lat0 != lat1:
+        for name in TRANSECT_BOXES:
+            errors[name] = TRANSECT_RULE
+        return None
+    try:
+        return transects.check_transect({"start": [lon0, lat0], "end": [lon1, lat1]})
+    except ValueError as error:
+        # an nctoolkit too old to extract it
+        errors["transect"] = str(error)
+        return None
 
 
 def _validate_call(arguments, cwd):
@@ -647,6 +721,7 @@ class App:
                 "report": {
                     "given": self.report_arguments is not None,
                     "dir": self.results_dir or self.out_dir,
+                    "gridded": self._report_gridded(),
                 },
                 "own": {
                     "entries": self.own_data,
@@ -1165,6 +1240,20 @@ class App:
             and self.report_arguments is None
         )
 
+    def _report_gridded(self):
+        """Whether the run's matchups include gridded ones, which a transect
+        is for: from the recipes chosen and the user's own gridded data. None
+        if that is not known here, as when validating matchups made before."""
+        if self._script_writer is None:
+            return None
+        mapping, selection = self._script_writer[1][:2]
+        if any(
+            variable in mapping and units._recipe_entry(variable, recipe) is not None
+            for variable, recipe in selection
+        ):
+            return True
+        return bool(self.own_data["gridded"])
+
     def report(self, form):
         """Take the report options of a matchup and validate run, from the
         boxes of the step after the matchups are checked. They are written
@@ -1176,6 +1265,9 @@ class App:
                 return 409, {"ok": False, "error": "This step is over."}
             self.validate_form = _form(form, default_validate_form())
             form = dict(self.validate_form)
+        # a transect is only asked for with gridded matchups
+        if self._report_gridded() is False:
+            form["transect"] = False
         # outside the lock: reading a regions file can take a moment
         report, errors = check_report(form, self.cwd)
         if errors:

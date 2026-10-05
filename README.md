@@ -63,8 +63,11 @@ that takes you through these steps:
 7. **Report** (to match up and validate): "One last thing... How would you
    like your validation report?" The report's options, asked for before
    anything is matched up: a subregion to validate, regional summaries,
-   fixed colour scales, PDF and Word versions, a zipped copy, and a concise
-   or detailed report. The report is built beside the matchups, in the
+   a transect to validate the gridded datasets along (a start and an end
+   longitude and latitude, which must run north-south or east-west, and the
+   page does not let you carry on otherwise), fixed colour scales, PDF and
+   Word versions, a zipped copy, and a concise or detailed report. The
+   report is built beside the matchups, in the
    directory chosen in step 2. **Back** shows the matchups again. The options
    are written into the matchup script's `validate()` call.
 8. **Run**: matchup, then, to validate as well, `validate()` with the

@@ -263,8 +263,19 @@ The following options are available:
 - `lat_lim`: The latitude limits for the validation region (e.g. [-90, 90]).
 - `region`: A string specifying the region being validated. Only "global" and "nwes" (northwest European Shelf are currently available).
 - `concise`: A boolean indicating whether to generate a concise HTML summary page. This defaults to True.
+- `transect`: A transect to validate the gridded matchups along, as a dict of its start and end, each `[lon, lat]`, e.g. `{"start": [-30, 0], "end": [-30, 65]}`. It must run north-south (the same longitude at both ends) or east-west (the same latitude at both ends). See below.
 
 This will then generate and open an html page that can be viewed in a web browser.
+
+**Validating along a transect**
+
+To see how well the model reproduces the observations along a line, give `validate` a transect. It must run north-south, with the same longitude at both ends, or east-west, with the same latitude at both ends:
+
+.. code:: ipython3
+
+    oceanval.validate(transect={"start": [-30, 0], "end": [-30, 65]})
+
+Each gridded matchup's page then has a section with a map of the transect over the land; the monthly climatology of the surface model and observations along it, and their difference, by latitude (or longitude) and month; and, if the matchup was made through the water column (`vertical=True`), a section of the annual mean, with depth down and latitude (or longitude) across. The matchup's depths can be unevenly spaced, so they are first interpolated onto 30 evenly spaced depths between the shallowest and the deepest. The values are extracted with nctoolkit's `to_transect`, so this needs nctoolkit 1.3.6 or later. The `oceanval` command asks for the transect on its last page, and does not let you carry on until it is a straight north-south or east-west line.
 
 **Looking at the results while the matchups run**
 
@@ -280,7 +291,7 @@ Matching up a long simulation can take hours. With jupyter-book 2 or later, `oce
     )
     oceanval.validate(lon_lim=[-20, 10], lat_lim=[40, 65], pdf=True)
 
-Each matchup's page is added to the interim report as soon as the matchup is made, and the summary is run again each time. `live_validation` takes `True`, for `validate`'s defaults, or a dict of `validate`'s report options: `out_dir`, `lon_lim`, `lat_lim`, `subregions`, `fixed_scale` and `concise`. The interim report is HTML only, so PDF, Word and zip versions are left to `validate`. It is built in `oceanval_interim_report`, in `out_dir`: open `oceanval_interim_report/oceanval_report/_build/html/notebooks/summary.html`, and reload it to see the latest. Each page says how many of the matchups it has. `matchup` waits for the interim report to be finished before it returns, and the full report is then built by `validate`, as usual. The `oceanval` command does all of this for you.
+Each matchup's page is added to the interim report as soon as the matchup is made, and the summary is run again each time. `live_validation` takes `True`, for `validate`'s defaults, or a dict of `validate`'s report options: `out_dir`, `lon_lim`, `lat_lim`, `subregions`, `fixed_scale`, `concise` and `transect`. The interim report is HTML only, so PDF, Word and zip versions are left to `validate`. It is built in `oceanval_interim_report`, in `out_dir`: open `oceanval_interim_report/oceanval_report/_build/html/notebooks/summary.html`, and reload it to see the latest. Each page says how many of the matchups it has. `matchup` waits for the interim report to be finished before it returns, and the full report is then built by `validate`, as usual. The `oceanval` command does all of this for you.
 
 Using built-in observation recipes
 ----------------------------------

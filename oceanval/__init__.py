@@ -16,6 +16,7 @@ from oceanval.create_recipes import create_recipes
 import dill
 
 from oceanval import prompts
+from oceanval import transects
 from oceanval.session import session_info
 from oceanval.utils import restrict_r_to_conda
 restrict_r_to_conda()
@@ -1292,10 +1293,12 @@ def _gridded_seasonal(data_dir, variable, source):
 
 
 def _gridded_notebook_text(
-    source, variable, title, seasonal, data_dir, subregions, region_file, n_regions
+    source, variable, title, seasonal, data_dir, subregions, region_file, n_regions,
+    transect=None,
 ):
     """gridded_template.ipynb, filled in for the matchup of variable with the
-    gridded observations of source."""
+    gridded observations of source, with the transect section if there is a
+    transect."""
     file1 = importlib.resources.files(__name__).joinpath("data/gridded_template.ipynb")
     with open(file1, "r") as file:
         filedata = file.read()
@@ -1318,6 +1321,8 @@ def _gridded_notebook_text(
     filedata = filedata.replace("source_title", source_capital)
     if seasonal is False:
         filedata = filedata.replace("chunk_seasonal", "")
+    if transect is None:
+        filedata = filedata.replace("chunk_transect", "")
     if region_file is not None:
         filedata = filedata.replace("sub_regions_value", "custom")
     elif subregions is not None:
@@ -1325,7 +1330,9 @@ def _gridded_notebook_text(
     return filedata
 
 
-def _rewrite_notebook_source(path, lon_lim, lat_lim, fixed_scale, concise, test):
+def _rewrite_notebook_source(
+    path, lon_lim, lat_lim, fixed_scale, concise, test, transect=None
+):
     """Fill in the report options in a notebook's paired .py:percent file,
     and silence R's warnings in each R cell."""
     with open(path, "r") as file:
@@ -1353,6 +1360,7 @@ def _rewrite_notebook_source(path, lon_lim, lat_lim, fixed_scale, concise, test)
 
         new_lines[i] = new_lines[i].replace("the_lon_lim", str(lon_lim))
         new_lines[i] = new_lines[i].replace("the_lat_lim", str(lat_lim))
+        new_lines[i] = new_lines[i].replace("the_transect", repr(transect))
         new_lines[i] = new_lines[i].replace("fixed_scale_value", str(fixed_scale))
         # replace concice_value with concice
         if "concise_value" in new_lines[i]:
@@ -1416,7 +1424,8 @@ def validate(
     word=False,
     zip=False,
     test=False,
-    region=None
+    region=None,
+    transect=None,
 ):
     # docstring
     """
@@ -1442,6 +1451,8 @@ def validate(
         Default is False. Ignore, unless you are testing oceanval.
     region : str or None
         Deprecated, use subregions instead.
+    transect : dict or None
+        A transect to validate the gridded matchups along, as a dict of its start and end, each [lon, lat], e.g. {"start": [-30, 0], "end": [-30, 65]}. It must run north-south (the same longitude at both ends) or east-west (the same latitude at both ends). Each gridded matchup's page then maps it, shows the monthly climatology of the surface values along it, and, for matchups made through the water column (vertical=True), a section of the annual mean along it, interpolated onto 30 evenly spaced depths. Requires nctoolkit 1.3.6 or later. Default is None.
 
     Returns
     -------
@@ -1451,6 +1462,7 @@ def validate(
     subregions, region_file, n_regions = _check_report_options(
         lon_lim, lat_lim, concise, fixed_scale, subregions, region
     )
+    transect = transects.check_transect(transect)
     # convert data_dir to absolute path
     data_dir = os.path.expanduser(data_dir)
     data_dir = os.path.abspath(data_dir)
@@ -1648,6 +1660,7 @@ def validate(
                                 subregions,
                                 region_file,
                                 n_regions,
+                                transect=transect,
                             )
 
                             # Write the file out again
@@ -1731,7 +1744,9 @@ def validate(
 
         # loop through the notebooks and set r warnings options
         for ff in glob.glob(f"{book_dir}/notebooks/*.py"):
-            _rewrite_notebook_source(ff, lon_lim, lat_lim, fixed_scale, concise, test)
+            _rewrite_notebook_source(
+                ff, lon_lim, lat_lim, fixed_scale, concise, test, transect=transect
+            )
 
         # sync the notebooks
         #

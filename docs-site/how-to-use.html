@@ -313,9 +313,24 @@ oceanval.<a href="api.html#add_gridded_comparison"><span class="tok-fn">add_grid
         <li><code class="param-name">pdf</code><p>Whether to also generate PDF downloads of the report (a per-page PDF and a combined PDF of the whole report). Defaults to <code>False</code>, since generating them is slow and most users only need the HTML report.</p></li>
         <li><code class="param-name">word</code><p>Whether to also generate Word versions of the report &mdash; one per page, plus a combined <code>oceanval_report.docx</code> &mdash; with figures, tables and editable Word equations. Defaults to <code>False</code>. Requires <a href="https://pandoc.org/" target="_blank" rel="noopener">pandoc</a>.</p></li>
         <li><code class="param-name">zip</code><p>Whether to also bundle the report into a zip archive (<code>oceanval_report.zip</code>) in the output directory, containing just the files needed to view the complete report — the HTML pages, plus the PDFs and Word file if those were generated. Defaults to <code>False</code>.</p></li>
+        <li><code class="param-name">transect</code><p>A transect to validate the gridded matchups along, as a dict of its <code>start</code> and <code>end</code>, each <code>[lon, lat]</code>. See <a href="#transects">Validating along a transect</a> below.</p></li>
       </ul>
     </details>
     <p>This generates and opens an HTML page you can view in a web browser.</p>
+
+    <h3 id="transects">Validating along a transect</h3>
+    <p>To see how well the model reproduces the observations along a line, give <code>validate</code> a transect. It must run <strong>north&ndash;south</strong>, with the same longitude at both ends, or <strong>east&ndash;west</strong>, with the same latitude at both ends:</p>
+    <div class="code-block">
+      <div class="code-card__bar"><div class="code-card__dots"><span></span><span></span><span></span></div><span class="code-card__label">python</span></div>
+      <pre>oceanval.<a href="api.html#validate"><span class="tok-fn">validate</span></a>(transect={<span class="tok-str">"start"</span>: [<span class="tok-num">-30</span>, <span class="tok-num">0</span>], <span class="tok-str">"end"</span>: [<span class="tok-num">-30</span>, <span class="tok-num">65</span>]})</pre>
+    </div>
+    <p>Each gridded matchup&rsquo;s page then has a section with:</p>
+    <ul class="param-list">
+      <li><p>a map of the transect over the land;</p></li>
+      <li><p>the monthly climatology of the surface model and observations along the transect, and their difference, by latitude (or longitude) and month &mdash; or, if the matchup has a single time step, the values along the line;</p></li>
+      <li><p>if the matchup was made through the water column (<code>vertical=True</code>), a section of the annual mean, with depth down and latitude (or longitude) across. The matchup&rsquo;s depths can be unevenly spaced, so they are first interpolated onto 30 evenly spaced depths between the shallowest and the deepest.</p></li>
+    </ul>
+    <p>The values are extracted with nctoolkit&rsquo;s <code>to_transect</code>, bilinearly interpolated onto about one point per grid cell of the matchup, so it needs nctoolkit 1.3.6 or later. The model and observations share a viridis colour scale, and the difference is blue&ndash;white&ndash;red. In the <code>oceanval</code> window, the last page asks whether you want a transect, and does not let you carry on until it is a straight north&ndash;south or east&ndash;west line.</p>
 
     <h3 id="own-regions">Using your own regions</h3>
     <p>The report summarises model performance in each region: a map of the regions, the seasonal cycle of the spatial average, and a table of bias, RMSD and correlations. Instead of the built-in <code>"global"</code> or <code>"nwes"</code> regions, you can supply your own netCDF file:</p>
@@ -358,7 +373,7 @@ oceanval.<a href="api.html#add_gridded_comparison"><span class="tok-fn">add_grid
 )
 oceanval.<a href="api.html#validate"><span class="tok-fn">validate</span></a>(lon_lim=[<span class="tok-num">-20</span>, <span class="tok-num">10</span>], lat_lim=[<span class="tok-num">40</span>, <span class="tok-num">65</span>], pdf=<span class="tok-kw">True</span>)</pre>
     </div>
-    <p>Each matchup&rsquo;s page is added to the interim report as soon as the matchup is made, and the summary is run again each time. <code>live_validation</code> takes <code>True</code>, for <code>validate</code>&rsquo;s defaults, or a dict of <code>validate</code>&rsquo;s report options: <code>out_dir</code>, <code>lon_lim</code>, <code>lat_lim</code>, <code>subregions</code>, <code>fixed_scale</code> and <code>concise</code>. The interim report is HTML only, so PDF, Word and zip versions are left to <code>validate</code>.</p>
+    <p>Each matchup&rsquo;s page is added to the interim report as soon as the matchup is made, and the summary is run again each time. <code>live_validation</code> takes <code>True</code>, for <code>validate</code>&rsquo;s defaults, or a dict of <code>validate</code>&rsquo;s report options: <code>out_dir</code>, <code>lon_lim</code>, <code>lat_lim</code>, <code>subregions</code>, <code>fixed_scale</code>, <code>concise</code> and <code>transect</code>. The interim report is HTML only, so PDF, Word and zip versions are left to <code>validate</code>.</p>
     <p>It is built in <code>oceanval_interim_report</code>, in <code>out_dir</code>: open <code>oceanval_interim_report/oceanval_report/_build/html/notebooks/summary.html</code>, and reload it to see the latest. Each page says how many of the matchups it has so far. <code>matchup</code> waits for the interim report to be finished before it returns, and the full report is then built by <code>validate</code>, as usual. The <a href="browser.html"><code>oceanval</code> command</a> does all of this for you.</p>
 
     <hr class="divider">

@@ -431,6 +431,12 @@
   /* the units always have to be confirmed, after the tables */
   .units-confirm { padding: 16px 20px; }
   .form__stack { display: grid; gap: 26px; max-width: 560px; }
+  /* the one rule a transect has to follow, so that it is not missed */
+  .transect-rule { margin: 10px 0 12px; color: var(--ink-soft); }
+  .transect-rule strong { color: var(--ink); font-weight: 700; }
+  /* what each box of a transect's ends is, which stays when they are filled in */
+  .transect-head { flex: 1 1 0; min-width: 0; color: var(--muted); font-size: 12px; font-weight: 600; }
+  .transect-heads + .g-row { margin-top: 4px; }
   .detail-row { display: flex; align-items: center; gap: 12px; }
   .detail-row .g-label { margin: 0; }
   .detail-row .s-select { width: auto; }
@@ -616,6 +622,29 @@
           </label>
           <label class="g-row" id="row-subregions_file" hidden><span class="g-label">Path to the file</span><input class="s-input is-mono" id="v-subregions_file" placeholder="/path/to/regions.nc" spellcheck="false" autocapitalize="off"></label>
           <p class="group__msg" id="vm-subregions"></p>
+        </fieldset>
+        <fieldset class="group" id="v-group-transect">
+          <legend>Transect</legend>
+          <div class="g-row"><label class="tick-label"><input type="checkbox" class="tick" id="v-transect">Do you want to validate against gridded datasets along a transect?</label></div>
+          <div id="row-transect" hidden>
+            <p class="group__intro transect-rule">The transect must run <strong>north–south</strong>, with the same longitude at both ends, or <strong>east–west</strong>, with the same latitude at both ends.</p>
+            <div class="g-row span-row transect-heads" aria-hidden="true">
+              <span class="span-row__label"></span>
+              <span class="transect-head">Longitude (°E)</span>
+              <span class="transect-head">Latitude (°N)</span>
+            </div>
+            <div class="g-row span-row">
+              <span class="span-row__label">Start</span>
+              <input class="s-input is-num" id="v-transect_start_lon" placeholder="e.g. -30" aria-label="Longitude of the start" spellcheck="false">
+              <input class="s-input is-num" id="v-transect_start_lat" placeholder="e.g. 0" aria-label="Latitude of the start" spellcheck="false">
+            </div>
+            <div class="g-row span-row">
+              <span class="span-row__label">End</span>
+              <input class="s-input is-num" id="v-transect_end_lon" placeholder="e.g. -30" aria-label="Longitude of the end" spellcheck="false">
+              <input class="s-input is-num" id="v-transect_end_lat" placeholder="e.g. 65" aria-label="Latitude of the end" spellcheck="false">
+            </div>
+          </div>
+          <p class="group__msg" id="vm-transect"></p>
         </fieldset>
       </div>
       <fieldset class="group form__wide">
@@ -982,6 +1011,8 @@
     $("actions").replaceChildren(...actions);
     $("bar").hidden = actions.length === 0;
     if (view === "setup") refreshSetup();
+    // the new button is held back as the transect says
+    if (view === "validate" || view === "report_options") refreshValidate();
   }
 
   // ---- the views ----
@@ -1399,16 +1430,85 @@
   }
 
   // ---- 2: the report options ----
-  const VALIDATE_TEXT = ["data_dir", "out_dir", "lon_min", "lon_max", "lat_min", "lat_max", "subregions", "subregions_file"];
-  const VALIDATE_TICKS = ["fixed_scale", "pdf", "word", "zip"];
+  // the transect's start and end, each longitude then latitude
+  const TRANSECT_BOXES = ["transect_start_lon", "transect_start_lat", "transect_end_lon", "transect_end_lat"];
+  const VALIDATE_TEXT = ["data_dir", "out_dir", "lon_min", "lon_max", "lat_min", "lat_max", "subregions", "subregions_file",
+    ...TRANSECT_BOXES];
+  const VALIDATE_TICKS = ["fixed_scale", "pdf", "word", "zip", "transect"];
   const VALIDATE_GROUPS = {
     "vm-data_dir": ["data_dir"],
     "vm-out_dir": ["out_dir"],
     "vm-subset": ["lon_min", "lon_max", "lat_min", "lat_max"],
     "vm-subregions": ["subregions", "subregions_file"],
+    "vm-transect": ["transect", ...TRANSECT_BOXES],
   };
   const validateForm = {};
   let validateErrors = {};
+  // while the report options are being sent, so the button stays disabled
+  let validateBusy = false;
+
+  // the same rules the server applies to the transect (app.check_transect_boxes)
+  const TRANSECT_EMPTY = "Fill in the longitude and latitude of both ends.";
+  const TRANSECT_RULE = "The transect must run north–south or east–west: give both ends the same longitude, or the same latitude.";
+  function toNumber(text) {
+    const trimmed = String(text).trim();
+    if (trimmed === "") return null;
+    const value = Number(trimmed);
+    return Number.isFinite(value) ? value : NaN;
+  }
+  // a latitude or longitude as the report writes it, as oceanval/transects.py does
+  const degrees = (value) => Math.abs(value).toFixed(2).replace(/\.?0+$/, "");
+  function formatLat(lat) {
+    const text = degrees(lat);
+    return text === "0" ? "0°" : `${text}°${lat > 0 ? "N" : "S"}`;
+  }
+  function formatLon(lon) {
+    lon = ((lon + 180) % 360 + 360) % 360 - 180;
+    const text = degrees(lon);
+    return text === "0" || text === "180" ? `${text}°` : `${text}°${lon > 0 ? "E" : "W"}`;
+  }
+
+  // what is wrong with the transect, box by box; what it is, once it can be
+  // used; and whether it keeps the report from being built ("empty" or
+  // "invalid"). Nothing, if no transect is asked for
+  function transectCheck() {
+    const result = { errors: {}, ok: null, block: null };
+    if (!validateForm.transect || $("v-group-transect").hidden) return result;
+    const text = (name) => String(validateForm[name] ?? "").trim();
+    const given = TRANSECT_BOXES.filter((name) => text(name));
+    if (!given.length) {
+      result.block = "empty";
+      return result;
+    }
+    const values = {};
+    for (const name of given) {
+      values[name] = toNumber(text(name));
+      if (Number.isNaN(values[name])) result.errors[name] = "Coordinates must be numbers.";
+    }
+    for (const name of TRANSECT_BOXES) {
+      if (!given.includes(name)) result.errors[name] = TRANSECT_EMPTY;
+    }
+    if (!Object.keys(result.errors).length) {
+      for (const name of TRANSECT_BOXES) {
+        const [label, low, high] = name.endsWith("_lon") ? ["Longitude", -180, 360] : ["Latitude", -90, 90];
+        if (values[name] < low || values[name] > high) result.errors[name] = `${label} must be between ${low} and ${high}.`;
+      }
+    }
+    if (!Object.keys(result.errors).length) {
+      const [lon0, lat0, lon1, lat1] = TRANSECT_BOXES.map((name) => values[name]);
+      if (lon0 === lon1 && lat0 === lat1) {
+        result.errors.transect_end_lon = result.errors.transect_end_lat = "The two ends are the same point.";
+      } else if (lon0 !== lon1 && lat0 !== lat1) {
+        for (const name of TRANSECT_BOXES) result.errors[name] = TRANSECT_RULE;
+      } else if (lon0 === lon1) {
+        result.ok = `North–south along ${formatLon(lon0)}, from ${formatLat(lat0)} to ${formatLat(lat1)}.`;
+      } else {
+        result.ok = `East–west along ${formatLat(lat0)}, from ${formatLon(lon0)} to ${formatLon(lon1)}.`;
+      }
+    }
+    if (Object.keys(result.errors).length) result.block = "invalid";
+    return result;
+  }
 
   function fillValidate() {
     Object.assign(validateForm, state.validate.form);
@@ -1432,39 +1532,72 @@
     refreshValidate();
   }
 
+  // the server's view of the transect is out of date once any part of it changes
+  function clearTransectErrors() {
+    for (const name of VALIDATE_GROUPS["vm-transect"]) delete validateErrors[name];
+  }
+
   for (const name of VALIDATE_TEXT) {
     $(`v-${name}`).addEventListener(name === "subregions" ? "change" : "input", (event) => {
       validateForm[name] = event.target.value;
       delete validateErrors[name];
+      if (TRANSECT_BOXES.includes(name)) clearTransectErrors();
       refreshValidate();
     });
   }
   for (const name of VALIDATE_TICKS) {
-    $(`v-${name}`).addEventListener("change", (event) => { validateForm[name] = event.target.checked; });
+    $(`v-${name}`).addEventListener("change", (event) => {
+      validateForm[name] = event.target.checked;
+      if (name === "transect") {
+        clearTransectErrors();
+        refreshValidate();
+      }
+    });
   }
   $("v-concise").addEventListener("change", (event) => { validateForm.concise = event.target.value === "true"; });
   $("validate-form").addEventListener("submit", (event) => { event.preventDefault(); submitValidate(); });
 
   function refreshValidate() {
     $("row-subregions_file").hidden = validateForm.subregions !== "file";
+    // a transect is for gridded matchups, so it is not asked about when there are none
+    const gridded = !(state.report && state.report.gridded === false);
+    $("v-group-transect").hidden = !gridded;
+    if (!gridded) validateForm.transect = $("v-transect").checked = false;
+    $("row-transect").hidden = !validateForm.transect;
+    const transect = transectCheck();
     const hints = {
       "vm-data_dir": "Where oceanval_matchups is: the directory matchup was run in, or its out_dir.",
     };
     for (const [id, names] of Object.entries(VALIDATE_GROUPS)) {
-      const problems = [...new Set(names.filter((name) => validateErrors[name]).map((name) => validateErrors[name]))];
-      for (const name of names) $(`v-${name}`).classList.toggle("is-invalid", Boolean(validateErrors[name]));
+      // the transect is checked as it is typed, as well as by the server
+      const errors = id !== "vm-transect" ? validateErrors
+        : validateForm.transect ? { ...transect.errors, ...validateErrors } : {};
+      const problems = [...new Set(names.filter((name) => errors[name]).map((name) => errors[name]))];
+      for (const name of names) $(`v-${name}`).classList.toggle("is-invalid", Boolean(errors[name]));
       if (problems.length) message(id, problems.map((text) => line(text, "error")), true);
+      else if (id === "vm-transect" && transect.ok) message(id, [line(transect.ok, "ok")]);
+      else if (id === "vm-transect" && transect.block === "empty") message(id, [line(TRANSECT_EMPTY)]);
       else message(id, hints[id] ? [line(hints[id])] : []);
+    }
+    // the report is not built along a transect that cannot be used
+    const build = $("build");
+    if (build) {
+      build.disabled = validateBusy || transect.block !== null;
+      build.title = transect.block === "empty" ? "Fill in both ends of the transect, or untick it"
+        : transect.block ? "Fix what is marked in red first" : "";
     }
   }
 
   async function submitValidate() {
-    const build = $("build");
-    if (build) build.disabled = true;
+    // Enter in a box sends the form too, past the disabled button
+    if (validateBusy || transectCheck().block !== null) return;
+    validateBusy = true;
+    refreshValidate();
     // the report options of a matchup and validate run, or the report from matchups made earlier
     const path = state.view === "report_options" ? "api/report" : "api/validate";
     const reply = await post(path, { form: validateForm });
-    if (build) build.disabled = false;
+    validateBusy = false;
+    refreshValidate();
     if (!reply.ok) {
       validateErrors = reply.errors || {};
       if (reply.error) toast(reply.error);

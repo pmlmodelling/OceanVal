@@ -14,6 +14,10 @@ from oceanval.live import InterimReport, LiveValidation, check_options
 # as it is, before jupyter_book_2 stands in for it
 _available = live.available
 
+needs_to_transect = pytest.mark.skipif(
+    not oceanval.transects.available(), reason="needs nctoolkit 1.3.6 or later"
+)
+
 
 @pytest.fixture(autouse=True)
 def jupyter_book_2(monkeypatch):
@@ -54,6 +58,7 @@ class TestOptions:
             "subregions": None,
             "region_file": None,
             "n_regions": None,
+            "transect": None,
         }
 
     def test_validates_report_options(self, tmp_path):
@@ -74,6 +79,32 @@ class TestOptions:
         assert options["subregions"] == "nwes"
         assert (options["fixed_scale"], options["concise"]) == (True, False)
         assert options["out_dir"] == str(tmp_path / "report")
+
+    @needs_to_transect
+    def test_a_transect_is_checked_and_kept(self):
+        options = check_options(
+            {"transect": {"start": (-30, 0), "end": [-30, 65.0]}}, "/run"
+        )
+
+        # as validate has it: lists of floats
+        assert options["transect"] == {"start": [-30.0, 0.0], "end": [-30.0, 65.0]}
+        assert all(isinstance(x, float) for x in options["transect"]["start"])
+
+    @pytest.mark.parametrize(
+        "transect, error",
+        [
+            ({"start": [-30, 0], "end": [-20, 65]}, "must run north-south"),
+            ({"start": [-30, 0], "end": [-30, 0]}, "the same point"),
+            ({"start": [-30, 0]}, "two keys, start and end"),
+            ({"start": [-30, 0], "end": [-30]}, "end must be \\[lon, lat\\]"),
+            ({"start": [-30, 95], "end": [-30, 0]}, "latitude must be between -90 and 90"),
+        ],
+    )
+    def test_a_transect_that_cannot_be_used_is_refused(self, transect, error):
+        with pytest.raises(ValueError, match=error):
+            check_options({"transect": transect}, "/run")
+        with pytest.raises(TypeError, match="transect must be a dict"):
+            check_options({"transect": "30W"}, "/run")
 
     @pytest.mark.parametrize("name", ["pdf", "word", "zip"])
     def test_the_full_reports_other_forms_are_for_validate(self, name):

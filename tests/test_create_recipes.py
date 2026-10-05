@@ -1147,6 +1147,36 @@ class TestSettings:
         assert "live_validation" not in script
         assert "oceanval.validate(\n    concise=False,\n)" in script
 
+    def test_a_transect_is_written_into_validate_and_the_interim_report(self, monkeypatch):
+        # chosen in the oceanval window, with the report options
+        monkeypatch.setattr(live, "available", lambda: True)
+        report = {
+            "transect": {"start": [-30.0, 0.0], "end": [-30.0, 65.0]},
+            "pdf": True,
+        }
+        script = self.build(settings=settings(out_dir="/run"), report=report)
+        ast.parse(script)
+
+        assert (
+            'oceanval.validate(\n'
+            '    data_dir="/run",\n'
+            '    out_dir="/run",\n'
+            '    transect={"start": [-30, 0], "end": [-30, 65]},\n'
+            '    pdf=True,\n'
+            ')'
+        ) in script
+        # the interim report is HTML only, but draws the transect
+        assert (
+            '    live_validation={"transect": {"start": [-30, 0], "end": [-30, 65]}},\n'
+        ) in matchup_call(script)
+        # validate's argument is a literal (live_validation's is a dict key)
+        found = [
+            ast.literal_eval(node.value)
+            for node in ast.walk(ast.parse(script))
+            if isinstance(node, ast.keyword) and node.arg == "transect"
+        ]
+        assert found == [{"start": [-30, 0], "end": [-30, 65]}]
+
     def test_a_full_report_is_asked_for_with_concise_false(self):
         assert "concise" not in self.build(settings=settings()).split("oceanval.validate")[-1]
 
