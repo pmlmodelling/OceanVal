@@ -24,7 +24,9 @@ import xarray as xr
 
 import oceanval
 from oceanval import app_child, leftovers, live, prompts
-from oceanval.app import App, Console, Question, Run, check_report, check_setup, check_validate
+from oceanval.app import (
+    App, Console, Question, Run, check_compare, check_report, check_setup, check_validate,
+)
 from oceanval.app_child import ANSWER_MARKER, QUESTION_MARKER
 from oceanval.gridded import _ask_minutes, _ask_yes_no
 from simulations import write_fvcom, write_simulation
@@ -377,6 +379,15 @@ class TestChildProcess:
         app_child.main(["validate", json.dumps({"data_dir": "/matchups", "pdf": True})])
 
         assert called == [{"data_dir": "/matchups", "pdf": True}]
+
+    def test_compare_is_given_its_arguments(self, monkeypatch):
+        called = []
+        monkeypatch.setattr(oceanval, "compare", lambda **arguments: called.append(arguments))
+        monkeypatch.setattr(webbrowser, "open", webbrowser.open)
+        arguments = {"model_dict": {"control": "/a", "mixing": "/b"}, "out_dir": "/c"}
+        app_child.main(["compare", json.dumps(arguments)])
+
+        assert called == [arguments]
 
     def test_a_matchup_script_leaves_validate_to_the_window(self, tmp_path, monkeypatch, capsys):
         script = tmp_path / "matchup.py"
@@ -787,6 +798,85 @@ class TestTransectChecks:
         }
         # and nothing is said if no transect is asked for
         assert check_validate({}, str(tmp_path))[1] == {}
+
+
+def validations(directory, *names):
+    """Directories as validate() leaves them, with the results compare reads."""
+    for name in names:
+        (directory / name / "oceanval_results" / "annual_mean").mkdir(parents=True)
+        (directory / name / "oceanval_report" / "_build" / "html" / "notebooks").mkdir(parents=True)
+
+
+class TestCompareChecks:
+    """The compare step: a name and a validation directory for each
+    simulation, and where to build the comparison."""
+
+    def test_the_arguments(self, tmp_path):
+        validations(tmp_path, "control", "mixing")
+        form = {"name_1": "control", "dir_1": "control", "name_3": " mixing ", "dir_3": str(tmp_path / "mixing"),
+                "out_dir": "comparisons"}
+
+        arguments, errors = check_compare(form, str(tmp_path))
+
+        assert errors == {}
+        # in the rows' order, relative to the directory worked in, and empty rows left out
+        assert list(arguments["model_dict"].items()) == [
+            ("control", str(tmp_path / "control")),
+            ("mixing", str(tmp_path / "mixing")),
+        ]
+        assert arguments["out_dir"] == str(tmp_path / "comparisons")
+        # by default, the directory worked in
+        form.pop("out_dir")
+        assert check_compare(form, str(tmp_path))[0]["out_dir"] == str(tmp_path)
+
+    def test_two_simulations_are_needed(self, tmp_path):
+        validations(tmp_path, "control")
+
+        errors = check_compare({"name_1": "control", "dir_1": "control"}, str(tmp_path))[1]
+        assert errors == {"rows": "Fill in at least two simulations to compare."}
+        assert check_compare({}, str(tmp_path))[1] == {
+            "rows": "Fill in at least two simulations to compare."
+        }
+
+    def test_a_row_needs_a_name_and_a_directory(self, tmp_path):
+        validations(tmp_path, "control", "mixing", "deep")
+        form = {"name_1": "control", "dir_1": "control", "name_2": "mixing", "dir_2": "mixing",
+                "name_3": "deep", "dir_4": "deep"}
+
+        assert check_compare(form, str(tmp_path))[1] == {
+            "dir_3": "Enter the directory of this simulation's validation.",
+            "name_4": "Give the simulation a name.",
+        }
+
+    def test_names_and_directories_are_used_once(self, tmp_path):
+        validations(tmp_path, "control", "mixing")
+        form = {"name_1": "control", "dir_1": "control", "name_2": "control", "dir_2": "mixing",
+                "name_3": "again", "dir_3": "./control/"}
+
+        assert check_compare(form, str(tmp_path))[1] == {
+            "name_2": "Each simulation needs a name of its own.",
+            "dir_3": "This validation is in another row too.",
+        }
+
+    def test_the_directories_hold_validations(self, tmp_path):
+        validations(tmp_path, "control")
+        (tmp_path / "matchups_only" / "oceanval_matchups").mkdir(parents=True)
+        form = {"name_1": "control", "dir_1": "control", "name_2": "mixing", "dir_2": "nowhere",
+                "name_3": "matchups", "dir_3": "matchups_only"}
+
+        errors = check_compare(form, str(tmp_path))[1]
+
+        assert errors["dir_2"] == "There is no directory at this path."
+        assert errors["dir_3"].startswith("There are no validation results here (no oceanval_results/annual_mean)")
+        assert "rows" not in errors
+
+    def test_the_comparison_is_built_in_a_directory(self, tmp_path):
+        validations(tmp_path, "control", "mixing")
+        (tmp_path / "a_file").write_text("")
+        form = {"name_1": "control", "dir_1": "control", "name_2": "mixing", "dir_2": "mixing",
+                "out_dir": "a_file"}
+
+        assert check_compare(form, str(tmp_path))[1] == {"out_dir": "This is a file, not a directory."}
 
 
 def _request(app, route, data=None, token=None, **params):
@@ -1933,6 +2023,84 @@ class TestServer:
         )
         wait_for(lambda: interim_state()["state"] == "complete", timeout=15)
 
+    def test_comparing(self, app, tmp_path, runs):
+        validations(tmp_path, "control", "mixing")
+        assert post(app, "/api/choose", {"action": "compare"})[0] == 200
+        assert app.view == "compare"
+        _, state = get_json(app, "/api/state")
+        assert state["compare"]["form"]["name_1"] == ""
+        assert post(app, "/api/back")[0] == 200
+        assert app.view == "start"
+        assert post(app, "/api/choose", {"action": "compare"})[0] == 200
+
+        status, reply = post(app, "/api/compare", {"form": {"name_1": "control", "dir_1": "control"}})
+        assert status == 400
+        assert reply["errors"] == {"rows": "Fill in at least two simulations to compare."}
+        assert app.view == "compare" and runs == []
+        # the boxes are kept
+        assert get_json(app, "/api/state")[1]["compare"]["form"]["dir_1"] == "control"
+
+        form = {"name_1": "control", "dir_1": "control", "name_2": "mixing", "dir_2": "mixing"}
+        assert post(app, "/api/compare", {"form": form})[0] == 200
+        assert app.view == "running"
+        arguments = {
+            "model_dict": {"control": str(tmp_path / "control"), "mixing": str(tmp_path / "mixing")},
+            "out_dir": str(tmp_path),
+        }
+        assert runs == [(
+            ["compare", json.dumps(arguments)],
+            'oceanval.compare(model_dict={"control": "control", "mixing": "mixing"}, out_dir=".")',
+        )]
+        # the step is over
+        assert post(app, "/api/compare", {"form": form})[0] == 409
+
+    def test_the_comparison_is_served_from_the_window(self, app, tmp_path):
+        """With the validation reports it links to, which are elsewhere, and
+        nothing else."""
+        runs_dir = tmp_path / "runs"
+        validations(runs_dir, "control")
+        validations(tmp_path / "elsewhere", "mixing")
+        out = tmp_path / "comparisons"
+        pages = out / "oceanval_comparison" / "compare" / "_build" / "html" / "notebooks"
+        pages.mkdir(parents=True)
+        (pages / "comparison_seasonal.html").write_text("<p>comparison</p>")
+        summary = runs_dir / "control" / "oceanval_report" / "_build" / "html" / "notebooks" / "003_summary.html"
+        summary.write_text("<p>control</p>")
+        (runs_dir / "control" / "oceanval_results" / "annual_mean" / "x.nc").write_text("results")
+        (tmp_path / "secret.txt").write_text("secret")
+        app.action = "compare"
+        app.compare_arguments = {
+            "model_dict": {"control": str(runs_dir / "control"), "mixing": str(tmp_path / "elsewhere" / "mixing")},
+            "out_dir": str(out),
+        }
+        app.results_dir = str(out)
+
+        def fetch(path):
+            try:
+                with urllib.request.urlopen(f"http://127.0.0.1:{app.port}/{path}", timeout=30) as response:
+                    return response.status, response.read().decode()
+            except urllib.error.HTTPError as error:
+                return error.code, None
+
+        run = get_json(app, "/api/state")[1]["run"]
+        assert run["report_exists"] is True
+        assert run["report"] == str(pages / "comparison_seasonal.html")
+        href = run["report_href"]
+        assert href.startswith(f"comparison/{app.token}/") and href.endswith(
+            "comparison_seasonal.html"
+        )
+        assert fetch(href) == (200, "<p>comparison</p>")
+        # its link to a simulation's report is relative, as compare() writes it
+        link = os.path.relpath(summary, pages)
+        url = urllib.parse.urljoin(f"http://127.0.0.1:{app.port}/{href}", link)
+        assert fetch(url.split(f"{app.port}/", 1)[1]) == (200, "<p>control</p>")
+        # nothing but the reports' pages, and only with the token
+        root = os.path.commonpath([str(pages), str(summary)])
+        results = os.path.relpath(runs_dir / "control" / "oceanval_results" / "annual_mean" / "x.nc", root)
+        assert fetch(f"comparison/{app.token}/{results}")[0] == 404
+        assert fetch(f"comparison/{app.token}/{os.path.relpath(tmp_path / 'secret.txt', root)}")[0] == 404
+        assert fetch(f"comparison/wrong/{os.path.relpath(summary, root)}")[0] == 403
+
     def test_the_reports_are_served_from_the_window(self, app, tmp_path):
         """A file:// link cannot be opened from the page, nor over a
         forwarded port, so the window serves the reports itself."""
@@ -2407,7 +2575,11 @@ def test_a_transect_in_a_browser(browser, tmp_path, monkeypatch):
         rule = page.text_content(".transect-rule")
         assert "north–south" in rule and "east–west" in rule
         assert "same longitude" in rule and "same latitude" in rule
-        assert page.locator("#row-transect .span-row__label").all_text_contents() == ["Start", "End"]
+        assert page.locator("#row-transect .span-row:not(.transect-heads) .span-row__label").all_text_contents() == [
+            "Start", "End",
+        ]
+        # and says which box is which, as the boxes' hints go once they are filled in
+        assert page.locator(".transect-head").all_text_contents() == ["Longitude (°E)", "Latitude (°N)"]
         # empty, so the report cannot be asked for yet
         assert page.is_disabled("#build")
         assert page.get_attribute("#build", "title") == "Fill in both ends of the transect, or untick it"
@@ -2491,6 +2663,77 @@ def test_a_transect_is_not_asked_for_without_gridded_matchups_in_a_browser(
 
         assert page.is_hidden("#v-group-transect")
         assert page.is_enabled("#build")
+    finally:
+        app.close()
+
+
+def test_comparing_validations_in_a_browser(browser, tmp_path, monkeypatch):
+    """The first page offers to compare validations made before: five rows
+    of a name and a validation directory, said what they must hold, and
+    compare runs with them."""
+    validations(tmp_path, "control", "mixing")
+    app = App(cwd=str(tmp_path))
+    app.leftovers_asked = True
+    compared = []
+    monkeypatch.setattr(app, "start_run", lambda args, label: compared.append((args, label)))
+    url = app.start()
+    try:
+        page = browser.new_page()
+        page.goto(url)
+        page.wait_for_selector("#view-start:not([hidden])")
+        assert page.locator("#view-start .choice").count() == 4
+        card = page.locator(".choice[data-action=compare]")
+        assert card.locator(".choice__title").text_content() == "Compare existing validations"
+        card.click()
+        page.wait_for_selector("#view-compare:not([hidden])")
+
+        assert page.text_content("#title") == "Which validations do you want to compare?"
+        assert page.locator("#steps .steps__label").all_text_contents() == ["Choose", "Simulations", "Run"]
+        assert page.locator("#steps .is-current .steps__label").text_content() == "Simulations"
+        assert page.evaluate("document.activeElement.id") == "c-name_1"
+        # what a validation directory holds
+        info = page.text_content(".compare-info")
+        for part in ("validate()", "oceanval_report", "oceanval_results", "annual_mean", "temporals", "regionals",
+                     "at least two of the simulations"):
+            assert part in info
+        # five rows of two columns, with a folder browser for each directory
+        assert page.locator(".compare-rows thead th").all_text_contents()[1:] == [
+            "Simulation name", "Validation directory",
+        ]
+        assert page.locator(".compare-rows tbody tr").count() == 5
+        assert page.locator(".compare-rows tbody [data-browse]").count() == 5
+        assert page.get_attribute("#c-out_dir", "placeholder") == str(tmp_path)
+
+        # two simulations are needed
+        assert page.is_disabled("#compare")
+        assert page.get_attribute("#compare", "title") == "Fill in at least two simulations"
+        page.fill("#c-name_1", "control")
+        page.fill("#c-dir_1", "control")
+        page.fill("#c-name_2", "mixing")
+        page.fill("#c-dir_2", "nowhere")
+        assert page.is_enabled("#compare")
+
+        # what cannot be used is said in red and bold, beside the row
+        page.click("#compare")
+        page.wait_for_selector("#cm-rows.is-error")
+        problem = page.locator("#cm-rows .group__line.is-error")
+        assert problem.text_content() == "Simulation 2: There is no directory at this path."
+        assert problem.evaluate("node => [getComputedStyle(node).color, getComputedStyle(node).fontWeight]") == [
+            "rgb(192, 57, 43)", "700",
+        ]
+        assert "is-invalid" in page.get_attribute("#c-dir_2", "class")
+        assert compared == []
+
+        page.fill("#c-dir_2", "mixing")
+        assert "is-invalid" not in page.get_attribute("#c-dir_2", "class")
+        page.click("#compare")
+        wait_for(lambda: compared)
+        [(args, label)] = compared
+        assert args[0] == "compare"
+        assert json.loads(args[1]) == {
+            "model_dict": {"control": str(tmp_path / "control"), "mixing": str(tmp_path / "mixing")},
+            "out_dir": str(tmp_path),
+        }
     finally:
         app.close()
 

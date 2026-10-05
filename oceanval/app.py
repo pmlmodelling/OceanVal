@@ -59,7 +59,15 @@ from oceanval.create_recipes import (
 )
 
 # what the first step offers
-ACTIONS = ("matchup_validate", "matchup", "validate")
+ACTIONS = ("matchup_validate", "matchup", "validate", "compare")
+
+# how many simulations the compare step has rows for
+COMPARE_ROWS = 5
+
+# where compare() builds the comparison's pages, in its out_dir, and the one
+# it opens first
+COMPARISON_HTML = ("oceanval_comparison", "compare", "_build", "html")
+COMPARISON_LANDING = ("notebooks", "comparison_seasonal.html")
 
 # the depths the simulation step looks for output files at, when there are
 # none where it was told to look
@@ -326,6 +334,75 @@ def check_transect_boxes(form, errors):
         return None
 
 
+def default_compare_form():
+    """The compare step's boxes, as they start: a name and a validation
+    directory for each simulation, and where to build the comparison."""
+    form = {"out_dir": ""}
+    for row in range(1, COMPARE_ROWS + 1):
+        form[f"name_{row}"] = ""
+        form[f"dir_{row}"] = ""
+    return form
+
+
+def check_compare(form, cwd):
+    """Turn the compare step's boxes into compare() arguments: model_dict,
+    in the order of the rows, and out_dir.
+
+    Returns (arguments, errors), as check_validate does. errors["rows"] is
+    a problem with the rows as a whole.
+    """
+    form = _form(form, default_compare_form())
+    errors = {}
+    model_dict = {}
+    names, directories = {}, {}
+    for row in range(1, COMPARE_ROWS + 1):
+        name, directory = form[f"name_{row}"], form[f"dir_{row}"]
+        if not name and not directory:
+            continue
+        if not directory:
+            errors[f"dir_{row}"] = "Enter the directory of this simulation's validation."
+        if not name:
+            errors[f"name_{row}"] = "Give the simulation a name."
+        elif name in names:
+            errors[f"name_{row}"] = "Each simulation needs a name of its own."
+        else:
+            names[name] = row
+        if not directory:
+            continue
+        path = _path(directory, cwd)
+        if not os.path.isdir(path):
+            errors[f"dir_{row}"] = "There is no directory at this path."
+        elif not os.path.isdir(os.path.join(path, "oceanval_results", "annual_mean")):
+            errors[f"dir_{row}"] = (
+                "There are no validation results here (no oceanval_results/annual_mean): "
+                "choose the directory validate() built its report in."
+            )
+        elif os.path.realpath(path) in directories:
+            errors[f"dir_{row}"] = "This validation is in another row too."
+        else:
+            directories[os.path.realpath(path)] = row
+        if f"name_{row}" not in errors and f"dir_{row}" not in errors:
+            model_dict[name] = path
+    complete = sum(
+        1 for row in range(1, COMPARE_ROWS + 1) if form[f"name_{row}"] and form[f"dir_{row}"]
+    )
+    if complete < 2:
+        errors["rows"] = "Fill in at least two simulations to compare."
+    out_dir = _path(form["out_dir"] or ".", cwd)
+    if os.path.isfile(out_dir):
+        errors["out_dir"] = "This is a file, not a directory."
+    return {"model_dict": model_dict, "out_dir": out_dir}, errors
+
+
+def _compare_call(arguments, cwd):
+    """How a compare run is shown: the call it makes."""
+    model_dict = {name: _shown(path, cwd) for name, path in arguments["model_dict"].items()}
+    return (
+        f"oceanval.compare(model_dict={_literal(model_dict)}, "
+        f"out_dir={_literal(_shown(arguments['out_dir'], cwd))})"
+    )
+
+
 def _validate_call(arguments, cwd):
     """How a validate run is shown: the call it makes."""
     shown = {
@@ -336,16 +413,25 @@ def _validate_call(arguments, cwd):
     return f"oceanval.validate({listed})"
 
 
-def _served_file(root, path):
+def _inside(folder, path):
+    """Whether path is folder or below it, both real paths."""
+    try:
+        return os.path.commonpath([folder, path]) == folder
+    except ValueError:
+        return False
+
+
+def _served_file(root, path, allowed=None):
     """The file at path, a URL's path below root, or None. Nothing outside
-    root is served, however the path is written."""
+    root is served, however the path is written, nor, if allowed is given,
+    outside the folders it lists."""
     root = os.path.realpath(root)
     found = os.path.realpath(os.path.join(root, urllib.parse.unquote(path)))
-    try:
-        inside = os.path.commonpath([root, found]) == root
-    except ValueError:
-        inside = False
-    if not inside or not os.path.isfile(found):
+    if not _inside(root, found) or not os.path.isfile(found):
+        return None
+    if allowed is not None and not any(
+        _inside(os.path.realpath(folder), found) for folder in allowed
+    ):
         return None
     return found
 
@@ -653,6 +739,10 @@ class App:
         # register them
         self.own_data = {"point": [], "gridded": []}
         self.validate_form = default_validate_form()
+        self.compare_form = default_compare_form()
+        # the compare() arguments of the comparison being made, whose report,
+        # and the validation reports it links to, the window serves
+        self.compare_arguments = None
         # the validate() arguments chosen in the report options step of a
         # matchup and validate run, and what writes the script again with them
         self.report_arguments = None
@@ -707,8 +797,14 @@ class App:
                     lambda: self.version != version or self.closed.is_set(), timeout
                 )
             report = None
+            which = "report"
             if self.action in ("matchup_validate", "validate") and self.results_dir:
                 report = os.path.join(self.results_dir, "oceanval_report.html")
+            elif self.action == "compare" and self.compare_arguments is not None:
+                report = os.path.join(
+                    self.compare_arguments["out_dir"], *COMPARISON_HTML, *COMPARISON_LANDING
+                )
+                which = "comparison"
             report_exists = bool(report and os.path.exists(report))
             return {
                 "version": self.version,
@@ -718,6 +814,7 @@ class App:
                 "cwd": self.cwd,
                 "setup": {"form": self.setup_form, "error": self.setup_error},
                 "validate": {"form": self.validate_form},
+                "compare": {"form": self.compare_form},
                 "report": {
                     "given": self.report_arguments is not None,
                     "dir": self.results_dir or self.out_dir,
@@ -752,7 +849,7 @@ class App:
                     "report_exists": report_exists,
                     # validate links oceanval_report.html to the report's first page
                     "report_href": (
-                        self._report_href("report", os.path.realpath(report))
+                        self._report_href(which, os.path.realpath(report))
                         if report_exists
                         else None
                     ),
@@ -795,7 +892,12 @@ class App:
     def report_root(self, which):
         """The directory of the HTML pages served at /<which>/<token>/:
         which is "interim", for the interim report a matchup and validate
-        run builds as it goes, or "report", for the full report."""
+        run builds as it goes, "report", for the full report, or
+        "comparison", for a comparison and the validation reports it links
+        to (see report_folders)."""
+        if which == "comparison":
+            folders = self.report_folders(which)
+            return os.path.commonpath(folders) if folders else None
         if self.results_dir is None:
             return None
         if which == "interim":
@@ -805,6 +907,22 @@ class App:
         if which == "report":
             return os.path.join(self.results_dir, "oceanval_report", "_build", "html")
         return None
+
+    def report_folders(self, which):
+        """The only folders served below report_root(which), or None if
+        everything below it is. A comparison links to each simulation's
+        validation report by a relative path, so the root it is served from
+        has them all below it, and only the reports themselves are served."""
+        if which != "comparison":
+            return None
+        if self.compare_arguments is None:
+            return None
+        return [
+            os.path.realpath(os.path.join(self.compare_arguments["out_dir"], *COMPARISON_HTML))
+        ] + [
+            os.path.realpath(os.path.join(path, "oceanval_report", "_build", "html"))
+            for path in self.compare_arguments["model_dict"].values()
+        ]
 
     def _report_href(self, which, page):
         """The page's link to page, one of a report's pages, or None if it
@@ -875,6 +993,8 @@ class App:
                 # the full path, never "." for the directory worked in
                 self.validate_form["data_dir"] = _path(data_dir or self.out_dir, self.cwd)
                 self.view = "validate"
+            elif action == "compare":
+                self.view = "compare"
             else:
                 self.setup_error = None
                 self.view = "setup"
@@ -886,6 +1006,7 @@ class App:
             earlier = {
                 "setup": "start",
                 "validate": "start",
+                "compare": "start",
                 "own_data": "setup",
                 "point_data": "own_data",
                 "gridded_data": "point_data",
@@ -1222,6 +1343,31 @@ class App:
         )
         return 200, {"ok": True}
 
+    def compare(self, form):
+        """Compare the validations of the simulations in the compare step's
+        rows. Returns the HTTP status and the reply for the page."""
+        with self._lock:
+            if self.view != "compare":
+                return 409, {"ok": False, "error": "This step is over."}
+            self.compare_form = _form(form, default_compare_form())
+            form = dict(self.compare_form)
+        arguments, errors = check_compare(form, self.cwd)
+        if errors:
+            return 400, {"ok": False, "errors": errors}
+        with self._lock:
+            if self.view != "compare":
+                return 409, {"ok": False, "error": "This step is over."}
+            # so that a second click does not start a second run
+            self.view = "running"
+            self.status = "starting"
+            self.results_dir = arguments["out_dir"]
+            self.compare_arguments = arguments
+            self.console.clear()
+        self.start_run(
+            ["compare", json.dumps(arguments)], _compare_call(arguments, self.cwd)
+        )
+        return 200, {"ok": True}
+
     # ---- the report options of a matchup and validate run ----
 
     def _held_matchups(self):
@@ -1523,6 +1669,8 @@ class App:
         found["nc_files"] = len(files)
         found["example"] = min(files) if files else None
         found["has_matchups"] = "oceanval_matchups" in folders
+        # a validation, for the compare step
+        found["has_results"] = "oceanval_results" in folders
         return found
 
     # ---- the run ----
@@ -1744,10 +1892,10 @@ class _Handler(recipes_gui._Handler):
         self.end_headers()
 
     def _report_file(self, path):
-        """A file of the interim report, or of the full report: path is
-        /interim/<token>/<page> or /report/<token>/<page>. The token is in
-        the path, not the query, so that the reports' own relative links
-        carry it from page to page."""
+        """A file of the interim report, the full report or a comparison:
+        path is /interim/<token>/<page>, /report/<token>/<page> or
+        /comparison/<token>/<page>. The token is in the path, not the query,
+        so that the reports' own relative links carry it from page to page."""
         which, _, rest = path[1:].partition("/")
         token, _, page = rest.partition("/")
         if not self.app.authorised(urllib.parse.unquote(token)):
@@ -1758,7 +1906,11 @@ class _Handler(recipes_gui._Handler):
             )
             return
         root = self.app.report_root(which)
-        found = None if root is None else _served_file(root, page)
+        found = (
+            None
+            if root is None
+            else _served_file(root, page, self.app.report_folders(which))
+        )
         data = None
         if found is not None:
             with contextlib.suppress(OSError):
@@ -1778,7 +1930,7 @@ class _Handler(recipes_gui._Handler):
 
     def do_GET(self):
         url = urllib.parse.urlsplit(self.path)
-        if url.path.startswith(("/interim/", "/report/")):
+        if url.path.startswith(("/interim/", "/report/", "/comparison/")):
             self._report_file(url.path)
             return
         query = {
@@ -1876,6 +2028,9 @@ class _Handler(recipes_gui._Handler):
             return
         if path == "/api/validate":
             self._reply_json(*app.validate(payload.get("form")))
+            return
+        if path == "/api/compare":
+            self._reply_json(*app.compare(payload.get("form")))
             return
         if path == "/api/report":
             self._reply_json(*app.report(payload.get("form")))

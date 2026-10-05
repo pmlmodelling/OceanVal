@@ -55,6 +55,7 @@ const OceanValGUI = (() => {
     matchup_validate: ["Choose", "Simulation", "Own data", "Recipes", "Units", "Files", "Report", "Run"],
     matchup: ["Choose", "Simulation", "Own data", "Recipes", "Units", "Run"],
     validate: ["Choose", "Report options", "Run"],
+    compare: ["Choose", "Simulations", "Run"],
   };
 
   // lists steps in node, with the one at index current marked

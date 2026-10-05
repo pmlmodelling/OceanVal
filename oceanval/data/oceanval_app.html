@@ -10,14 +10,13 @@
   /*__OCEANVAL_GUI_CSS__*/
 
   /* ---- choosing what to do ---- */
-  .choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+  .choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
   .choice {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     gap: 10px;
-    min-height: 220px;
-    padding: 24px 24px 20px;
+    padding: 22px 24px;
     border: 1px solid var(--line);
     border-radius: var(--radius-md);
     background: var(--bg);
@@ -43,11 +42,9 @@
   .choice__icon svg { width: 24px; height: 24px; }
   .choice__title { font: 600 18px/1.3 var(--font-head); letter-spacing: -0.2px; }
   .choice__text { color: var(--muted); font-size: 14px; line-height: 1.5; }
-  .choice__go { margin-top: auto; padding-top: 6px; color: var(--teal-700); font-size: 13.5px; font-weight: 600; }
 
   /* ---- your own observations ---- */
   .choices.is-two { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 760px; }
-  .choices.is-two .choice { min-height: 0; }
   .own-legend { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 16px; color: var(--muted); font-size: 13px; }
   .own-swatch { width: 4px; height: 16px; border-radius: 2px; background: var(--red); }
   .own-legend b { color: var(--red); font-weight: 600; }
@@ -392,7 +389,6 @@
 
   @media (max-width: 1000px) {
     .choices { grid-template-columns: 1fr; }
-    .choice { min-height: 0; }
   }
   @media (max-width: 760px) {
     .picker { padding: 10px; }
@@ -431,6 +427,18 @@
   /* the units always have to be confirmed, after the tables */
   .units-confirm { padding: 16px 20px; }
   .form__stack { display: grid; gap: 26px; max-width: 560px; }
+  /* ---- comparing validations ---- */
+  .compare-info { max-width: 820px; margin: 0 0 16px; color: var(--ink-soft); font-size: 14px; line-height: 1.55; }
+  .compare-info p { margin: 0 0 8px; }
+  .compare-info ul { margin: 0 0 8px; padding-left: 20px; }
+  .compare-info li + li { margin-top: 4px; }
+  .compare-info code { color: var(--ink); font-size: 13px; }
+  .compare-rows { width: 100%; max-width: 900px; border-collapse: collapse; }
+  .compare-rows th { padding: 0 8px 6px 0; color: var(--ink-soft); font-size: 12.5px; font-weight: 600; text-align: left; }
+  .compare-rows td { padding: 0 8px 8px 0; vertical-align: middle; }
+  .compare-rows th:nth-child(2), .compare-rows td:nth-child(2) { width: 34%; }
+  .compare-rows__n { width: 22px; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+  .compare-rows__hide { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   /* the one rule a transect has to follow, so that it is not missed */
   .transect-rule { margin: 10px 0 12px; color: var(--ink-soft); }
   .transect-rule strong { color: var(--ink); font-weight: 700; }
@@ -465,19 +473,21 @@
         <span class="choice__icon" data-icon="chart"></span>
         <span class="choice__title">Match up new data and validate</span>
         <span class="choice__text">Read a simulation's output, choose the observations to compare it with, match them up, and build the validation report.</span>
-        <span class="choice__go">Start →</span>
       </button>
       <button type="button" class="choice" data-action="matchup">
         <span class="choice__icon" data-icon="match"></span>
         <span class="choice__title">Match up only</span>
         <span class="choice__text">Match a simulation up with observations now, and build the report later, from the same matchups.</span>
-        <span class="choice__go">Start →</span>
       </button>
       <button type="button" class="choice" data-action="validate">
         <span class="choice__icon" data-icon="report"></span>
         <span class="choice__title">Validate using existing data</span>
         <span class="choice__text">Build the validation report from matchups made earlier.</span>
-        <span class="choice__go">Start →</span>
+      </button>
+      <button type="button" class="choice" data-action="compare">
+        <span class="choice__icon" data-icon="compare"></span>
+        <span class="choice__title">Compare existing validations</span>
+        <span class="choice__text">Compare the validation reports of up to five simulations, side by side, in one report.</span>
       </button>
     </div>
   </section>
@@ -529,12 +539,10 @@
       <button type="button" class="choice" id="own-yes">
         <span class="choice__title">Yes, I have my own data</span>
         <span class="choice__text">Add point and gridded observations one at a time, in the next two steps.</span>
-        <span class="choice__go">Add my data →</span>
       </button>
       <button type="button" class="choice" id="own-no">
         <span class="choice__title">No, just the built-in datasets</span>
         <span class="choice__text">Go straight on to choosing which of OceanVal's recipes to use.</span>
-        <span class="choice__go">Continue →</span>
       </button>
     </div>
   </section>
@@ -667,6 +675,38 @@
             <option value="false">Detailed</option>
           </select>
         </div>
+      </fieldset>
+      <button type="submit" hidden></button>
+    </form>
+  </section>
+
+  <section id="view-compare" hidden>
+    <form class="form card" id="compare-form" novalidate autocomplete="off">
+      <fieldset class="group form__wide">
+        <legend>Simulations</legend>
+        <div class="compare-info">
+          <p>Give each simulation a short name, which labels it in the comparison&rsquo;s figures and tables, and the directory of its validation: the directory <code>validate()</code> built its report in (its <code>out_dir</code>, or, in this window, the directory chosen for the matchups and the report). That directory holds:</p>
+          <ul>
+            <li><code>oceanval_report</code>, the validation report, which the comparison links to;</li>
+            <li><code>oceanval_results</code>, which the comparison reads: <code>annual_mean</code> for the maps and biases, <code>temporals</code> for seasonality, and <code>regionals</code> for the regional summaries, if the report has them.</li>
+          </ul>
+          <p>Only gridded datasets validated in at least two of the simulations are compared.</p>
+        </div>
+        <table class="compare-rows">
+          <thead><tr><th scope="col"><span class="compare-rows__hide">Row</span></th><th scope="col">Simulation name</th><th scope="col">Validation directory</th></tr></thead>
+          <tbody>
+            <tr><td class="compare-rows__n">1</td><td><input class="s-input" id="c-name_1" aria-label="Name of simulation 1" spellcheck="false" placeholder="e.g. control"></td><td><div class="path-field"><input class="s-input is-mono" id="c-dir_1" list="c-dir_1-folders" aria-label="Validation directory of simulation 1" spellcheck="false" autocapitalize="off" placeholder="/path/to/validation"><button type="button" class="btn btn--ghost btn--field" data-browse="c-dir_1">Browse…</button></div><datalist id="c-dir_1-folders"></datalist></td></tr>
+            <tr><td class="compare-rows__n">2</td><td><input class="s-input" id="c-name_2" aria-label="Name of simulation 2" spellcheck="false" placeholder="e.g. new_mixing"></td><td><div class="path-field"><input class="s-input is-mono" id="c-dir_2" list="c-dir_2-folders" aria-label="Validation directory of simulation 2" spellcheck="false" autocapitalize="off" placeholder="/path/to/validation"><button type="button" class="btn btn--ghost btn--field" data-browse="c-dir_2">Browse…</button></div><datalist id="c-dir_2-folders"></datalist></td></tr>
+            <tr><td class="compare-rows__n">3</td><td><input class="s-input" id="c-name_3" aria-label="Name of simulation 3" spellcheck="false"></td><td><div class="path-field"><input class="s-input is-mono" id="c-dir_3" list="c-dir_3-folders" aria-label="Validation directory of simulation 3" spellcheck="false" autocapitalize="off"><button type="button" class="btn btn--ghost btn--field" data-browse="c-dir_3">Browse…</button></div><datalist id="c-dir_3-folders"></datalist></td></tr>
+            <tr><td class="compare-rows__n">4</td><td><input class="s-input" id="c-name_4" aria-label="Name of simulation 4" spellcheck="false"></td><td><div class="path-field"><input class="s-input is-mono" id="c-dir_4" list="c-dir_4-folders" aria-label="Validation directory of simulation 4" spellcheck="false" autocapitalize="off"><button type="button" class="btn btn--ghost btn--field" data-browse="c-dir_4">Browse…</button></div><datalist id="c-dir_4-folders"></datalist></td></tr>
+            <tr><td class="compare-rows__n">5</td><td><input class="s-input" id="c-name_5" aria-label="Name of simulation 5" spellcheck="false"></td><td><div class="path-field"><input class="s-input is-mono" id="c-dir_5" list="c-dir_5-folders" aria-label="Validation directory of simulation 5" spellcheck="false" autocapitalize="off"><button type="button" class="btn btn--ghost btn--field" data-browse="c-dir_5">Browse…</button></div><datalist id="c-dir_5-folders"></datalist></td></tr>
+          </tbody>
+        </table>
+        <p class="group__msg" id="cm-rows"></p>
+      </fieldset>
+      <fieldset class="group form__wide">
+        <div class="g-row"><label class="g-label" for="c-out_dir">Which directory do you want to build the comparison in?</label><div class="path-field"><input class="s-input is-mono" id="c-out_dir" list="c-out_dir-folders" spellcheck="false" autocapitalize="off"><button type="button" class="btn btn--ghost btn--field" data-browse="c-out_dir">Browse…</button></div><datalist id="c-out_dir-folders"></datalist></div>
+        <p class="group__msg" id="cm-out_dir"></p>
       </fieldset>
       <button type="submit" hidden></button>
     </form>
@@ -838,6 +878,7 @@
   let state = initial.state;
 
   const PICTURES = {
+    compare: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="7" height="16" rx="1.5"/><rect x="14" y="4" width="7" height="16" rx="1.5"/><path d="M6.5 14v3M17.5 10v7M6.5 9v1"/></svg>',
     folder: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
     up: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V6m0 0-5 5m5-5 5 5"/></svg>',
     chart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16h16"/><path d="m7.5 14.5 3.5-4 3 3 5-6"/></svg>',
@@ -850,6 +891,7 @@
     matchup_validate: "Matching up and validating",
     matchup: "Matching up",
     validate: "Building the report",
+    compare: "Comparing the validations",
   };
 
   function depthText(depth) {
@@ -895,7 +937,7 @@
   // ---- the header and the bar ----
   function stepIndex(view, action) {
     if (view === "start") return 0;
-    if (view === "setup" || view === "validate") return 1;
+    if (view === "setup" || view === "validate" || view === "compare") return 1;
     if (view === "own_data" || view === "point_data" || view === "gridded_data") return 2;
     if (view === "recipes" || view === "preparing") return 3;
     if (view === "units_table") return 4;
@@ -918,6 +960,7 @@
       case "preparing": return "Reading the simulation";
       case "units_table": return "Do the units match up?";
       case "validate": return "Build a validation report";
+      case "compare": return "Which validations do you want to compare?";
       case "report_options": return "One last thing... How would you like your validation report?";
       case "running": return ACTION_TITLES[state.action];
       case "script_saved": return "Your matchup script is saved";
@@ -977,6 +1020,9 @@
       if (waiting) actions.push(button("Back", "ghost", () => post("api/back")));
       actions.push(button(waiting ? "Match up and validate" : "Build the report", "primary",
         submitValidate, { id: "build" }));
+    } else if (view === "compare") {
+      actions.push(button("Back", "ghost", () => post("api/back")),
+        button("Compare", "primary", submitCompare, { id: "compare" }));
     } else if (view === "units_table") {
       // no Back: a recipes window that has been used cannot be opened again
       actions.push(button("Continue", "primary", submitUnits,
@@ -1013,10 +1059,11 @@
     if (view === "setup") refreshSetup();
     // the new button is held back as the transect says
     if (view === "validate" || view === "report_options") refreshValidate();
+    if (view === "compare") refreshCompare();
   }
 
   // ---- the views ----
-  const VIEWS = { start: "view-start", setup: "view-setup", validate: "view-validate",
+  const VIEWS = { start: "view-start", setup: "view-setup", validate: "view-validate", compare: "view-compare",
     report_options: "view-validate", own_data: "view-own", point_data: "view-point", gridded_data: "view-gridded",
     units_table: "view-units-table",
     preparing: "view-run", running: "view-run", finished: "view-run",
@@ -1028,6 +1075,9 @@
     if (view === "setup") {
       fillSetup();
       $("f-simdir").focus();
+    } else if (view === "compare") {
+      fillCompare();
+      $("c-name_1").focus();
     } else if (view === "validate" || view === "report_options") {
       fillValidate();
       $(view === "validate" ? "v-data_dir" : "v-lon_min").focus();
@@ -1607,6 +1657,82 @@
     }
   }
 
+  // ---- comparing validations made before ----
+  const COMPARE_ROWS = 5;
+  const COMPARE_TEXT = ["out_dir"];
+  for (let row = 1; row <= COMPARE_ROWS; row++) COMPARE_TEXT.push(`name_${row}`, `dir_${row}`);
+  const compareForm = {};
+  let compareErrors = {};
+  let compareBusy = false;
+
+  function fillCompare() {
+    Object.assign(compareForm, state.compare.form);
+    for (const name of COMPARE_TEXT) $(`c-${name}`).value = compareForm[name];
+    $("c-out_dir").placeholder = state.cwd;
+    compareErrors = {};
+    refreshCompare();
+  }
+
+  // the rows with both a name and a directory, which compare needs two of
+  function filledRows() {
+    let filled = 0;
+    for (let row = 1; row <= COMPARE_ROWS; row++) {
+      if (String(compareForm[`name_${row}`] ?? "").trim() && String(compareForm[`dir_${row}`] ?? "").trim()) filled += 1;
+    }
+    return filled;
+  }
+
+  for (const name of COMPARE_TEXT) {
+    $(`c-${name}`).addEventListener("input", (event) => {
+      compareForm[name] = event.target.value;
+      delete compareErrors[name];
+      delete compareErrors.rows;
+      refreshCompare();
+    });
+  }
+  $("compare-form").addEventListener("submit", (event) => { event.preventDefault(); submitCompare(); });
+
+  function refreshCompare() {
+    const problems = [];
+    for (let row = 1; row <= COMPARE_ROWS; row++) {
+      for (const part of ["name", "dir"]) {
+        const name = `${part}_${row}`;
+        $(`c-${name}`).classList.toggle("is-invalid", Boolean(compareErrors[name]));
+        if (compareErrors[name]) problems.push(line(`Simulation ${row}: ${compareErrors[name]}`, "error"));
+      }
+    }
+    if (compareErrors.rows) problems.push(line(compareErrors.rows, "error"));
+    if (problems.length) message("cm-rows", problems, true);
+    else message("cm-rows", [line("Fill in at least two rows. Rows left empty are not used.")]);
+    $("c-out_dir").classList.toggle("is-invalid", Boolean(compareErrors.out_dir));
+    if (compareErrors.out_dir) message("cm-out_dir", [line(compareErrors.out_dir, "error")], true);
+    else message("cm-out_dir", [line("The comparison is built in oceanval_comparison, inside this directory. Empty: the directory you started oceanval in.")]);
+    // compare needs two simulations
+    const go = $("compare");
+    if (go) {
+      const few = filledRows() < 2;
+      go.disabled = compareBusy || few;
+      go.title = few ? "Fill in at least two simulations" : "";
+    }
+  }
+
+  async function submitCompare() {
+    // Enter in a box sends the form too, past the disabled button
+    if (compareBusy || filledRows() < 2) return;
+    compareBusy = true;
+    refreshCompare();
+    const reply = await post("api/compare", { form: compareForm });
+    compareBusy = false;
+    refreshCompare();
+    if (!reply.ok) {
+      compareErrors = reply.errors || {};
+      if (reply.error) toast(reply.error);
+      refreshCompare();
+      const first = Object.keys(compareErrors).find((name) => name !== "rows");
+      if (first) $(`c-${first}`).focus();
+    }
+  }
+
   // ---- the units of each gridded and point matchup ----
   // whether the table holds the rows, which are read after the step is shown
   let unitsFilled = false;
@@ -1781,7 +1907,20 @@
       title: "Choose the directory to build the report in",
       describe: () => ["The report is built in oceanval_report, inside it.", ""],
     },
+    "c-out_dir": {
+      title: "Choose the directory to build the comparison in",
+      describe: () => ["The comparison is built in oceanval_comparison, inside it.", ""],
+    },
   };
+  // each simulation's validation directory, in the compare step
+  for (let row = 1; row <= 5; row++) {
+    DESCRIBE[`c-dir_${row}`] = {
+      title: `Choose the validation directory of simulation ${row}`,
+      describe: (listing) => listing.has_results
+        ? ["oceanval_results is here: validate() built a report in it.", "ok"]
+        : ["No oceanval_results here: choose the directory validate() built its report in.", "warn"],
+    };
+  }
   const picker = { listing: null, input: null, opener: null, number: 0 };
   // what is behind the folder browser, which cannot be used while it is open
   const BEHIND = [document.querySelector(".masthead"), document.querySelector("main"), $("bar")];
@@ -2122,6 +2261,10 @@
       heading = "The matchups are ready";
       text = "Build the report from them now, with Validate these matchups, or later.";
       path = run.matchups;
+    } else if (run.status === "finished" && state.action === "compare") {
+      heading = run.report_exists ? "The comparison report is ready" : "The run has finished";
+      text = run.report_exists ? "It is saved here:" : "The output above says what was made.";
+      path = run.report_exists ? run.report : null;
     } else if (run.status === "finished") {
       heading = run.report_exists ? "The validation report is ready" : "The run has finished";
       text = run.report_exists ? "It is saved here:" : "The output above says what was made.";
@@ -2144,7 +2287,8 @@
     }
     // the report opens from here, as a file:// link would not
     const link = run.status === "finished" && run.report_href
-      ? el("div", { class: "result__link" }, openLink(run.report_href, "Open the validation report"))
+      ? el("div", { class: "result__link" }, openLink(run.report_href,
+        state.action === "compare" ? "Open the comparison report" : "Open the validation report"))
       : null;
     box.replaceChildren(
       el("span", { class: "result__icon" + tone, html: ICONS[picture] }),

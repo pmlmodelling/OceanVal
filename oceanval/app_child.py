@@ -1,12 +1,14 @@
-"""The process the oceanval command runs matchup and validate in.
+"""The process the oceanval command runs matchup, validate and compare in.
 
     python -m oceanval.app_child script <path>
     python -m oceanval.app_child matchup <path>
     python -m oceanval.app_child validate <arguments as JSON>
+    python -m oceanval.app_child compare <arguments as JSON>
 
 The first runs a script create_recipes wrote, the second runs one without
 its validate() call, which the window makes afterwards with the report
-options chosen once the matchups are checked, and the third validate(). What
+options chosen once the matchups are checked, the third validate(), and the
+fourth compare(). What
 they print is shown in the oceanval window (see oceanval.app), which reads
 it from this process's stdout. A question asked through oceanval.prompts is
 written there as one line, QUESTION_MARKER followed by the question as JSON,
@@ -61,11 +63,12 @@ def _validate_later(*args, **kwargs):
 
 def main(argv=None):
     argv = sys.argv[1:] if argv is None else argv
-    if len(argv) != 2 or argv[0] not in ("script", "matchup", "validate"):
+    if len(argv) != 2 or argv[0] not in ("script", "matchup", "validate", "compare"):
         sys.exit(
             "usage: python -m oceanval.app_child script <path>\n"
             "       python -m oceanval.app_child matchup <path>\n"
-            "       python -m oceanval.app_child validate <arguments as JSON>"
+            "       python -m oceanval.app_child validate <arguments as JSON>\n"
+            "       python -m oceanval.app_child compare <arguments as JSON>"
         )
     kind, argument = argv
 
@@ -74,9 +77,9 @@ def main(argv=None):
     from oceanval.recipes_gui import _can_open_browser
 
     if not _can_open_browser():
-        # validate opens the report itself, and without a display webbrowser
-        # falls back on a text browser, which would wait for keys that never
-        # come
+        # validate and compare open their reports themselves, and without a
+        # display webbrowser falls back on a text browser, which would wait
+        # for keys that never come
         webbrowser.open = _say_where
 
     with prompts.answered_by(_ask_the_window):
@@ -85,6 +88,8 @@ def main(argv=None):
                 oceanval.validate = _validate_later
             sys.argv = [argument]
             runpy.run_path(argument, run_name="__main__")
+        elif kind == "compare":
+            oceanval.compare(**json.loads(argument))
         else:
             oceanval.validate(**json.loads(argument))
 

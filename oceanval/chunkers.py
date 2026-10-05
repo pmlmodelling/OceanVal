@@ -24,7 +24,7 @@ def add_chunks( dir=None, paths=None):
 
     if paths is None:
         paths = glob.glob(f"{dir}/oceanval_report/notebooks/*.py")
-        paths += glob.glob(f"oceanval_comparison/compare/notebooks/*.py")
+        # compare() passes its own notebooks as paths
         if dir is not None:
             paths += glob.glob(f"{dir}/*.py")
 

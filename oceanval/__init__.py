@@ -1825,7 +1825,7 @@ def rebuild(data_dir=".", pdf=False):
     webbrowser.open("file://" + os.path.abspath(out_ff))
 
 
-def compare(model_dict=None, view=True, ask=True, pdf=False, word=False):
+def compare(model_dict=None, view=True, ask=True, pdf=False, word=False, out_dir="."):
     """
     Compare pre-validated simulations.
     This function will compare the validation output from multiple simulations.
@@ -1842,6 +1842,10 @@ def compare(model_dict=None, view=True, ask=True, pdf=False, word=False):
         Whether to also generate PDF downloads of the report. Default is False.
     word : bool
         Whether to also generate Word versions of the report (one per page, plus a combined oceanval_report.docx), with the maths as editable Word equations. Default is False. Requires pandoc.
+    out_dir : str
+        The directory to build the comparison in: it goes in oceanval_comparison, inside it. Default is the current directory.
+
+    Each path in model_dict is a directory validate() built its report in (its out_dir), which holds oceanval_report and oceanval_results. The comparison reads oceanval_results, and compares the gridded datasets validated in at least two of the simulations.
     """
     if model_dict is None:
         raise AttributeError("model_dict must be provided")
@@ -1853,10 +1857,17 @@ def compare(model_dict=None, view=True, ask=True, pdf=False, word=False):
             raise ValueError(f"Path {model_dict[key]} does not exist")
         model_dict[key] = os.path.abspath(model_dict[key])
 
-    if os.path.exists("oceanval_comparison"):
+    # everything is built in out_dir, never in whatever the current directory is
+    comparison_dir = os.path.join(
+        os.path.abspath(os.path.expanduser(out_dir)), "oceanval_comparison"
+    )
+    book_dir = os.path.join(comparison_dir, "compare")
+    notebooks_dir = os.path.join(book_dir, "notebooks")
+
+    if os.path.exists(comparison_dir):
         if ask:
             user_input = prompts.ask(
-                "oceanval_comparison directory already exists. This will be emptied and replaced. Do you want to proceed? (y/n): ",
+                f"{comparison_dir} already exists. This will be emptied and replaced. Do you want to proceed? (y/n): ",
                 ("y", "n"),
             )
             if user_input.lower() != "y":
@@ -1864,30 +1875,27 @@ def compare(model_dict=None, view=True, ask=True, pdf=False, word=False):
                 return None
 
         while True:
-            files = glob.glob("oceanval_comparison/**/**/**", recursive=True)
+            files = glob.glob(f"{glob.escape(comparison_dir)}/**/**/**", recursive=True)
             for ff in files:
-                if ff.startswith("oceanval_comparison"):
+                if ff.startswith(comparison_dir + os.sep):
                     try:
                         os.remove(ff)
                     except Exception:
                         pass
-            files = glob.glob("oceanval_comparison/**/**/**", recursive=True)
+            files = glob.glob(f"{glob.escape(comparison_dir)}/**/**/**", recursive=True)
             files = [x for x in files if os.path.isfile(x)]
             if len(files) == 0:
                 break
 
-    if not os.path.exists("oceanval_comparison/compare"):
-        os.makedirs("oceanval_comparison/compare")
-    if not os.path.exists("oceanval_comparison/compare/notebooks"):
-        os.makedirs("oceanval_comparison/compare/notebooks")
+    os.makedirs(notebooks_dir, exist_ok=True)
 
     shutil.copyfile(
         os.path.join(os.path.dirname(__file__), "data", "pml_logo.jpg"),
-        "oceanval_comparison/compare/pml_logo.jpg",
+        os.path.join(book_dir, "pml_logo.jpg"),
     )
     shutil.copyfile(
         os.path.join(os.path.dirname(__file__), "data", "oceanval_wordmark.svg"),
-        "oceanval_comparison/compare/oceanval_wordmark.svg",
+        os.path.join(book_dir, "oceanval_wordmark.svg"),
     )
 
     comparison_notebooks = [
@@ -1898,11 +1906,11 @@ def compare(model_dict=None, view=True, ask=True, pdf=False, word=False):
     ]
     for notebook_name in comparison_notebooks:
         data_path = importlib.resources.files(__name__).joinpath(f"data/{notebook_name}")
-        dest_path = os.path.join("oceanval_comparison", "compare", "notebooks", notebook_name)
+        dest_path = os.path.join(notebooks_dir, notebook_name)
         shutil.copyfile(data_path, dest_path)
 
     # book scaffold: needed for the classic jupyter-book<2 build, harmless for >=2
-    with open("oceanval_comparison/compare/_config.yml", "w") as file:
+    with open(os.path.join(book_dir, "_config.yml"), "w") as file:
         file.write(
             "title:\n"
             "author:   \"Robert Wilson | Plymouth Marine Laboratory\"\n"
@@ -1917,23 +1925,23 @@ def compare(model_dict=None, view=True, ask=True, pdf=False, word=False):
             "    html_static_path: ['_static']\n"
             "    html_css_files: ['custom.css']\n"
         )
-    with open("oceanval_comparison/compare/_toc.yml", "w") as file:
+    with open(os.path.join(book_dir, "_toc.yml"), "w") as file:
         file.write("format: jb-book\nroot: intro\nchapters:\n- glob: notebooks/*\n")
-    with open("oceanval_comparison/compare/intro.md", "w") as file:
+    with open(os.path.join(book_dir, "intro.md"), "w") as file:
         file.write(
             "# Comparison of ocean model simulations\n\n"
             "This report compares the validation results of multiple simulations using **oceanval**.\n"
         )
 
     static_src = importlib.resources.files(__name__).joinpath("data/_static")
-    static_out = "oceanval_comparison/compare/_static"
+    static_out = os.path.join(book_dir, "_static")
     if not os.path.exists(static_out):
         os.makedirs(static_out)
     shutil.copyfile(f"{static_src}/custom.css", f"{static_out}/custom.css")
 
     model_dict_str = str(model_dict)
     for notebook_name in comparison_notebooks:
-        path = os.path.join("oceanval_comparison", "compare", "notebooks", notebook_name)
+        path = os.path.join(notebooks_dir, notebook_name)
         with open(path, "r") as file:
             filedata = file.read()
         filedata = filedata.replace("model_dict_str", model_dict_str)
@@ -1942,10 +1950,10 @@ def compare(model_dict=None, view=True, ask=True, pdf=False, word=False):
 
     _run_jupytext(
         ["--set-formats", "ipynb,py:percent"],
-        "oceanval_comparison/compare/notebooks/*.ipynb",
+        f"{glob.escape(notebooks_dir)}/*.ipynb",
     )
-    add_chunks(None)
-    for book in glob.glob("oceanval_comparison/compare/notebooks/*.py"):
+    add_chunks(paths=glob.glob(f"{glob.escape(notebooks_dir)}/*.py"))
+    for book in glob.glob(f"{glob.escape(notebooks_dir)}/*.py"):
         with open(book, "r") as file:
             filedata = file.read()
         filedata = filedata.replace("the_test_status", "False")
@@ -1955,7 +1963,7 @@ def compare(model_dict=None, view=True, ask=True, pdf=False, word=False):
         filedata = filedata.replace("fast_plot_value", "False")
         with open(book, "w") as file:
             file.write(filedata)
-    _run_jupytext(["--sync"], "oceanval_comparison/compare/notebooks/*.ipynb")
+    _run_jupytext(["--sync"], f"{glob.escape(notebooks_dir)}/*.ipynb")
     validation_links = []
     for key in model_dict:
         try:
@@ -1965,7 +1973,7 @@ def compare(model_dict=None, view=True, ask=True, pdf=False, word=False):
         except FileNotFoundError:
             pass
     _build_book(
-        "oceanval_comparison/compare",
+        book_dir,
         validation_links=validation_links,
         pdf=pdf,
         word=word,
@@ -1973,9 +1981,7 @@ def compare(model_dict=None, view=True, ask=True, pdf=False, word=False):
 
     if view:
         first_notebook_html = os.path.splitext(comparison_notebooks[0])[0] + ".html"
-        landing_page = os.path.join(
-            "oceanval_comparison", "compare", "_build", "html", "notebooks", first_notebook_html
-        )
+        landing_page = os.path.join(book_dir, "_build", "html", "notebooks", first_notebook_html)
         webbrowser.open("file://" + os.path.abspath(landing_page))
 
 
