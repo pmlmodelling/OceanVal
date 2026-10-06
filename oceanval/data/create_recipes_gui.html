@@ -143,6 +143,8 @@
   .group__msg + .g-row { margin-top: 10px; }
   .group__line.is-ersem { color: #8a5a00; font-weight: 600; }
   .s-input.is-ersem, .s-select.is-ersem { border-color: #d7a83e; background-color: #fff8df; color: #8a5a00; font-weight: 600; }
+  /* what the oceanval app's demo filled in is red and bold, until it is typed over */
+  .s-input.is-oceanval, .lede .oceanval-change { color: var(--red); font-weight: 700; }
   .cores-row { display: grid; grid-template-columns: minmax(0, 1fr) 84px; align-items: center; gap: 10px; }
   .cores-row .g-label { margin: 0; }
 
@@ -477,6 +479,10 @@
     " domain ticked. Anything left unticked is still written to the script, commented out, " +
     "so it can be switched on later."
   );
+  if (app && app.prefilled) {
+    $("lede").append(" For the demo, OceanVal has filled in the year and the longitude and latitude limits, ",
+      el("strong", { class: "oceanval-change", text: "in red and bold" }), ".");
+  }
 
   $("model-variables").append(...state.available.map((name) => el("option", { value: name })));
 
@@ -491,6 +497,8 @@
     if (!String(form[name] || "").trim()) form[name] = value;
   }
   const initialForm = { ...form };
+  // what the oceanval app's demo filled in, which stays marked while it is unchanged
+  const DEMO_VALUES = Object.fromEntries(((app && app.prefilled) || []).map((name) => [name, String(form[name])]));
   // what create_recipes found wrong with the last Write, until the box changes
   const serverErrors = {};
   const GROUPS = {
@@ -539,6 +547,7 @@
       "is-ersem",
       ERSEM_DEFAULTS[name] !== undefined && String(form[name]) === ERSEM_DEFAULTS[name],
     );
+    control.classList.toggle("is-oceanval", DEMO_VALUES[name] !== undefined && String(form[name]) === DEMO_VALUES[name]);
     // a long path can be wider than its box
     if (control.tagName === "INPUT" && !BOOLEANS.has(name)) control.title = control.value;
   }

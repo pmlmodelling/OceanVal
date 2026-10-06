@@ -91,6 +91,15 @@ oceanval.matchup(sim_dir="/path/to/output", start=2000, end=2010,
 oceanval.validate(lon_lim=[-20, 10], lat_lim=[40, 65], pdf=True)
 ```
 
+To see how it works first, choose **Try a demo**, below the four choices on
+the first page. It downloads a year of a CMIP6 climate model's sea surface
+temperature (NorESM2-LM, 17 MB) and takes you through the same steps with the
+options filled in, in red and bold, matching 2010 up with COBE-SST 2. It shows
+how OceanVal works, not how to validate a climate model, which needs many
+years of output rather than one. It creates a directory called
+`oceanval_demo`, with the data, matchups and report in it: remove it when you
+have finished.
+
 The script it runs is written first, to `matchup.py` unless you choose
 another name, so you can run it again later with `python matchup.py`. On a
 remote machine, open the link `oceanval` prints: VS Code forwards its port

@@ -23,6 +23,7 @@ import pytest
 import xarray as xr
 
 import oceanval
+from oceanval import app as app_module
 from oceanval import app_child, leftovers, live, prompts
 from oceanval.app import (
     App, Console, Question, Run, check_compare, check_report, check_setup, check_validate,
@@ -2218,6 +2219,155 @@ class TestServer:
         assert get_json(app, "/api/state")[1]["closed"]
 
 
+def write_demo_file(path):
+    """A small stand-in for the demo's model output: a year of monthly sea
+    surface temperature, named as CMIP6 names it."""
+    dataset = xr.Dataset(
+        {
+            "tos": (
+                ("time", "j", "i"),
+                np.random.rand(12, 2, 2).astype("f4"),
+                {"long_name": "Sea Surface Temperature", "units": "degC"},
+            )
+        }
+    )
+    dataset["time"] = (
+        "time",
+        np.arange(12) * 30.0 + 15,
+        {"units": "days since 2010-01-01", "calendar": "noleap"},
+    )
+    dataset.to_netcdf(path)
+
+
+@pytest.fixture
+def fetched(monkeypatch):
+    """The demo's downloads, which write a stand-in file rather than
+    download one. Set fetched.error to make them fail."""
+
+    class Fetched(list):
+        error = None
+
+    downloads = Fetched()
+
+    def fetch(url, path, progress, cancelled):
+        downloads.append(url)
+        if downloads.error is not None:
+            raise downloads.error
+        write_demo_file(path)
+        progress(10, 10)
+
+    monkeypatch.setattr(app_module, "_fetch", fetch)
+    return downloads
+
+
+class TestDemo:
+    def test_choosing_the_demo(self, app):
+        assert post(app, "/api/choose", {"action": "demo"})[0] == 200
+        _, state = get_json(app, "/api/state")
+
+        assert (state["view"], state["action"]) == ("demo", "matchup_validate")
+        demo = state["demo"]
+        assert (demo["status"], demo["downloaded"], demo["year"]) == ("idle", False, 2010)
+        assert demo["file"] == app_module.DEMO_FILE
+        assert demo["folder"] == os.path.join(app.cwd, "oceanval_demo")
+        # nothing is downloaded until asked for
+        assert not os.path.exists(demo["folder"])
+        assert post(app, "/api/back")[0] == 200
+        assert (app.view, app.demo) == ("start", None)
+
+    def test_the_download_fills_in_the_simulation_step(self, app, fetched, tmp_path):
+        app.choose("demo")
+        assert post(app, "/api/demo_download")[0] == 200
+        wait_for(lambda: app.view == "setup")
+
+        assert fetched == [app_module.DEMO_URL]
+        assert (tmp_path / "oceanval_demo" / "simulation" / app_module.DEMO_FILE).is_file()
+        _, state = get_json(app, "/api/state")
+        form = state["setup"]["form"]
+        assert (form["simdir"], form["ndown"], form["domain"]) == (
+            os.path.join("oceanval_demo", "simulation"), "0", "global")
+        # only the first year in the file
+        assert (form["start"], form["end"]) == ("2010", "2010")
+        assert (form["out_dir"], form["out"]) == (
+            "oceanval_demo", os.path.join("oceanval_demo", "matchup.py"))
+        assert state["validate"]["form"]["subregions"] == "global"
+        assert state["validate"]["form"]["concise"] is False
+        assert state["demo"]["prefilled"]["setup"] == ["simdir", "ndown", "out_dir", "out"]
+        # the filled-in boxes pass the simulation step's checks
+        assert check_setup(form, app.cwd)[1] == {}
+        # back to the demo's page, from which the file is not downloaded again
+        assert post(app, "/api/back")[0] == 200
+        assert app.view == "demo"
+        assert post(app, "/api/demo_download")[0] == 200
+        wait_for(lambda: app.view == "setup")
+        assert len(fetched) == 1
+
+    def test_a_failed_download_can_be_tried_again(self, app, fetched, tmp_path):
+        fetched.error = OSError("no network")
+        app.choose("demo")
+        post(app, "/api/demo_download")
+        wait_for(lambda: app.demo["status"] == "failed")
+        _, state = get_json(app, "/api/state")
+
+        assert state["view"] == "demo"
+        assert "no network" in state["demo"]["error"]
+        assert not (tmp_path / "oceanval_demo" / "simulation" / app_module.DEMO_FILE).exists()
+        fetched.error = None
+        assert post(app, "/api/demo_download")[0] == 200
+        wait_for(lambda: app.view == "setup")
+
+    def test_only_one_download_at_a_time(self, app, monkeypatch):
+        release = threading.Event()
+        monkeypatch.setattr(
+            app_module, "_fetch", lambda url, path, progress, cancelled: release.wait(30)
+        )
+        app.choose("demo")
+        assert post(app, "/api/demo_download")[0] == 200
+        assert post(app, "/api/demo_download")[0] == 409
+        # nor going back while it downloads
+        assert post(app, "/api/back")[0] == 409
+        release.set()
+
+    def test_the_demo_is_only_offered_at_the_start(self, app):
+        app.choose("validate")
+        assert post(app, "/api/choose", {"action": "demo"})[0] == 409
+        assert post(app, "/api/demo_download")[0] == 409
+
+    def test_starting_again_forgets_the_demo(self, app, fetched):
+        app.choose("demo")
+        post(app, "/api/demo_download")
+        wait_for(lambda: app.view == "setup")
+        with app._lock:
+            app.view = "finished"
+
+        assert post(app, "/api/restart")[0] == 200
+        assert app.demo is None
+        assert app.setup_form["simdir"] == ""
+        assert app.validate_form["subregions"] == ""
+        app.choose("matchup")
+        assert get_json(app, "/api/state")[1]["demo"] is None
+
+    def test_the_demo_fills_in_the_recipes_window(self, app, fetched, runs):
+        app.choose("demo")
+        post(app, "/api/demo_download")
+        wait_for(lambda: app.view == "setup")
+        assert post(app, "/api/setup", {"form": app.setup_form})[0] == 200
+        post(app, "/api/own_data", {"answer": False})
+        wait_for(lambda: app.view == "recipes")
+        page = app.recipes_page
+
+        assert {name: page.form[name] for name in app_module.DEMO_RECIPE_SETTINGS} == (
+            app_module.DEMO_RECIPE_SETTINGS)
+        assert page.context["app"]["prefilled"] == list(app_module.DEMO_RECIPE_SETTINGS)
+        # tos is the sea surface temperature, validated against COBE-SST 2
+        temperature = next(row for row in page.rows if row["variable"] == "temperature")
+        assert temperature["model_variable"] == "tos"
+        assert [dataset["recipe"] for dataset in temperature["gridded"] if dataset["ticked"]] == ["cobe2"]
+        status, body = get(app, "/recipes/")
+        assert status == 200
+        assert page_state(body)["context"]["app"]["prefilled"] == list(app_module.DEMO_RECIPE_SETTINGS)
+
+
 def test_the_command_runs():
     root = os.path.dirname(os.path.dirname(os.path.abspath(oceanval.__file__)))
     result = subprocess.run(
@@ -2361,6 +2511,15 @@ def test_the_window_in_a_browser(browser, tmp_path, monkeypatch):
         page.wait_for_selector("#review:not([hidden])", timeout=90000)
         assert page.is_hidden("#identify")
         assert page.is_hidden("#ask")
+        # the mapping is introduced first, and the question comes after the table
+        assert page.text_content("#review-title") == (
+            "The following mapping will be assumed between variables and simulation files"
+        )
+        assert page.text_content("#review-question") == "Are you happy with these matchups?"
+        table_bottom = page.locator("#review table").evaluate("node => node.getBoundingClientRect().bottom")
+        question_box = page.locator("#review-question").bounding_box()
+        assert question_box["y"] >= table_bottom
+        assert question_box["y"] < page.locator("#review-actions").bounding_box()["y"]
         assert page.text_content("#review-time-note") == (
             "Temporal subsetting will be applied to the files listed below, based on the time criteria you provided on the previous pages. "
             "Any year limits set for an individual dataset will also apply."
@@ -2667,6 +2826,55 @@ def test_a_transect_is_not_asked_for_without_gridded_matchups_in_a_browser(
         app.close()
 
 
+def test_the_demo_in_a_browser(browser, tmp_path, fetched):
+    """The demo is offered below the four, says in large bold type that it
+    makes oceanval_demo, says what it is not, and fills in the simulation
+    step in red and bold."""
+    app = App(cwd=str(tmp_path))
+    app.leftovers_asked = True
+    url = app.start()
+    try:
+        page = browser.new_page()
+        page.goto(url)
+        page.wait_for_selector("#view-start:not([hidden])")
+        card = page.locator(".choice.is-demo")
+        assert card.locator(".choice__title").text_content() == "Try a demo"
+        # below the four, across both columns
+        below = page.locator(".choice[data-action=compare]").bounding_box()
+        box = card.bounding_box()
+        assert box["y"] > below["y"] + below["height"]
+        assert box["width"] > 1.5 * below["width"]
+        card.click()
+        page.wait_for_selector("#view-demo:not([hidden])")
+
+        assert page.text_content("#title") == "Try OceanVal with a demo"
+        warning = page.locator("#demo-folder")
+        assert "oceanval_demo" in warning.text_content()
+        assert "Remove it when you have finished" in warning.text_content()
+        assert str(tmp_path / "oceanval_demo") in warning.text_content()
+        assert warning.evaluate("node => getComputedStyle(node).fontWeight") == "700"
+        assert float(warning.evaluate("node => getComputedStyle(node).fontSize")[:-2]) >= 20
+        caveat = page.text_content(".demo-caveat")
+        assert "not how to validate a climate model" in caveat
+        assert "2010" in caveat
+        assert "NorESM2-LM" in page.text_content(".demo-about")
+
+        page.click("#demo-start")
+        page.wait_for_selector("#view-setup:not([hidden])")
+        red = "rgb(192, 57, 43)"
+        simdir = page.locator("#f-simdir")
+        assert simdir.input_value() == os.path.join("oceanval_demo", "simulation")
+        assert simdir.evaluate("node => getComputedStyle(node).color") == red
+        assert simdir.evaluate("node => getComputedStyle(node).fontWeight") == "700"
+        assert page.locator("#f-ndown").evaluate("node => node.classList.contains('is-oceanval')")
+        # the user's own once typed over
+        simdir.fill("elsewhere")
+        assert not simdir.evaluate("node => node.classList.contains('is-oceanval')")
+        assert page.locator("#meta .is-flag").text_content() == "Demooceanval_demo"
+    finally:
+        app.close()
+
+
 def test_comparing_validations_in_a_browser(browser, tmp_path, monkeypatch):
     """The first page offers to compare validations made before: five rows
     of a name and a validation directory, said what they must hold, and
@@ -2681,7 +2889,7 @@ def test_comparing_validations_in_a_browser(browser, tmp_path, monkeypatch):
         page = browser.new_page()
         page.goto(url)
         page.wait_for_selector("#view-start:not([hidden])")
-        assert page.locator("#view-start .choice").count() == 4
+        assert page.locator("#view-start .choice:not(.is-demo)").count() == 4
         card = page.locator(".choice[data-action=compare]")
         assert card.locator(".choice__title").text_content() == "Compare existing validations"
         card.click()

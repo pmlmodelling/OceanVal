@@ -42,6 +42,13 @@ output to a validation report:
    options.
 7. **Run**: the matchup and the report, with the output shown as it comes.
 
+To see how it works first, choose **Try a demo**, below the four choices. It
+downloads a year of a CMIP6 climate model's sea surface temperature (17 MB)
+and takes you through the same steps with the options filled in. It shows how
+OceanVal works, not how to validate a climate model, which needs many years
+of output rather than one. It creates a directory called ``oceanval_demo``,
+with the data, matchups and report in it: remove it when you have finished.
+
 The script it runs is written first, to ``matchup.py``, so you can read it
 and run it again later. Every step is described on the website, in
 `Validating from your browser

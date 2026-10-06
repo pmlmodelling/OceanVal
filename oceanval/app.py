@@ -42,6 +42,7 @@ import signal
 import subprocess
 import sys
 import threading
+import time
 import traceback
 import urllib.parse
 
@@ -78,6 +79,29 @@ _MOST_FOLDERS = 2000
 
 # the sample of a simulation's files lists at most this many, and counts the rest
 _MOST_FILES = 500
+
+# the demo: a CMIP6 model's sea surface temperature, which it downloads into
+# DEMO_FOLDER, in the directory worked in, and matches up for DEMO_YEAR only,
+# the first year in the file
+DEMO_URL = (
+    "https://noresg.nird.sigma2.no/thredds/fileServer/esg_dataroot/cmor/CMIP6/CMIP/"
+    "NCC/NorESM2-LM/historical/r3i1p1f1/Omon/tos/gn/v20190920/"
+    "tos_Omon_NorESM2-LM_historical_r3i1p1f1_gn_201001-201412.nc"
+)
+DEMO_FILE = DEMO_URL.rsplit("/", 1)[1]
+DEMO_FOLDER = "oceanval_demo"
+DEMO_YEAR = 2010
+
+# what the demo fills in in the create_recipes window: its year, and the
+# limits the model's tripolar grid is matched up within
+DEMO_RECIPE_SETTINGS = {
+    "start": str(DEMO_YEAR),
+    "end": str(DEMO_YEAR),
+    "lon_min": "-180",
+    "lon_max": "180",
+    "lat_min": "-90",
+    "lat_max": "90",
+}
 
 
 def default_setup_form():
@@ -118,6 +142,65 @@ def default_validate_form():
         "transect_end_lon": "",
         "transect_end_lat": "",
     }
+
+
+def demo_setup_form():
+    """The simulation step's boxes, as the demo fills them in: the
+    downloaded file, with the matchups, the report and the script beside
+    it in DEMO_FOLDER."""
+    return dict(
+        default_setup_form(),
+        simdir=os.path.join(DEMO_FOLDER, "simulation"),
+        ndown="0",
+        start=str(DEMO_YEAR),
+        end=str(DEMO_YEAR),
+        out_dir=DEMO_FOLDER,
+        overwrite=True,
+        out=os.path.join(DEMO_FOLDER, "matchup.py"),
+    )
+
+
+def demo_report_form():
+    """The report options step's boxes, as the demo fills them in."""
+    return dict(default_validate_form(), subregions="global", concise=False)
+
+
+# the boxes the demo fills in, which the page marks as OceanVal's
+DEMO_PREFILLED = {
+    "setup": ["simdir", "ndown", "out_dir", "out"],
+    "report": ["subregions", "concise"],
+}
+
+
+class _Cancelled(Exception):
+    """The demo's download was stopped, as OceanVal closed."""
+
+
+def _fetch(url, path, progress, cancelled):
+    """Download url to path, calling progress(done, total) as it goes, where
+    total is None if the server does not say. Written to path + ".part"
+    first, so that a file at path is always complete. Raises _Cancelled if
+    cancelled is set before it has finished."""
+    # only needed for the demo
+    import requests
+
+    partial = path + ".part"
+    try:
+        with requests.get(url, stream=True, timeout=60) as response:
+            response.raise_for_status()
+            total = int(response.headers.get("Content-Length") or 0) or None
+            done = 0
+            with open(partial, "wb") as file:
+                for chunk in response.iter_content(1 << 16):
+                    if cancelled.is_set():
+                        raise _Cancelled
+                    file.write(chunk)
+                    done += len(chunk)
+                    progress(done, total)
+        os.replace(partial, path)
+    finally:
+        with contextlib.suppress(OSError):
+            os.remove(partial)
 
 
 # the boxes of the transect's two ends, in validate()'s order: [lon, lat] of
@@ -713,8 +796,10 @@ class App:
     "running" and "finished". To match up and validate, once the matchups are
     checked in "running", "report_options" asks for the report's options
     before anything is matched up, while matchup waits for the answer to
-    whether the matchups are right. Everything the page does goes through the
-    methods here, which the server's threads call.
+    whether the matchups are right. The demo is a matchup and validate run
+    that starts at "demo", which downloads its model output, and goes on to
+    "setup" with the boxes filled in. Everything the page does goes through
+    the methods here, which the server's threads call.
     """
 
     def __init__(self, cwd=None):
@@ -772,6 +857,11 @@ class App:
         # offers to remove once, and whether the user has answered
         self.leftovers = leftovers.find_leftovers()
         self.leftovers_asked = False
+        # the demo, while it is the run being set up or made: its download's
+        # status ("idle", "downloading", "done" or "failed"), how much of it
+        # has come, and why it failed, or None
+        self.demo = None
+        self._demo_cancel = threading.Event()
         self._server = None
 
     # ---- state ----
@@ -833,6 +923,18 @@ class App:
                     "files": self.leftovers,
                 },
                 "interim": self._interim_state(),
+                "demo": (
+                    None
+                    if self.demo is None
+                    else dict(
+                        self.demo,
+                        folder=os.path.join(self.cwd, DEMO_FOLDER),
+                        file=DEMO_FILE,
+                        year=DEMO_YEAR,
+                        downloaded=os.path.isfile(self._demo_path()),
+                        prefilled=DEMO_PREFILLED,
+                    )
+                ),
                 "question": self.question.as_dict() if self.question else None,
                 "run": {
                     "label": self.run_label,
@@ -982,13 +1084,21 @@ class App:
 
     def choose(self, action, data_dir=None):
         """Take the first step: match up and validate, match up only, or
-        validate. data_dir fills in the matchups to validate."""
+        validate, or compare - or try the demo, which is a matchup and
+        validate run. data_dir fills in the matchups to validate."""
         with self._lock:
-            if action not in ACTIONS or self.view not in ("start", "finished"):
+            if action not in ACTIONS + ("demo",) or self.view not in ("start", "finished"):
                 return False
-            self.action = action
+            self._end_demo()
             self.question = None
             self.interim = None
+            if action == "demo":
+                self.action = "matchup_validate"
+                self.demo = {"status": "idle", "bytes": 0, "total": None, "error": None}
+                self.view = "demo"
+                self._notify()
+                return True
+            self.action = action
             if action == "validate":
                 # the full path, never "." for the directory worked in
                 self.validate_form["data_dir"] = _path(data_dir or self.out_dir, self.cwd)
@@ -1004,21 +1114,100 @@ class App:
     def back(self):
         with self._lock:
             earlier = {
-                "setup": "start",
+                "setup": "demo" if self.demo is not None else "start",
                 "validate": "start",
                 "compare": "start",
                 "own_data": "setup",
                 "point_data": "own_data",
                 "gridded_data": "point_data",
             }
+            if self.demo is not None and self.demo["status"] != "downloading":
+                earlier["demo"] = "start"
             if self.view == "report_options" and self._held_matchups():
                 # the matchups again, whose question is still being asked
                 earlier["report_options"] = "running"
             if self.view not in earlier:
                 return False
             self.view = earlier[self.view]
+            if self.view == "start":
+                self._end_demo()
             self._notify()
             return True
+
+    # ---- the demo ----
+
+    def _demo_path(self):
+        return os.path.join(self.cwd, DEMO_FOLDER, "simulation", DEMO_FILE)
+
+    def _end_demo(self):
+        """Leave the demo, if it is the run, so that what it filled in is
+        not carried over into another. Called with the lock held."""
+        if self.demo is None:
+            return
+        self.demo = None
+        self._demo_cancel.set()
+        self.setup_form = dict(default_setup_form(), out_dir=self.cwd)
+        self.validate_form = default_validate_form()
+
+    def demo_download(self):
+        """Download the demo's model output, unless it has been already, and
+        go on to the simulation step with its boxes filled in. Returns the
+        HTTP status and the reply for the page."""
+        with self._lock:
+            if self.view != "demo" or self.demo is None:
+                return 409, {"ok": False, "error": "This step is over."}
+            if self.demo["status"] == "downloading":
+                return 409, {"ok": False, "error": "It is being downloaded already."}
+            self.demo.update(status="downloading", bytes=0, total=None, error=None)
+            # a fresh one, as an earlier download's thread may still hold the last
+            self._demo_cancel = threading.Event()
+            demo, cancelled = self.demo, self._demo_cancel
+            self._notify()
+        threading.Thread(
+            target=self._download_demo,
+            args=(demo, cancelled),
+            name="oceanval-demo",
+            daemon=True,
+        ).start()
+        return 200, {"ok": True}
+
+    def _download_demo(self, demo, cancelled):
+        path = self._demo_path()
+        shown = [0.0]
+
+        def progress(done, total):
+            # the page is told twice a second, not for every chunk
+            now = time.monotonic()
+            with self._lock:
+                demo.update(bytes=done, total=total)
+                if now - shown[0] >= 0.5 or done == total:
+                    shown[0] = now
+                    self._notify()
+
+        try:
+            if not os.path.isfile(path):
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                _fetch(DEMO_URL, path, progress, cancelled)
+        except _Cancelled:
+            return
+        except Exception as error:
+            with self._lock:
+                if self.demo is demo:
+                    demo.update(
+                        status="failed",
+                        error=f"The model output could not be downloaded: {error}",
+                    )
+                    self._notify()
+            return
+        with self._lock:
+            if self.demo is not demo or self.view != "demo":
+                return
+            demo["status"] = "done"
+            self.setup_form = demo_setup_form()
+            self.validate_form = demo_report_form()
+            self.setup_error = None
+            self.view = "setup"
+            self._notify()
 
     def answer_leftovers(self, action):
         """Remove the temporary files earlier sessions left behind, or keep
@@ -1042,6 +1231,7 @@ class App:
                 return False
             self.view = "start"
             self.action = None
+            self._end_demo()
             self.matchup_script_saved = False
             self.script_path = None
             self._notify()
@@ -1204,6 +1394,10 @@ class App:
         page.form["overwrite"] = self.overwrite
         page.form["start"] = ""
         page.form["end"] = ""
+        if self.demo is not None:
+            page.form.update(DEMO_RECIPE_SETTINGS)
+            # marked as OceanVal's in the window
+            page.context["app"]["prefilled"] = list(DEMO_RECIPE_SETTINGS)
         with self._lock:
             if self.closed.is_set():
                 return None
@@ -1856,6 +2050,7 @@ class App:
             if self.closed.is_set():
                 return
             self.closed.set()
+            self._demo_cancel.set()
             run, page = self.run, self.recipes_page
             self._notify()
         if run is not None:
@@ -2044,6 +2239,9 @@ class _Handler(recipes_gui._Handler):
             self._reply_json(
                 *app.add_own_data(payload.get("kind"), payload.get("form"))
             )
+            return
+        if path == "/api/demo_download":
+            self._reply_json(*app.demo_download())
             return
         if path == "/api/leftovers":
             self._reply_json(*app.answer_leftovers(payload.get("action")))
