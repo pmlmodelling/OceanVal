@@ -180,11 +180,24 @@
   .vars > summary::-webkit-details-marker { display: none; }
   .vars > summary:hover { text-decoration: underline; }
   .vars > summary:focus-visible { outline: none; box-shadow: var(--focus); border-radius: 4px; }
-  .vars__popover { position: absolute; top: calc(100% + 4px); left: 0; z-index: 8; width: min(520px, 80vw); max-height: 320px; overflow: auto; padding: 4px 12px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); box-shadow: var(--shadow-lg); font-size: 12px; line-height: 1.4; }
-  .vars__popover table { width: 100%; border-collapse: collapse; table-layout: auto; }
+  .vars__popover { position: absolute; top: calc(100% + 4px); left: 0; z-index: 8; display: flex; flex-direction: column; width: min(520px, 80vw); max-height: 320px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); box-shadow: var(--shadow-lg); font-size: 12px; line-height: 1.4; }
+  .vars__bar { display: flex; gap: 10px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+  .vars__search { flex: 1; min-width: 0; padding: 5px 10px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg); color: var(--ink); font: 400 12.5px/18px var(--font-body); }
+  .vars__search:focus { outline: none; border-color: var(--teal-500); box-shadow: var(--focus); }
+  .vars__count { color: var(--muted); font-size: 11.5px; white-space: nowrap; }
+  .vars__scroll { flex: 1; min-height: 0; overflow: auto; padding: 0 12px 8px; }
+  .vars__none { margin: 10px 0 2px; color: var(--muted); }
+  /* the narrow-screen layout makes the page's tables blocks; this one stays a table */
+  .vars__popover table { display: table; width: 100%; border-collapse: collapse; table-layout: auto; }
+  .vars__popover thead { display: table-header-group; }
+  .vars__popover tbody { display: table-row-group; }
+  .vars__popover tr { display: table-row; padding: 0; border: 0; }
+  .vars__popover tr[hidden] { display: none; }
   .vars__popover th { position: sticky; top: 0; padding: 8px 8px 6px 0; background: var(--bg); color: var(--muted); font-size: 11px; font-weight: 600; text-align: left; text-transform: none; letter-spacing: 0; }
-  .vars__popover td { padding: 3px 8px 3px 0; border: 0; border-top: 1px solid var(--line); vertical-align: top; color: var(--ink-soft); }
-  .vars__popover td:first-child { font-family: var(--font-mono, monospace); color: var(--ink); white-space: nowrap; }
+  .vars__popover td { display: table-cell; width: auto; padding: 3px 8px 3px 0; border: 0; border-top: 1px solid var(--line); vertical-align: top; color: var(--ink-soft); }
+  .vars__popover td:nth-child(2) { font-family: var(--font-mono, monospace); color: var(--ink); white-space: nowrap; }
+  .vars__popover th:first-child, .vars__popover td:first-child { width: 1%; padding-right: 10px; }
+  .vars__popover td:first-child input { margin: 1px 0; cursor: pointer; }
   .opts__years { display: flex; align-items: center; gap: 4px; }
   .s-input.is-small, .s-select.is-small { padding-top: 4px; padding-bottom: 4px; font-size: 12.5px; }
   .s-select.is-small { padding-right: 22px; background-position: right 7px center; }
@@ -811,6 +824,8 @@
     }
     update(row);
     summarise();
+    // the pop-out of variables, if it has been opened, ticks what the box holds
+    if (row.syncTicks) row.syncTicks();
   }
 
   function undo(row) {
@@ -1022,19 +1037,92 @@
         : el("span", { class: "none", title: emptyTitle, "aria-label": emptyTitle, text: "—" }));
   }
 
-  // the model's variables and their long_names, in a pop-out under the box;
-  // the table is only built when it is opened, as a model can have hundreds
-  function variablesTable() {
+  // the model's variables and their long_names, in a pop-out under the box
+  // that can be searched; the table is only built when it is first opened, as
+  // a model can have hundreds of variables
+  function variablesTable(row) {
     if (!state.available.length) return null;
-    const body = el("div", { class: "vars__popover" });
+    const longNames = state.long_names || {};
+    const search = el("input", {
+      class: "vars__search",
+      type: "search",
+      placeholder: "Search variables",
+      spellcheck: "false",
+      autocomplete: "off",
+      autocapitalize: "off",
+      "aria-label": "Search the model's variables and their long names",
+    });
+    const count = el("span", { class: "vars__count vars__shown", "aria-live": "polite" });
+    const ticked = el("span", { class: "vars__count vars__ticked" });
+    const none = el("p", { class: "vars__none", text: "No variables match.", hidden: "" });
+    const scroll = el("div", { class: "vars__scroll" });
+    const body = el("div", { class: "vars__popover" },
+      el("div", { class: "vars__bar" }, search, count, ticked), scroll);
     const details = el("details", { class: "vars" },
-      el("summary", { text: "Show the model's variables" }), body);
+      el("summary", { text: "Select from the model's variables" }), body);
+    let rows = [];
+    // the names in the box, which may include ones the model does not have
+    const named = () => row.value.split("+").map((name) => name.trim()).filter(Boolean);
+    // the ticks show what the box holds, wherever it was changed
+    const syncTicks = () => {
+      const names = new Set(named());
+      for (const item of rows) item.box.checked = names.has(item.name);
+      ticked.textContent = names.size > 1 ? `${names.size} ticked, summed` : "";
+    };
+    row.syncTicks = syncTicks;
+    // every word typed must be in the variable's name or its long_name
+    const filter = () => {
+      const words = search.value.toLowerCase().split(/\s+/).filter(Boolean);
+      let shown = 0;
+      for (const { tr, text } of rows) {
+        tr.hidden = !words.every((word) => text.includes(word));
+        if (!tr.hidden) shown += 1;
+      }
+      none.hidden = shown > 0;
+      count.textContent = words.length ? `${shown} of ${rows.length}` : `${rows.length}`;
+    };
+    search.addEventListener("input", filter);
+    search.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      if (search.value) {
+        search.value = "";
+        filter();
+      } else {
+        details.open = false;
+        details.querySelector("summary").focus();
+      }
+    });
     details.addEventListener("toggle", () => {
-      if (!details.open || body.childElementCount) return;
-      body.append(el("table", {},
-        el("thead", {}, el("tr", {}, el("th", { scope: "col", text: "Variable" }), el("th", { scope: "col", text: "long_name" }))),
-        el("tbody", {}, ...state.available.map((name) => el("tr", {},
-          el("td", { text: name }), el("td", { text: (state.long_names || {})[name] || "" }))))));
+      if (!details.open) return;
+      if (!rows.length) {
+        rows = state.available.map((name) => {
+          const longName = longNames[name] || "";
+          const box = el("input", { type: "checkbox", class: "tick", "aria-label": `Use ${name}` });
+          // ticking several gives their sum, as var1+var2+var3
+          box.addEventListener("change", () => {
+            const names = named().filter((used) => used !== name);
+            if (box.checked) names.push(name);
+            setValue(row, names.join("+"));
+          });
+          return {
+            name,
+            box,
+            text: `${name} ${longName}`.toLowerCase(),
+            tr: el("tr", {}, el("td", {}, box), el("td", { text: name }), el("td", { text: longName })),
+          };
+        });
+        scroll.append(
+          el("table", {},
+            el("thead", {}, el("tr", {}, el("th", { scope: "col", "aria-label": "Use" }),
+              el("th", { scope: "col", text: "Variable" }), el("th", { scope: "col", text: "long_name" }))),
+            el("tbody", {}, ...rows.map((row) => row.tr))),
+          none);
+      }
+      search.value = "";
+      filter();
+      syncTicks();
+      search.focus();
     });
     return details;
   }
@@ -1059,7 +1147,7 @@
       el("td", {},
         el("span", { class: "obs__title", text: row.title }),
         row.variable === row.title.toLowerCase() ? null : el("code", { class: "obs__key", text: row.variable })),
-      el("td", { "data-label": "What is the model variable name?" }, input, msg, variablesTable()),
+      el("td", { "data-label": "What is the model variable name?" }, input, msg, variablesTable(row)),
       datasetsCell("What gridded datasets do you want?", chips.filter((chip) => chip.dataset.kind === "gridded"),
         `No gridded dataset for ${row.title}`),
       datasetsCell("What point datasets do you want?", chips.filter((chip) => chip.dataset.kind === "point"),

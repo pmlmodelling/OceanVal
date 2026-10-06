@@ -748,7 +748,7 @@ class TestModelVariablesTable:
             assert first.locator(".vars__popover").is_hidden()
             first.locator("summary").click()
             cells = first.locator(".vars__popover tbody tr").evaluate_all(
-                "rows => rows.map(r => [...r.cells].map(c => c.textContent))"
+                "rows => rows.map(r => [...r.cells].slice(1).map(c => c.textContent))"
             )
             assert cells == [
                 ["so", "Sea water salinity"],
@@ -756,6 +756,79 @@ class TestModelVariablesTable:
                 ["time", ""],
             ]
             assert first.locator(".vars__popover").is_visible()
+        finally:
+            recipe_page.close()
+
+    def test_the_pop_out_can_be_searched_by_name_or_long_name(self, browser):
+        recipe_page = self.page({"thetao": "Sea water potential temperature", "so": "Sea water salinity"})
+        url = recipe_page.start()
+        try:
+            page = browser.new_page()
+            page.goto(url)
+            first = page.locator("details.vars").first
+            first.locator("summary").click()
+            search = first.locator(".vars__search")
+            visible = lambda: first.locator("tbody tr:not([hidden]) td:nth-child(2)").all_text_contents()
+
+            assert search.evaluate("node => node === document.activeElement")
+            assert visible() == ["so", "thetao", "time"]
+            assert first.locator(".vars__shown").text_content() == "3"
+
+            search.fill("SALINITY")
+            assert visible() == ["so"]
+            assert first.locator(".vars__shown").text_content() == "1 of 3"
+            # every word has to match, in either column
+            search.fill("sea temp")
+            assert visible() == ["thetao"]
+            search.fill("theta")
+            assert visible() == ["thetao"]
+            search.fill("nonsense")
+            assert visible() == []
+            assert first.locator(".vars__none").is_visible()
+
+            search.press("Escape")
+            assert search.input_value() == ""
+            assert visible() == ["so", "thetao", "time"]
+            assert first.locator(".vars__none").is_hidden()
+        finally:
+            recipe_page.close()
+
+
+    def test_ticking_variables_in_the_pop_out_sums_them_in_the_box(self, browser):
+        recipe_page = self.page({"thetao": "Sea water potential temperature", "so": "Sea water salinity"})
+        url = recipe_page.start()
+        try:
+            page = browser.new_page()
+            page.goto(url)
+            first = page.locator("details.vars").first
+            box = page.locator(".field__input").first
+            first.locator("summary").click()
+            tick = lambda name: first.locator(f'input[aria-label="Use {name}"]')
+
+            tick("so").check()
+            tick("thetao").check()
+            assert box.input_value() == "so+thetao"
+            assert page.locator("tr.is-invalid").count() == 0
+            assert first.locator(".vars__ticked").text_content() == "2 ticked, summed"
+
+            # a tick on a row the search has hidden still counts
+            first.locator(".vars__search").fill("temp")
+            tick("thetao").uncheck()
+            assert box.input_value() == "so"
+            first.locator(".vars__search").fill("")
+            assert tick("so").is_checked()
+            assert not tick("thetao").is_checked()
+
+            # the ticks follow the box when it is typed in, and a name the
+            # model does not have is left alone
+            box.fill("thetao+time+missing")
+            assert tick("thetao").is_checked() and tick("time").is_checked()
+            assert not tick("so").is_checked()
+            tick("so").check()
+            assert box.input_value() == "thetao+time+missing+so"
+            assert page.locator("tr.is-invalid").count() == 1
+            tick("time").uncheck()
+            assert box.input_value() == "thetao+missing+so"
         finally:
             recipe_page.close()
 

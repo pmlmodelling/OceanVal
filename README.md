@@ -238,7 +238,8 @@ Before the script is written, a page opens in your web browser so you can
 check and change all of this. It has a row for each observational
 variable, holding the model variable identified for it (which you can
 change; a pop-out under the box lists every variable in the model output
-with its `long_name`) and tick-boxes for the gridded and point datasets available for
+with its `long_name`; search it, and tick several to sum them as
+`var1+var2+var3`) and tick-boxes for the gridded and point datasets available for
 it. They start ticked as the script would otherwise be written; tick
 several to validate a variable against each of them, or use **Clear all
 selections** to untick everything and start from none. Each ticked dataset

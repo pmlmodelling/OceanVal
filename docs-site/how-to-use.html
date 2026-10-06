@@ -273,7 +273,7 @@ oceanval.<a href="api.html#add_gridded_comparison"><span class="tok-fn">add_grid
       <p>Simulation output must be in a single directory, or in subdirectories following a <code>YYYY/MM/</code>-style structure — subdirectories must contain only integers. If your structure differs, create symbolic links in a single directory. If multiple simulations share a directory, use <code>require</code> to filter file paths to the one you want.</p>
     </div>
     <p><strong>Note:</strong> for monthly-resolution simulations, set <code>point_time_res=["year", "month"]</code> when matching up in-situ observations — otherwise day-of-year will almost never match and few matchups will be found.</p>
-    <p><strong>Summing simulation output:</strong> to compare observations against the sum of multiple model variables, set something like <code>"var1+var2+var3"</code> as <code>model_variable</code>.</p>
+    <p><strong>Summing simulation output:</strong> to compare observations against the sum of multiple model variables, set something like <code>"var1+var2+var3"</code> as <code>model_variable</code>. In the <code>create_recipes</code> window you can tick the variables in the pop-out under the model variable box instead of typing the sum.</p>
     <div class="callout">
       <div class="callout-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>How does OceanVal handle in-situ data?</div>
       <p>Behaviour depends on what's provided: <code>year</code>, <code>month</code>, <code>day</code>, <code>depth</code>.</p>

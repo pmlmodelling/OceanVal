@@ -205,6 +205,7 @@ This will result in day of year being ignored when matching up observations with
 
 Sometimes observational data needs to be compared with the sum of multiple model variables.
 You can do this by setting something like "var1+var2+var3" as the `model_variable` when registering the observational dataset.
+In the `create_recipes` window you can tick the variables in the pop-out under the model variable box instead of typing the sum.
 
 .. admonition:: How does OceanVal handle in-situ data?
 
