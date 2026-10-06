@@ -655,6 +655,8 @@ class RecipePage:
         state = {
             "rows": self.rows,
             "available": sorted(self.available),
+            # each model variable's long_name, for the table under its box
+            "long_names": self.context.get("long_names") or {},
             "nemo_ersem": bool(self.context.get("app"))
             and is_likely_nemo_ersem(self.available),
             "context": self.context,

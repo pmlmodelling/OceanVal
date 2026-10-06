@@ -175,6 +175,16 @@
   .opts__help-popover dl { margin: 0 0 6px; }
   .opts__help-popover dt { margin-top: 6px; font-weight: 700; }
   .opts__help-popover dd { margin: 0; color: var(--ink-soft); }
+  .vars { position: relative; margin-top: 6px; }
+  .vars > summary { display: inline-block; color: var(--teal-700); font-size: 12.5px; cursor: pointer; list-style: none; }
+  .vars > summary::-webkit-details-marker { display: none; }
+  .vars > summary:hover { text-decoration: underline; }
+  .vars > summary:focus-visible { outline: none; box-shadow: var(--focus); border-radius: 4px; }
+  .vars__popover { position: absolute; top: calc(100% + 4px); left: 0; z-index: 8; width: min(520px, 80vw); max-height: 320px; overflow: auto; padding: 4px 12px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); box-shadow: var(--shadow-lg); font-size: 12px; line-height: 1.4; }
+  .vars__popover table { width: 100%; border-collapse: collapse; table-layout: auto; }
+  .vars__popover th { position: sticky; top: 0; padding: 8px 8px 6px 0; background: var(--bg); color: var(--muted); font-size: 11px; font-weight: 600; text-align: left; text-transform: none; letter-spacing: 0; }
+  .vars__popover td { padding: 3px 8px 3px 0; border: 0; border-top: 1px solid var(--line); vertical-align: top; color: var(--ink-soft); }
+  .vars__popover td:first-child { font-family: var(--font-mono, monospace); color: var(--ink); white-space: nowrap; }
   .opts__years { display: flex; align-items: center; gap: 4px; }
   .s-input.is-small, .s-select.is-small { padding-top: 4px; padding-bottom: 4px; font-size: 12.5px; }
   .s-select.is-small { padding-right: 22px; background-position: right 7px center; }
@@ -1012,6 +1022,23 @@
         : el("span", { class: "none", title: emptyTitle, "aria-label": emptyTitle, text: "—" }));
   }
 
+  // the model's variables and their long_names, in a pop-out under the box;
+  // the table is only built when it is opened, as a model can have hundreds
+  function variablesTable() {
+    if (!state.available.length) return null;
+    const body = el("div", { class: "vars__popover" });
+    const details = el("details", { class: "vars" },
+      el("summary", { text: "Show the model's variables" }), body);
+    details.addEventListener("toggle", () => {
+      if (!details.open || body.childElementCount) return;
+      body.append(el("table", {},
+        el("thead", {}, el("tr", {}, el("th", { scope: "col", text: "Variable" }), el("th", { scope: "col", text: "long_name" }))),
+        el("tbody", {}, ...state.available.map((name) => el("tr", {},
+          el("td", { text: name }), el("td", { text: (state.long_names || {})[name] || "" }))))));
+    });
+    return details;
+  }
+
   function buildRow(row) {
     const input = el("input", {
       class: "field__input",
@@ -1032,7 +1059,7 @@
       el("td", {},
         el("span", { class: "obs__title", text: row.title }),
         row.variable === row.title.toLowerCase() ? null : el("code", { class: "obs__key", text: row.variable })),
-      el("td", { "data-label": "What is the model variable name?" }, input, msg),
+      el("td", { "data-label": "What is the model variable name?" }, input, msg, variablesTable()),
       datasetsCell("What gridded datasets do you want?", chips.filter((chip) => chip.dataset.kind === "gridded"),
         `No gridded dataset for ${row.title}`),
       datasetsCell("What point datasets do you want?", chips.filter((chip) => chip.dataset.kind === "point"),

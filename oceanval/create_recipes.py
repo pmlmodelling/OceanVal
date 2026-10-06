@@ -763,21 +763,39 @@ def extract_recipe_variable_mapping(
     return mapping
 
 
-def _available_variables(simdir, ndown, exclude=None, require=None):
-    """The names of every variable in the simulation's example files."""
-    names = set()
+def _variable_long_names(simdir, ndown, exclude=None, require=None):
+    """Every variable in the simulation's example files, with its long_name.
+
+    The long_name is "" for a variable without one.
+    """
+    names = {}
     for path in simulation_files(simdir, ndown, exclude, require):
         # xarray rather than nctoolkit: CDO skips variables on grids it does
         # not support (e.g. raw FVCOM salinity), which would then be refused
         try:
             with xr.open_dataset(path, decode_times=False, decode_cf=False) as ds:
-                names.update(ds.variables)
+                found = {
+                    str(name): str(variable.attrs.get("long_name", ""))
+                    for name, variable in ds.variables.items()
+                }
         except Exception:
             try:
-                names.update(nc.open_data(path, checks=False).contents.variable)
+                contents = nc.open_data(path, checks=False).contents
+                found = {
+                    str(name): "" if str(long_name) == "nan" else str(long_name)
+                    for name, long_name in zip(contents.variable, contents.long_name)
+                }
             except Exception:
                 continue
+        for name, long_name in found.items():
+            if long_name or name not in names:
+                names[name] = long_name
     return names
+
+
+def _available_variables(simdir, ndown, exclude=None, require=None):
+    """The names of every variable in the simulation's example files."""
+    return set(_variable_long_names(simdir, ndown, exclude, require))
 
 
 def _model_variable_names(answer):
@@ -1657,7 +1675,8 @@ def _create_recipes(
         # only needed when asked for, and it imports this module
         from oceanval.recipes_gui import choose_recipes
 
-        available = _available_variables(simdir, ndown, **filters)
+        long_names = _variable_long_names(simdir, ndown, **filters)
+        available = set(long_names)
         # what was identified is in the output, even where xarray and CDO
         # disagree about a variable's name
         for model_variable in mapping.values():
@@ -1675,6 +1694,8 @@ def _create_recipes(
             # the Global settings start with them
             "exclude": exclude,
             "require": require,
+            # for the table of the model's variables
+            "long_names": long_names,
         }
         chosen = choose_recipes(mapping, domain, available, context, write)
         if chosen is None:

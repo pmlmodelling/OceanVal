@@ -727,6 +727,39 @@ class TestHosting:
             recipe_page.close()
 
 
+class TestModelVariablesTable:
+    def page(self, long_names):
+        return RecipePage(
+            recipe_rows({"temperature": "thetao"}, "global"),
+            {"thetao", "so", "time"},
+            dict(CONTEXT, long_names=long_names),
+            lambda *chosen: "/out/matchup.py",
+        )
+
+    def test_each_model_variable_box_has_a_pop_out_of_names_and_long_names(self, browser):
+        recipe_page = self.page({"thetao": "Sea water temperature", "so": "Sea water salinity"})
+        url = recipe_page.start()
+        try:
+            page = browser.new_page()
+            page.goto(url)
+
+            first = page.locator("details.vars").first
+            assert page.locator("details.vars").count() == len(RECIPE_VARIABLES)
+            assert first.locator(".vars__popover").is_hidden()
+            first.locator("summary").click()
+            cells = first.locator(".vars__popover tbody tr").evaluate_all(
+                "rows => rows.map(r => [...r.cells].map(c => c.textContent))"
+            )
+            assert cells == [
+                ["so", "Sea water salinity"],
+                ["thetao", "Sea water temperature"],
+                ["time", ""],
+            ]
+            assert first.locator(".vars__popover").is_visible()
+        finally:
+            recipe_page.close()
+
+
 class TestChooseRecipes:
     def test_it_waits_for_the_page_to_be_written(self, monkeypatch, capsys):
         written = []
