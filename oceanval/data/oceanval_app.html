@@ -598,12 +598,12 @@
         <dl>
           <dt>Model</dt><dd>NorESM2-LM, the Norwegian Earth System Model (low-resolution atmosphere)</dd>
           <dt>Simulation</dt><dd>CMIP6 historical run, member r3i1p1f1</dd>
-          <dt>Variable</dt><dd>Sea surface temperature (<code>tos</code>), monthly means, in °C</dd>
+          <dt>Variables</dt><dd>Sea surface temperature (<code>tos</code>, in °C), sea surface salinity (<code>sos</code>, dimensionless) and surface nitrate (<code>no3os</code>, in mol m<sup>-3</sup>), all monthly means</dd>
           <dt>Grid</dt><dd>The model's own tripolar grid, about 1° across</dd>
           <dt>Covers</dt><dd>January 2010 to December 2014</dd>
-          <dt>File</dt><dd><code id="demo-file"></code>, 17 MB, from the Norwegian ESGF data node</dd>
+          <dt>Files</dt><dd><span id="demo-files"></span>about 50 MB in all, from the Norwegian ESGF data node</dd>
         </dl>
-        <p>OceanVal downloads it, then takes you through the usual steps with the options for the demo filled in, <strong class="oceanval-change">in red and bold</strong>. It matches the sea surface temperature up with COBE-SST 2, and builds the validation report.</p>
+        <p>OceanVal downloads them, then takes you through the usual steps with the options for the demo filled in, <strong class="oceanval-change">in red and bold</strong>. It matches the sea surface temperature up with COBE-SST 2, and the salinity and nitrate with the World Ocean Atlas 2023, and builds the validation report. The units step will suggest converting the observed nitrate, from micromoles per kilogram to the model's moles per cubic metre: check it, as you would for your own model.</p>
       </div>
       <div class="card demo-progress" id="demo-progress" hidden>
         <div class="demo-progress__bar"><div class="demo-progress__fill" id="demo-progress-fill"></div></div>
@@ -1300,16 +1300,17 @@
     const demo = state.demo;
     $("demo-folder-path").textContent = `It is made in the directory OceanVal is running from: ${demo.folder}`;
     $("demo-year").textContent = String(demo.year);
-    $("demo-file").textContent = demo.file;
+    $("demo-files").replaceChildren(...demo.files.flatMap((name) => [Object.assign(document.createElement("code"), { textContent: name }), document.createElement("br")]));
     const busy = demo.status === "downloading";
     $("demo-progress").hidden = !busy;
     if (busy) {
       const megabytes = (bytes) => (bytes / 1e6).toFixed(1);
       const fraction = demo.total ? Math.min(1, demo.bytes / demo.total) : 0;
       $("demo-progress-fill").style.width = `${Math.round(fraction * 100)}%`;
+      const which = `file ${demo.file} of ${demo.files.length}`;
       $("demo-progress-text").textContent = demo.total
-        ? `Downloading the model output: ${megabytes(demo.bytes)} of ${megabytes(demo.total)} MB`
-        : `Downloading the model output: ${megabytes(demo.bytes)} MB`;
+        ? `Downloading the model output, ${which}: ${megabytes(demo.bytes)} of ${megabytes(demo.total)} MB`
+        : `Downloading the model output, ${which}: ${megabytes(demo.bytes)} MB`;
     }
     $("demo-error").hidden = demo.status !== "failed";
     $("demo-error").textContent = demo.status === "failed"

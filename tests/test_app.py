@@ -2754,15 +2754,25 @@ class TestBack:
         assert app.recipes_page.context["fvcom"] is True
 
 
+# the variables of the demo's files, as CMIP6 names and describes them
+DEMO_VARIABLES = {
+    "tos": ("Sea Surface Temperature", "degC"),
+    "sos": ("Sea Surface Salinity", "0.001"),
+    "no3os": ("Surface Dissolved Nitrate Concentration", "mol m-3"),
+}
+
+
 def write_demo_file(path):
-    """A small stand-in for the demo's model output: a year of monthly sea
-    surface temperature, named as CMIP6 names it."""
+    """A small stand-in for one of the demo's model output files: a year of
+    monthly values of the variable the file is named after, as CMIP6 names it."""
+    variable = os.path.basename(path).split("_")[0]
+    long_name, units = DEMO_VARIABLES[variable]
     dataset = xr.Dataset(
         {
-            "tos": (
+            variable: (
                 ("time", "j", "i"),
                 np.random.rand(12, 2, 2).astype("f4"),
-                {"long_name": "Sea Surface Temperature", "units": "degC"},
+                {"long_name": long_name, "units": units},
             )
         }
     )
@@ -2803,7 +2813,8 @@ class TestDemo:
         assert (state["view"], state["action"]) == ("demo", "matchup_validate")
         demo = state["demo"]
         assert (demo["status"], demo["downloaded"], demo["year"]) == ("idle", False, 2010)
-        assert demo["file"] == app_module.DEMO_FILE
+        assert demo["files"] == list(app_module.DEMO_FILES)
+        assert [name.split("_")[0] for name in demo["files"]] == ["tos", "sos", "no3os"]
         assert demo["folder"] == os.path.join(app.cwd, "oceanval_demo")
         # nothing is downloaded until asked for
         assert not os.path.exists(demo["folder"])
@@ -2815,8 +2826,9 @@ class TestDemo:
         assert post(app, "/api/demo_download")[0] == 200
         wait_for(lambda: app.view == "setup")
 
-        assert fetched == [app_module.DEMO_URL]
-        assert (tmp_path / "oceanval_demo" / "simulation" / app_module.DEMO_FILE).is_file()
+        assert fetched == list(app_module.DEMO_URLS)
+        for name in app_module.DEMO_FILES:
+            assert (tmp_path / "oceanval_demo" / "simulation" / name).is_file()
         _, state = get_json(app, "/api/state")
         form = state["setup"]["form"]
         assert (form["simdir"], form["ndown"], form["domain"]) == (
@@ -2835,7 +2847,7 @@ class TestDemo:
         assert app.view == "demo"
         assert post(app, "/api/demo_download")[0] == 200
         wait_for(lambda: app.view == "setup")
-        assert len(fetched) == 1
+        assert len(fetched) == 3
 
     def test_a_failed_download_can_be_tried_again(self, app, fetched, tmp_path):
         fetched.error = OSError("no network")
@@ -2846,10 +2858,36 @@ class TestDemo:
 
         assert state["view"] == "demo"
         assert "no network" in state["demo"]["error"]
-        assert not (tmp_path / "oceanval_demo" / "simulation" / app_module.DEMO_FILE).exists()
+        assert not (tmp_path / "oceanval_demo" / "simulation" / app_module.DEMO_FILES[0]).exists()
         fetched.error = None
         assert post(app, "/api/demo_download")[0] == 200
         wait_for(lambda: app.view == "setup")
+
+    def test_a_retry_only_downloads_what_is_missing(self, app, fetched, tmp_path, monkeypatch):
+        folder = tmp_path / "oceanval_demo" / "simulation"
+        fetch, dropped = app_module._fetch, [True]
+
+        def flaky(url, path, progress, cancelled):
+            # the connection is lost during the third file
+            if dropped and url == app_module.DEMO_URLS[2]:
+                raise OSError("dropped")
+            fetch(url, path, progress, cancelled)
+
+        monkeypatch.setattr(app_module, "_fetch", flaky)
+        app.choose("demo")
+        post(app, "/api/demo_download")
+        wait_for(lambda: app.demo["status"] == "failed")
+
+        assert sorted(path.name for path in folder.iterdir()) == sorted(app_module.DEMO_FILES[:2])
+        assert app.demo["file"] == 3
+        assert get_json(app, "/api/state")[1]["demo"]["downloaded"] is False
+
+        dropped.clear()
+        del fetched[:]
+        assert post(app, "/api/demo_download")[0] == 200
+        wait_for(lambda: app.view == "setup")
+        assert fetched == [app_module.DEMO_URLS[2]]
+        assert get_json(app, "/api/state")[1]["demo"]["downloaded"] is True
 
     def test_only_one_download_at_a_time(self, app, monkeypatch):
         release = threading.Event()
@@ -2917,6 +2955,11 @@ class TestDemo:
         temperature = next(row for row in page.rows if row["variable"] == "temperature")
         assert temperature["model_variable"] == "tos"
         assert [dataset["recipe"] for dataset in temperature["gridded"] if dataset["ticked"]] == ["cobe2"]
+        # sos and no3os are the surface salinity and nitrate, validated against WOA23
+        for variable, model_variable in (("salinity", "sos"), ("nitrate", "no3os")):
+            row = next(row for row in page.rows if row["variable"] == variable)
+            assert row["model_variable"] == model_variable
+            assert [dataset["recipe"] for dataset in row["gridded"] if dataset["ticked"]] == ["woa23"]
         status, body = get(app, "/recipes/")
         assert status == 200
         assert page_state(body)["context"]["app"]["prefilled"] == list(app_module.DEMO_RECIPE_SETTINGS)

@@ -50,9 +50,12 @@ Closing the browser window quits ``oceanval`` in the terminal, within about
 do **Quit** (which is instant) and Ctrl+C.
 
 To see how it works first, choose **Try a demo**, below the four choices. It
-downloads a year of a CMIP6 climate model's sea surface temperature (17 MB)
-and takes you through the same steps with the options filled in. It shows how
-OceanVal works, not how to validate a climate model, which needs many years
+downloads a CMIP6 climate model's sea surface temperature, sea surface
+salinity and surface nitrate (50 MB) and takes you through the same steps with
+the options filled in: temperature is matched up with COBE-SST 2, and salinity
+and nitrate with the World Ocean Atlas 2023. The units step suggests
+converting the observed nitrate, which you check as you would for your own
+model. It shows how OceanVal works, not how to validate a climate model, which needs many years
 of output rather than one. It creates a directory called ``oceanval_demo``,
 with the data, matchups and report in it: remove it when you have finished.
 

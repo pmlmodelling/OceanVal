@@ -97,15 +97,21 @@ _MOST_FOLDERS = 2000
 # the sample of a simulation's files lists at most this many, and counts the rest
 _MOST_FILES = 500
 
-# the demo: a CMIP6 model's sea surface temperature, which it downloads into
-# DEMO_FOLDER, in the directory worked in, and matches up for DEMO_YEAR only,
-# the first year in the file
-DEMO_URL = (
+# the demo: a CMIP6 model's sea surface temperature, sea surface salinity and
+# surface nitrate, which it downloads into DEMO_FOLDER, in the directory worked
+# in, and matches up for DEMO_YEAR only, the first year in the files
+_DEMO_NODE = (
     "https://noresg.nird.sigma2.no/thredds/fileServer/esg_dataroot/cmor/CMIP6/CMIP/"
-    "NCC/NorESM2-LM/historical/r3i1p1f1/Omon/tos/gn/v20190920/"
-    "tos_Omon_NorESM2-LM_historical_r3i1p1f1_gn_201001-201412.nc"
+    "NCC/NorESM2-LM/historical/r3i1p1f1/Omon/"
 )
-DEMO_FILE = DEMO_URL.rsplit("/", 1)[1]
+_DEMO_PERIOD = "NorESM2-LM_historical_r3i1p1f1_gn_201001-201412.nc"
+DEMO_URLS = (
+    f"{_DEMO_NODE}tos/gn/v20190920/tos_Omon_{_DEMO_PERIOD}",
+    f"{_DEMO_NODE}sos/gn/v20190920/sos_Omon_{_DEMO_PERIOD}",
+    # nitrate was published later than the others, so its version differs
+    f"{_DEMO_NODE}no3os/gn/v20191108/no3os_Omon_{_DEMO_PERIOD}",
+)
+DEMO_FILES = tuple(url.rsplit("/", 1)[1] for url in DEMO_URLS)
 DEMO_FOLDER = "oceanval_demo"
 DEMO_YEAR = 2010
 
@@ -1262,9 +1268,9 @@ class App:
                     else dict(
                         self.demo,
                         folder=os.path.join(self.cwd, DEMO_FOLDER),
-                        file=DEMO_FILE,
+                        files=list(DEMO_FILES),
                         year=DEMO_YEAR,
-                        downloaded=os.path.isfile(self._demo_path()),
+                        downloaded=all(os.path.isfile(path) for path in self._demo_paths()),
                         prefilled=self._demo_prefilled(),
                     )
                 ),
@@ -1430,7 +1436,7 @@ class App:
             self.interim = None
             if action == "demo":
                 self.action = "matchup_validate"
-                self.demo = {"status": "idle", "bytes": 0, "total": None, "error": None}
+                self.demo = {"status": "idle", "bytes": 0, "total": None, "file": 0, "error": None}
                 self.view = "demo"
                 self._notify()
                 return True
@@ -1521,8 +1527,8 @@ class App:
 
     # ---- the demo ----
 
-    def _demo_path(self):
-        return os.path.join(self.cwd, DEMO_FOLDER, "simulation", DEMO_FILE)
+    def _demo_paths(self):
+        return [os.path.join(self.cwd, DEMO_FOLDER, "simulation", name) for name in DEMO_FILES]
 
     def _end_demo(self):
         """Leave the demo, if it is the run, so that what it filled in is
@@ -1543,7 +1549,9 @@ class App:
                 return 409, {"ok": False, "error": "This step is over."}
             if self.demo["status"] == "downloading":
                 return 409, {"ok": False, "error": "It is being downloaded already."}
-            self.demo.update(status="downloading", bytes=0, total=None, error=None)
+            self.demo.update(
+                status="downloading", bytes=0, total=None, file=0, error=None
+            )
             # a fresh one, as an earlier download's thread may still hold the last
             self._demo_cancel = threading.Event()
             demo, cancelled = self.demo, self._demo_cancel
@@ -1557,7 +1565,6 @@ class App:
         return 200, {"ok": True}
 
     def _download_demo(self, demo, cancelled):
-        path = self._demo_path()
         shown = [0.0]
 
         def progress(done, total):
@@ -1570,9 +1577,15 @@ class App:
                     self._notify()
 
         try:
-            if not os.path.isfile(path):
+            for number, (url, path) in enumerate(zip(DEMO_URLS, self._demo_paths()), 1):
+                if os.path.isfile(path):
+                    continue
                 os.makedirs(os.path.dirname(path), exist_ok=True)
-                _fetch(DEMO_URL, path, progress, cancelled)
+                with self._lock:
+                    # the page says which of the files it is on
+                    demo.update(file=number, bytes=0, total=None)
+                    self._notify()
+                _fetch(url, path, progress, cancelled)
         except _Cancelled:
             return
         except Exception as error:
