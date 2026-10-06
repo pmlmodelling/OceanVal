@@ -319,6 +319,30 @@ class TestServer:
         assert _post(page.url, "/cancel", {})[0] == 200
         assert page.wait() is None
 
+    def test_what_the_page_held_when_it_was_cancelled_is_kept(self, page):
+        """The oceanval app shows the window again with it."""
+        sent = {
+            "rows": [{"variable": "temperature", "model_variable": "so", "selected": []}],
+            "settings": {"start": "2011"},
+        }
+
+        assert _post(page.url, "/cancel", sent)[0] == 200
+        assert page.wait() is None
+        assert page.sent == sent
+
+    def test_a_window_reopened_can_write_the_script_again(self, page):
+        rows = [{"variable": "temperature", "model_variable": "thetao", "selected": ["cobe2"]}]
+        assert _post(page.url, "/write", {"rows": rows})[0] == 200
+        assert _post(page.url, "/write", {"rows": rows})[0] == 409
+
+        page.reopen()
+
+        assert page.result is None and not page._done.is_set()
+        assert _post(page.url, "/write", {"rows": []})[0] == 200
+        assert page.wait()[0] == {}
+        assert page.sent == {"rows": []}
+        assert len(page.written) == 2
+
     def test_settings_and_point_options_are_written(self, page):
         # GitHub's runners have 2 cores, and no more can be chosen
         form = dict(default_form(2011, 2012), cores="1", lon_min="-20", lon_max="10",

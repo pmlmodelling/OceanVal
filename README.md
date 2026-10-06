@@ -59,7 +59,8 @@ that takes you through these steps:
    criteria, then shows what it found as a table: each variable, its model
    variable, the observations it is compared with and the files it is in,
    with **List all files** for each (OceanVal applies temporal subsetting to
-   them). Carry on if the matchups are right; No stops the run.
+   them). Carry on if the matchups are right; No stops the run; **Back**
+   stops it too, before anything is matched up, and goes back to the units.
 7. **Report** (to match up and validate): "One last thing... How would you
    like your validation report?" The report's options, asked for before
    anything is matched up: a subregion to validate, regional summaries,
@@ -68,8 +69,9 @@ that takes you through these steps:
    page does not let you carry on otherwise), fixed colour scales, PDF and
    Word versions, a zipped copy, and a concise or detailed report. The
    report is built beside the matchups, in the
-   directory chosen in step 2. **Back** shows the matchups again. The options
-   are written into the matchup script's `validate()` call.
+   directory chosen in step 2. **Back** shows the matchups again, and keeps
+   the options. The options are written into the matchup script's
+   `validate()` call.
 8. **Run**: matchup, then, to validate as well, `validate()` with the
    report's options. The output appears as it comes, in the page and in the
    terminal, and anything else OceanVal asks, such as whether to try again
@@ -80,6 +82,17 @@ that takes you through these steps:
    it. Each matchup's page is added as soon as the matchup is made, and the
    full report (with PDF and Word, if asked for) is built once they all are.
    The finished page links to the full report.
+
+Every step after the first has **Back**, which keeps what you have entered:
+get as far as the report's options, spot a mistake, go back as far as the
+simulation to fix it, and carry on with everything else as you left it.
+Whatever you change replaces what was there, in the steps after it too. The
+recipes window comes back as you left it; go back before it, and the
+simulation is read again, so the window keeps your global settings and the
+rows you changed whose model variables are still in the output, ticks the
+datasets afresh if you changed the domain, and says in red and bold what it
+could not keep. The units always have to be confirmed again. Once anything
+is matched up, there is no going back.
 
 Outside the window, `matchup(live_validation=...)` builds the same interim
 report (HTML only, in `oceanval_interim_report`), with `True` or a dict of

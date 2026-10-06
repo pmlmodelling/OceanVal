@@ -592,7 +592,7 @@ class _Handler(http.server.BaseHTTPRequestHandler):
                 if reply["ok"]:
                     self.page.finish()
         elif path == "/cancel":
-            self.page.cancel()
+            self.page.cancel(payload)
             try:
                 self._reply_json(200, {"ok": True})
             finally:
@@ -625,8 +625,11 @@ class RecipePage:
         self.token = secrets.token_urlsafe(24)
         self.url = None
         self.result = None
+        # what the page last sent, to write the script or with Back, which
+        # the oceanval app shows the window again with
+        self.sent = None
         # set once the script is written or the window cancelled, after
-        # which the page can do nothing more
+        # which the page can do nothing more, unless it is reopened
         self._used = False
         self._lock = threading.Lock()
         self._done = threading.Event()
@@ -670,6 +673,8 @@ class RecipePage:
                     "error": "This window has already been used. Run "
                     "create_recipes again to start over.",
                 }
+            if isinstance(payload, dict):
+                self.sent = payload
             rows = {row["variable"]: row for row in self.rows}
             sent = payload.get("rows") if isinstance(payload, dict) else None
             if not isinstance(sent, list):
@@ -784,11 +789,23 @@ class RecipePage:
             self._used = True
             return 200, {"ok": True, "out": out}
 
-    def cancel(self):
+    def cancel(self, sent=None):
+        """Cancel the window, with what the page held when it was left, if
+        it sent it."""
         with self._lock:
             if not self._used:
+                if isinstance(sent, dict):
+                    self.sent = sent
                 self.result = None
                 self._used = True
+
+    def reopen(self):
+        """Let the page be used again, as when the oceanval app shows the
+        window again for Back from a later step."""
+        with self._lock:
+            self._used = False
+            self.result = None
+            self._done.clear()
 
     def finish(self):
         self._done.set()

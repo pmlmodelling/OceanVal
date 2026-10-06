@@ -30,6 +30,7 @@ from oceanval.app import (
 )
 from oceanval.app_child import ANSWER_MARKER, QUESTION_MARKER
 from oceanval.gridded import _ask_minutes, _ask_yes_no
+from oceanval.recipes_gui import recipe_rows
 from simulations import write_fvcom, write_simulation
 
 SETUP_FORM = {
@@ -1337,8 +1338,6 @@ class TestServer:
         # the script is already written, and nothing runs until it is carried on from
         assert (tmp_path / "matchup.py").exists()
         assert runs == []
-        # there is no going back to a recipes window that has been used
-        assert post(app, "/api/back")[0] == 409
 
         # nothing is converted that the page does not send
         assert post(app, "/api/units_continue", {"conversions": {}, "confirmed": True})[0] == 200
@@ -2219,6 +2218,365 @@ class TestServer:
         assert get_json(app, "/api/state")[1]["closed"]
 
 
+class TestRecipesRestore:
+    """What the recipes window starts with when it is shown again, or made
+    afresh after going back before it: app.recipes_choices keeps what it
+    held when it was left, and app.recipes_restore picks what still
+    applies."""
+
+    ROWS = recipe_rows({"temperature": "thetao", "nitrate": "N3_n"}, "global")
+    AVAILABLE = {"thetao", "N3_n"}
+
+    def left(self, rows, **settings):
+        """What the window held, left with these rows and settings."""
+        return app_module.recipes_choices(
+            {"rows": rows, "settings": settings}, self.ROWS, "global"
+        )
+
+    def test_only_the_settings_the_app_shows_are_kept(self):
+        choices = self.left([], start="2011", end=2012, thickness=None, out_dir="elsewhere", pdf=True)
+
+        # the others are chosen in other steps
+        assert choices["settings"] == {"start": "2011", "end": "2012", "thickness": ""}
+
+    @pytest.mark.parametrize(
+        "row, edited",
+        [
+            # as OceanVal found it
+            ({"variable": "temperature", "model_variable": "thetao", "selected": ["cobe2"],
+              "gridded": {"cobe2": {"start": "", "end": "", "vertical": False}}}, False),
+            ({"variable": "salinity", "model_variable": "", "selected": []}, False),
+            # another dataset ticked, one of its own years, another model variable, or none
+            ({"variable": "temperature", "model_variable": "thetao", "selected": ["cobe2", "nsbc"]}, True),
+            ({"variable": "temperature", "model_variable": "thetao", "selected": ["cobe2"],
+              "gridded": {"cobe2": {"start": "2012", "end": "", "vertical": False}}}, True),
+            ({"variable": "temperature", "model_variable": " thetao+N3_n ", "selected": ["cobe2"]}, True),
+            ({"variable": "temperature", "model_variable": "", "selected": []}, True),
+        ],
+    )
+    def test_whether_a_row_was_edited(self, row, edited):
+        assert self.left([row])["rows"][row["variable"]]["edited"] is edited
+
+    def test_the_same_window_starts_as_it_was_left(self):
+        choices = self.left(
+            [
+                {"variable": "temperature", "model_variable": "thetao", "selected": ["nsbc"],
+                 "gridded": {"nsbc": {"start": "2012", "end": "", "vertical": True}}},
+                # mistyped, which the window says is not in the output
+                {"variable": "nitrate", "model_variable": "N3_m", "selected": ["woa23"]},
+                {"variable": "salinity", "model_variable": "", "selected": []},
+            ],
+            start="2011",
+        )
+
+        restore = app_module.recipes_restore(choices, self.ROWS, self.AVAILABLE, "global", same=True)
+
+        assert restore == {
+            "settings": {"start": "2011"},
+            # only the rows edited, as the rest start as they were found
+            "rows": {
+                "temperature": {
+                    "model_variable": "thetao",
+                    "selected": ["nsbc"],
+                    "gridded": {"nsbc": {"start": "2012", "end": "", "vertical": True}},
+                    "point": {},
+                },
+                "nitrate": {"model_variable": "N3_m", "selected": ["woa23"], "gridded": {}, "point": {}},
+            },
+            "dropped": {},
+            "retick": False,
+        }
+
+    def test_a_window_made_afresh_keeps_what_still_applies(self):
+        choices = self.left(
+            [
+                {"variable": "temperature", "model_variable": "thetao", "selected": ["nsbc"]},
+                {"variable": "nitrate", "model_variable": "N3_n+thetao", "selected": ["woa23"]},
+            ]
+        )
+
+        # the simulation read again has no nitrate
+        restore = app_module.recipes_restore(choices, self.ROWS, {"thetao"}, "global")
+
+        assert restore["rows"] == {
+            "temperature": {"model_variable": "thetao", "selected": ["nsbc"], "gridded": {}, "point": {}}
+        }
+        # which the window says
+        assert restore["dropped"] == {"nitrate": "N3_n+thetao"}
+        assert restore["retick"] is False
+
+    def test_another_domain_ticks_the_datasets_afresh(self):
+        choices = self.left(
+            [{"variable": "temperature", "model_variable": "thetao", "selected": ["nsbc"],
+              "gridded": {"nsbc": {"start": "2012", "end": "", "vertical": False}}}]
+        )
+
+        restore = app_module.recipes_restore(
+            choices, recipe_rows({"temperature": "thetao"}, "nwes"), self.AVAILABLE, "nwes"
+        )
+
+        assert restore["rows"] == {
+            "temperature": {"model_variable": "thetao", "selected": None, "gridded": {}, "point": {}}
+        }
+        assert restore["retick"] is True
+
+    def test_nothing_to_start_with(self):
+        assert app_module.recipes_restore(None, self.ROWS, self.AVAILABLE, "global") is None
+        # with nothing edited, ticking afresh for another domain changes nothing of the user's
+        choices = self.left([{"variable": "temperature", "model_variable": "thetao", "selected": ["cobe2"]}])
+        assert app_module.recipes_restore(choices, self.ROWS, self.AVAILABLE, "nwes")["retick"] is False
+
+
+class TestBack:
+    """Back from every step after the first, until anything is matched up,
+    with what was entered in each step kept for when it is reached again."""
+
+    # temperature with one of its own years, as edited, and nitrate as found
+    ROWS = [
+        {"variable": "temperature", "model_variable": "thetao", "selected": ["cobe2"],
+         "gridded": {"cobe2": {"start": "2012", "end": "", "vertical": False}}},
+        {"variable": "nitrate", "model_variable": "N3_n", "selected": ["woa23"]},
+    ]
+
+    def to_recipes(self, app, tmp_path, action="matchup", own=None):
+        """Get to the recipes window, for a simulation of temperature and
+        nitrate, with the user's own gridded data if given."""
+        write_simulation(tmp_path / "sim", tracers=True)
+        app.choose(action)
+        assert post(app, "/api/setup", {"form": SETUP_FORM})[0] == 200
+        if own:
+            # a copy, as the units step writes its conversions into it
+            app.own_data["gridded"].append(dict(own))
+        post(app, "/api/own_data", {"answer": bool(own)})
+        if own:
+            post(app, "/api/own_next")
+            post(app, "/api/own_next")
+        wait_for(lambda: app.view == "recipes")
+        return app.recipes_page
+
+    def write(self, app, **settings):
+        """Write the script from the recipes window, and wait for the units."""
+        sent = {"rows": self.ROWS, "settings": recipe_settings(app, **settings)}
+        assert post(app, "/recipes/write", sent)[0] == 200
+        units_read(app)
+
+    def matchups_stand_in(self, tmp_path):
+        """A stand-in for the script, which asks whether the matchups are
+        right, as matchup does, before it matches anything up."""
+        script = tmp_path / "stand_in.py"
+        script.write_text(
+            textwrap.dedent(
+                f"""
+                from oceanval import prompts
+                question = "Are you happy with these matchups? (y/n) "
+                print("answer:", prompts.ask(question, ("y", "n"), details={MATCHUPS!r}))
+                print("matching up")
+                """
+            )
+        )
+        return script
+
+    def test_back_from_the_units_shows_the_recipes_window_as_it_was_left(
+        self, app, tmp_path, runs
+    ):
+        page = self.to_recipes(app, tmp_path)
+        self.write(app, lon_min="-20", lon_max="10", lat_min="40", lat_max="65")
+        conversions = {"recipe:nitrate:woa23": {"multiplier": "2", "adder": ""}}
+
+        assert post(app, "/api/back", {"conversions": conversions})[0] == 200
+        wait_for(lambda: app.view == "recipes")
+        # the same window, so the simulation is not read again
+        assert app.recipes_page is page
+        restore = page_state(get(app, "/recipes/")[1])["context"]["app"]["restore"]
+        assert {name: restore["settings"][name] for name in ("start", "end", "lon_min", "lat_max")} == {
+            "start": "2011", "end": "2012", "lon_min": "-20", "lat_max": "65",
+        }
+        # the row edited, with its dataset's own year
+        assert restore["rows"] == {
+            "temperature": {
+                "model_variable": "thetao",
+                "selected": ["cobe2"],
+                "gridded": {"cobe2": {"start": "2012", "end": "", "vertical": False}},
+                "point": {},
+            }
+        }
+        assert runs == []
+
+        # written again, the units start with the boxes as they were left
+        self.write(app)
+        boxes = get_json(app, "/api/state")[1]["units"]["boxes"]
+        assert boxes == {"recipe:nitrate:woa23": {"multiplier": "2", "adder": ""}}
+        assert post(app, "/api/units_continue", {"conversions": conversions, "confirmed": True})[0] == 200
+        wait_for(lambda: runs)
+        text = open(tmp_path / "matchup.py").read()
+        assert "    obs_multiplier=2,\n" in text[text.index('name="nitrate"') :].split("\n)\n")[0]
+
+    def test_leaving_the_recipes_window_keeps_what_it_held(self, app, tmp_path, runs):
+        """For the window made afresh, once the simulation is read again."""
+        page = self.to_recipes(app, tmp_path)
+        rows = [{"variable": "temperature", "model_variable": "thetao", "selected": ["nsbc"]}]
+
+        assert post(app, "/recipes/cancel", {"rows": rows, "settings": {"start": "2005", "cores": "1"}})[0] == 200
+        wait_for(lambda: app.view == "own_data")
+        post(app, "/api/own_data", {"answer": False})
+        wait_for(lambda: app.view == "recipes" and app.recipes_page is not page)
+        restore = app.recipes_page.context["app"]["restore"]
+        assert restore["settings"] == {"start": "2005", "cores": "1"}
+        assert restore["rows"]["temperature"]["selected"] == ["nsbc"]
+        assert (restore["dropped"], restore["retick"]) == ({}, False)
+
+        # with another domain, the datasets are ticked afresh, for it
+        page = app.recipes_page
+        assert post(app, "/recipes/cancel", {"rows": rows, "settings": {}})[0] == 200
+        wait_for(lambda: app.view == "own_data")
+        assert post(app, "/api/back")[0] == 200
+        assert post(app, "/api/setup", {"form": dict(SETUP_FORM, domain="nwes")})[0] == 200
+        post(app, "/api/own_data", {"answer": False})
+        wait_for(lambda: app.view == "recipes" and app.recipes_page is not page)
+        restore = app.recipes_page.context["app"]["restore"]
+        assert restore["rows"]["temperature"] == {
+            "model_variable": "thetao", "selected": None, "gridded": {}, "point": {},
+        }
+        assert restore["retick"] is True
+        assert runs == []
+
+    def test_back_from_the_matchups_stops_the_run_for_the_units(
+        self, app, tmp_path, monkeypatch
+    ):
+        stand_in = self.matchups_stand_in(tmp_path)
+        start_run = app.start_run
+        monkeypatch.setattr(
+            app, "start_run", lambda args, label: start_run([args[0], str(stand_in)], label)
+        )
+        own = {"name": "chl", "source": "mine", "model_variable": "thetao",
+               "obs_path": "obs.nc", "obs_variable": "chl_obs", "obs_multiplier": 5}
+        self.to_recipes(app, tmp_path, own=own)
+        self.write(app)
+        rows = app.units_rows
+        conversions = {
+            "recipe:nitrate:woa23": {"multiplier": "2", "adder": ""},
+            "own:0": {"multiplier": "", "adder": "3"},
+        }
+        assert post(app, "/api/units_continue", {"conversions": conversions, "confirmed": True})[0] == 200
+        wait_for(lambda: app.question is not None)
+        first = app.run
+        # the conversion is written into the user's own data
+        assert "obs_multiplier" not in app.own_data["gridded"][0]
+        assert app.own_data["gridded"][0]["obs_adder"] == 3
+        assert get_json(app, "/api/state")[1]["run"]["back"] is True
+
+        assert post(app, "/api/back")[0] == 200
+        # the units step straight away, with its rows as read before
+        _, state = get_json(app, "/api/state")
+        assert (state["view"], state["question"], state["run"]["back"]) == ("units_table", None, False)
+        assert app.units_rows is rows
+        assert state["units"]["boxes"] == {
+            "recipe:nitrate:woa23": {"multiplier": "2", "adder": ""},
+            "own:0": {"multiplier": "", "adder": "3"},
+        }
+        # the user's own data as given
+        assert app.own_data["gridded"][0] == own
+        # the run is stopped before it matched anything up, and its end goes unnoticed
+        wait_for(lambda: first.returncode is not None, timeout=30)
+        time.sleep(0.5)
+        assert app.view == "units_table"
+        text = app.console.since(0, None)["text"]
+        assert "answer:" not in text
+        assert "stopped before anything was matched up" in text
+
+        # carried on from again, the matchup starts afresh
+        assert post(app, "/api/units_continue", {"conversions": conversions, "confirmed": True})[0] == 200
+        wait_for(lambda: app.question is not None and app.run is not first)
+        assert post(app, "/api/answer", {"id": app.question.id, "answer": "y"})[0] == 200
+        wait_for(lambda: app.view == "finished")
+        assert app.status == "finished"
+        assert "answer: y\nmatching up\n" in app.console.since(0, None)["text"]
+
+    def test_back_from_the_report_options_keeps_them(self, app, tmp_path):
+        app.action = "matchup_validate"
+        app.start_run(["matchup", str(self.matchups_stand_in(tmp_path))], "python stand_in.py")
+        wait_for(lambda: app.question is not None)
+        number = app.question.id
+        assert post(app, "/api/answer", {"id": number, "answer": "y"})[0] == 200
+        form = {"pdf": True, "subregions": "global", "lon_min": "-20"}
+
+        assert post(app, "/api/back", {"form": form})[0] == 200
+        assert (app.view, app.question.id) == ("running", number)
+        # this run was not started by the units step, so has none to go back to
+        assert get_json(app, "/api/state")[1]["run"]["back"] is False
+        assert post(app, "/api/answer", {"id": number, "answer": "y"})[0] == 200
+        kept = get_json(app, "/api/state")[1]["validate"]["form"]
+        assert (kept["pdf"], kept["subregions"], kept["lon_min"], kept["word"]) == (
+            True, "global", "-20", False,
+        )
+
+    def test_the_answer_about_own_data_is_kept(self, app, tmp_path, runs):
+        write_simulation(tmp_path / "sim")
+        app.choose("matchup")
+        post(app, "/api/setup", {"form": SETUP_FORM})
+        assert get_json(app, "/api/state")[1]["own"]["answer"] is None
+        post(app, "/api/own_data", {"answer": True})
+        post(app, "/api/back")
+        assert get_json(app, "/api/state")[1]["own"]["answer"] is True
+        post(app, "/api/own_data", {"answer": False})
+        wait_for(lambda: app.view == "recipes")
+        post(app, "/recipes/cancel")
+        wait_for(lambda: app.view == "own_data")
+        assert get_json(app, "/api/state")[1]["own"]["answer"] is False
+
+        # another run starts afresh
+        post(app, "/api/back")
+        post(app, "/api/back")
+        assert post(app, "/api/choose", {"action": "matchup"})[0] == 200
+        assert app.own_answer is None
+
+    def test_a_kept_conversion_is_only_shown_for_the_same_matchup(self, app):
+        row = {
+            "kind": "gridded", "key": "recipe:nitrate:woa23", "title": "nitrate (woa23)",
+            "model": {"variable": "N3_n", "parts": [{"name": "N3_n", "units": "mmol N m-3"}]},
+            "obs_variable": "n_an", "obs_units": "micromoles_per_kilogram",
+            "obs_multiplier": 1, "obs_adder": 0, "check": {"status": "convert"},
+        }
+        app.view, app.units_rows = "units_table", [row]
+        sent = {"recipe:nitrate:woa23": {"multiplier": "2", "adder": ""}}
+
+        assert post(app, "/api/back", {"conversions": sent})[0] == 200
+        assert get_json(app, "/api/state")[1]["units"]["boxes"] == sent
+        # another model variable for it, in other units
+        app.units_rows = [dict(row, model={"variable": "thetao", "parts": [{"name": "thetao", "units": "degC"}]})]
+        assert get_json(app, "/api/state")[1]["units"]["boxes"] == {}
+
+    def test_conversions_of_own_data_are_forgotten_as_it_changes(self, app):
+        """Their keys are places in the lists, which change."""
+        app.view = "point_data"
+        app.own_data["point"].append({"name": "chl", "source": "mine", "model_variable": "thetao",
+                                      "obs_path": "points"})
+        kept = {"multiplier": "2", "adder": "", "row": {}}
+        app.units_boxes = {"ownpoint:0": kept, "recipe:nitrate:woa23": kept}
+
+        assert post(app, "/api/own_remove", {"kind": "point", "index": 0})[0] == 200
+        assert list(app.units_boxes) == ["recipe:nitrate:woa23"]
+
+    def test_the_fvcom_question_is_not_asked_again_for_the_same_files(
+        self, app, tmp_path, runs
+    ):
+        write_fvcom(tmp_path / "fvcom")
+        app.choose("matchup")
+        post(app, "/api/setup", {"form": dict(SETUP_FORM, simdir="fvcom", start="2012")})
+        post(app, "/api/own_data", {"answer": False})
+        wait_for(lambda: app.question is not None)
+        post(app, "/api/answer", {"id": app.question.id, "answer": "y"})
+        wait_for(lambda: app.view == "recipes")
+        page = app.recipes_page
+
+        post(app, "/recipes/cancel")
+        wait_for(lambda: app.view == "own_data")
+        post(app, "/api/own_data", {"answer": False})
+        wait_for(lambda: app.question is not None or (app.view == "recipes" and app.recipes_page is not page))
+        assert app.question is None
+        assert app.recipes_page.context["fvcom"] is True
+
+
 def write_demo_file(path):
     """A small stand-in for the demo's model output: a year of monthly sea
     surface temperature, named as CMIP6 names it."""
@@ -2333,6 +2691,25 @@ class TestDemo:
         assert post(app, "/api/choose", {"action": "demo"})[0] == 409
         assert post(app, "/api/demo_download")[0] == 409
 
+    def test_what_was_changed_is_kept_and_not_marked_as_the_demos(self, app, fetched):
+        app.choose("demo")
+        post(app, "/api/demo_download")
+        wait_for(lambda: app.view == "setup")
+        form = dict(app.setup_form, out=os.path.join("oceanval_demo", "mine.py"))
+        assert post(app, "/api/setup", {"form": form})[0] == 200
+
+        # the page only marks what still holds what the demo filled in
+        assert get_json(app, "/api/state")[1]["demo"]["prefilled"]["setup"] == [
+            "simdir", "ndown", "out_dir",
+        ]
+        # and Continue on the demo's page, after Back, does not fill it in again
+        post(app, "/api/back")
+        post(app, "/api/back")
+        assert app.view == "demo"
+        assert post(app, "/api/demo_download")[0] == 200
+        wait_for(lambda: app.view == "setup")
+        assert app.setup_form["out"] == os.path.join("oceanval_demo", "mine.py")
+
     def test_starting_again_forgets_the_demo(self, app, fetched):
         app.choose("demo")
         post(app, "/api/demo_download")
@@ -2422,7 +2799,7 @@ def test_the_window_in_a_browser(browser, tmp_path, monkeypatch):
         assert page.locator("#steps .is-current .steps__label").text_content() == "Simulation"
         assert "Note: selections can be modified later." in page.text_content("#m-domain")
         assert page.locator("#title").evaluate("node => getComputedStyle(node).whiteSpace") == "nowrap"
-        assert "OceanVal is running from" in page.text_content("#meta")
+        assert "OceanVal is running from" not in page.text_content("#meta")
         assert "Next, OceanVal reads the simulation, and shows you what it found." not in page.text_content("#bar")
         page.set_viewport_size({"width": 390, "height": 844})
         assert page.locator("#title").evaluate("node => getComputedStyle(node).whiteSpace") == "normal"
@@ -3160,6 +3537,183 @@ def test_the_units_step_in_a_browser(browser, tmp_path, monkeypatch):
         text = open(tmp_path / "matchup.py").read()
         assert "    obs_multiplier=1.025,\n" in text[text.index('name="nitrate"') :].split("\n)\n")[0]
         assert "    obs_multiplier=2,\n" in text
+    finally:
+        app.close()
+
+
+def look(locator):
+    """A box's colour and weight, which are red and bold for what OceanVal filled in."""
+    return locator.evaluate("node => [getComputedStyle(node).color, getComputedStyle(node).fontWeight]")
+
+
+def test_going_back_keeps_what_was_entered_in_a_browser(browser, tmp_path, monkeypatch):
+    """Back from the report options all the way to the simulation, with what
+    was entered in every step kept for when it is reached again. A stand-in
+    for the script asks about the matchups, as matchup does."""
+    write_simulation(tmp_path / "sim", tracers=True)
+    stand_in = tmp_path / "stand_in.py"
+    stand_in.write_text(
+        textwrap.dedent(
+            f"""
+            from oceanval import prompts
+            question = "Are you happy with these matchups? (y/n) "
+            print("answer:", prompts.ask(question, ("y", "n"), details={MATCHUPS!r}))
+            print("matching up")
+            """
+        )
+    )
+    app = App(cwd=str(tmp_path))
+    start_run = app.start_run
+    validated = []
+    monkeypatch.setattr(
+        app,
+        "start_run",
+        lambda args, label: validated.append(args) if args[0] == "validate"
+        else start_run([args[0], str(stand_in)], label),
+    )
+    url = app.start()
+    red_bold = ["rgb(192, 57, 43)", "700"]
+    nsbc = 'input[aria-label="NSBC, Northwest European Shelf, for Temperature"]'
+    nsbc_start = 'input[aria-label="First year of NSBC observations for Temperature"]'
+    try:
+        page = browser.new_page()
+
+        def bar(text):
+            return page.locator(f"#actions button:has-text('{text}')")
+
+        def to_units():
+            page.wait_for_selector("#view-units-table:not([hidden]) #units-body-gridded tr[data-units-row]",
+                                   timeout=90000)
+
+        page.goto(url)
+        page.click('button.choice[data-action="matchup_validate"]')
+        page.fill("#f-simdir", "sim")
+        page.wait_for_function("document.querySelector('#f-end').value === '2012'")
+        page.fill("#f-ndown", "2")
+        page.click("#continue")
+        page.click("#own-no")
+        page.wait_for_url("**/recipes/**", timeout=90000)
+        fill_required_recipe_years(page)
+        page.check(nsbc)
+        page.fill(nsbc_start, "2012")
+        page.click("#write")
+
+        # a conversion of the user's own, and OceanVal's for nitrate
+        to_units()
+        temperature = page.locator('tr[data-units-row="recipe:temperature:cobe2"] input[data-units-box="adder"]')
+        nitrate = page.locator('tr[data-units-row="recipe:nitrate:woa23"] input[data-units-box="multiplier"]')
+        assert nitrate.input_value() == "1.025"
+        temperature.fill("0.5")
+        page.check("#units-confirm")
+        page.click("#units-continue")
+
+        # Back from the matchups stops the run before anything is matched up
+        page.wait_for_selector("#review:not([hidden])", timeout=90000)
+        assert bar("Stop").is_visible()
+        # beside Stop, without the page scrolling sideways on a phone
+        page.set_viewport_size({"width": 390, "height": 844})
+        assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+        page.set_viewport_size({"width": 1280, "height": 720})
+        bar("Back").click()
+        to_units()
+        assert page.text_content("#steps .is-current .steps__label") == "Units"
+        assert temperature.input_value() == "0.5"
+        assert look(temperature)[1] == "400"
+        assert nitrate.input_value() == "1.025"
+        assert look(nitrate) == red_bold
+        # the units are confirmed afresh
+        assert not page.is_checked("#units-confirm")
+        assert page.is_disabled("#units-continue")
+        assert "matching up" not in page.text_content("#console-text")
+
+        # the recipes window, as it was left
+        bar("Back").click()
+        page.wait_for_url("**/recipes/**", timeout=90000)
+        assert (page.input_value("#s-start"), page.input_value("#s-end")) == ("2011", "2012")
+        assert page.is_checked(nsbc)
+        assert page.input_value(nsbc_start) == "2012"
+        page.click("#write")
+        to_units()
+        assert temperature.input_value() == "0.5"
+        page.check("#units-confirm")
+        page.click("#units-continue")
+
+        # the report options, kept with Back
+        page.wait_for_selector("#review:not([hidden])", timeout=90000)
+        page.click("#review-actions button:has-text('Yes')")
+        page.wait_for_selector("#view-validate:not([hidden])")
+        page.check("#v-pdf")
+        page.select_option("#v-subregions", "global")
+        bar("Back").click()
+        page.wait_for_selector("#review:not([hidden])")
+        page.click("#review-actions button:has-text('Yes')")
+        page.wait_for_selector("#view-validate:not([hidden])")
+        assert page.is_checked("#v-pdf")
+        assert page.input_value("#v-subregions") == "global"
+
+        # and back all the way to the simulation
+        bar("Back").click()
+        page.wait_for_selector("#review:not([hidden])")
+        bar("Back").click()
+        to_units()
+        bar("Back").click()
+        page.wait_for_url("**/recipes/**", timeout=90000)
+        page.click("#cancel")
+        page.wait_for_selector("#view-own:not([hidden])", timeout=60000)
+        # the answer given before
+        assert "is-chosen" in page.get_attribute("#own-no", "class")
+        assert page.is_visible("#own-no .choice__tag")
+        assert page.is_hidden("#own-yes .choice__tag")
+        bar("Back").click()
+        page.wait_for_selector("#view-setup:not([hidden])")
+        assert (page.input_value("#f-simdir"), page.input_value("#f-ndown")) == ("sim", "2")
+        assert validated == []
+    finally:
+        app.close()
+
+
+def test_the_recipes_window_after_the_simulation_changes_in_a_browser(browser, tmp_path):
+    """What OceanVal could not keep of what the window held, once the
+    simulation is read again, is said in red and bold."""
+    write_simulation(tmp_path / "sim", tracers=True)
+    # temperature only
+    write_simulation(tmp_path / "other")
+    app = App(cwd=str(tmp_path))
+    url = app.start()
+    red_bold = ["rgb(192, 57, 43)", "700"]
+    try:
+        app.choose("matchup")
+        post(app, "/api/setup", {"form": SETUP_FORM})
+        post(app, "/api/own_data", {"answer": False})
+        wait_for(lambda: app.view == "recipes")
+        # left with Back, with nitrate as a sum the other simulation cannot give
+        rows = [
+            {"variable": "nitrate", "model_variable": "N3_n+thetao", "selected": ["woa23"]},
+            {"variable": "temperature", "model_variable": "thetao", "selected": ["nsbc"]},
+        ]
+        post(app, "/recipes/cancel", {"rows": rows, "settings": {"start": "2011", "end": "2012"}})
+        wait_for(lambda: app.view == "own_data")
+        post(app, "/api/back")
+        post(app, "/api/setup", {"form": dict(SETUP_FORM, simdir="other", domain="nwes")})
+        post(app, "/api/own_data", {"answer": False})
+        wait_for(lambda: app.view == "recipes")
+
+        page = browser.new_page()
+        page.goto(url)
+        page.wait_for_url("**/recipes/**", timeout=90000)
+        lede = page.locator("#lede .oceanval-change")
+        assert lede.text_content() == "As the domain has changed, OceanVal has ticked the datasets afresh for it."
+        assert look(lede) == red_bold
+        dropped = page.locator("#message-nitrate .oceanval-change")
+        assert dropped.text_content() == "N3_n+thetao, chosen before, is not in this simulation's output."
+        assert look(dropped) == red_bold
+        # temperature is kept, with its datasets ticked as for the domain, and the years
+        assert page.input_value('input[aria-label="Model variable for Temperature"]') == "thetao"
+        assert page.is_checked('input[aria-label="NSBC, Northwest European Shelf, for Temperature"]')
+        assert (page.input_value("#s-start"), page.input_value("#s-end")) == ("2011", "2012")
+        # once nitrate is filled in, it is the user's
+        page.fill('input[aria-label="Model variable for Nitrate"]', "thetao")
+        assert page.locator("#message-nitrate .oceanval-change").count() == 0
     finally:
         app.close()
 

@@ -18,6 +18,12 @@ in, and a page opens in your web browser that takes you through:
    report with them as it goes (see oceanval.live), which the page links
    to once its first page is made.
 
+Every step after the first has Back, until anything is matched up, and
+what was entered in a step is kept for when it is reached again: the
+recipes window is shown again as it was left, and Back from the matchups
+stops the run, which is waiting for its answer, for the units step (see
+App.back).
+
 Like the create_recipes window (see oceanval.recipes_gui), the page is
 served only on 127.0.0.1, only to requests carrying the random token in its
 link, and loads nothing from anywhere else. It serves the reports too, the
@@ -28,6 +34,7 @@ file:// link would not, and over a forwarded port.
 import argparse
 import codecs
 import contextlib
+import copy
 import glob
 import io
 import itertools
@@ -55,6 +62,7 @@ from oceanval.create_recipes import (
     RECIPE_VARIABLES,
     _create_recipes,
     _literal,
+    _unknown_variables,
     simulation_paths,
     simulation_years,
 )
@@ -496,6 +504,156 @@ def _validate_call(arguments, cwd):
     return f"oceanval.validate({listed})"
 
 
+# ---- what the steps keep, for Back ----
+
+# the recipes window's Global settings that the app shows, which it starts
+# with again as they were left; the rest are chosen in other steps
+RECIPES_KEPT = (
+    "start",
+    "end",
+    "lon_min",
+    "lon_max",
+    "lat_min",
+    "lat_max",
+    "thickness",
+    "missing_from",
+    "missing_to",
+    "point_time_res",
+    "cores",
+)
+
+# what the units step gives back for Back, rather than the conversions
+_BACK = object()
+
+
+def _simulation(where):
+    """The files a simulation is read from, as create_recipes takes them in
+    where: its directory, how far down they are, and the file filters."""
+    return (
+        os.path.abspath(where["simdir"]),
+        where["ndown"],
+        tuple(where.get("exclude") or ()),
+        tuple(where.get("require") or ()),
+    )
+
+
+def _dataset_options(sent):
+    """One ticked dataset's options, as the recipes window sent them."""
+    sent = sent if isinstance(sent, dict) else {}
+    options = {
+        name: "" if sent[name] is None else str(sent[name])
+        for name in ("start", "end", "point_time_res")
+        if name in sent
+    }
+    if "vertical" in sent:
+        options["vertical"] = bool(sent["vertical"])
+    return options
+
+
+def recipes_choices(sent, rows, domain):
+    """What the recipes window held when it was left, with its script
+    written or with Back: sent is what its page sent then, and rows and
+    domain what it was shown with. Keeps the Global settings in
+    RECIPES_KEPT and, for each row, its model variable, the datasets ticked
+    and their options, and whether the user edited any of that, rather than
+    leaving it as OceanVal found it."""
+    sent = sent if isinstance(sent, dict) else {}
+    settings = sent.get("settings")
+    settings = settings if isinstance(settings, dict) else {}
+    found = {row["variable"]: row for row in rows}
+    choices = {
+        "domain": domain,
+        "settings": {
+            name: "" if settings[name] is None else str(settings[name])
+            for name in RECIPES_KEPT
+            if name in settings
+        },
+        "rows": {},
+    }
+    sent_rows = sent.get("rows")
+    for item in sent_rows if isinstance(sent_rows, list) else []:
+        if not isinstance(item, dict) or item.get("variable") not in found:
+            continue
+        row = found[item["variable"]]
+        value = str(item.get("model_variable") or "").strip()
+        selected = item.get("selected")
+        selected = [
+            recipe for recipe in (selected if isinstance(selected, list) else [])
+            if isinstance(recipe, str)
+        ]
+        options = {}
+        for kind in ("gridded", "point"):
+            given = item.get(kind)
+            options[kind] = {
+                str(recipe): _dataset_options(opts)
+                for recipe, opts in (given.items() if isinstance(given, dict) else [])
+            }
+        ticked = {
+            dataset["recipe"]
+            for dataset in row["gridded"] + row["point"]
+            if dataset["ticked"]
+        }
+        edited = (
+            value != row["model_variable"]
+            or set(selected) != ticked
+            # a dataset's own years, how it is matched, or Vertical
+            or any(
+                option for kind in options.values()
+                for opts in kind.values() for option in opts.values()
+            )
+        )
+        choices["rows"][item["variable"]] = dict(
+            model_variable=value, selected=selected, edited=edited, **options
+        )
+    return choices
+
+
+def recipes_restore(choices, rows, available, domain, same=False):
+    """What the recipes window, shown with rows, the model variables
+    available and domain, starts with, from the choices it was last left
+    with (see recipes_choices), or None if there are none.
+
+    same is whether it is the window they were made in, shown again, which
+    starts as it was left. A window made afresh, for the simulation read
+    again, starts with the Global settings and with each row the user
+    edited, if its model variable is in the output, and only with their
+    ticks and options if the domain is the same, as the rows are ticked
+    afresh for another. Returned as {"settings", "rows", "dropped",
+    "retick"}: "dropped" holds the model variables chosen before that are
+    not in the output, and "retick" whether edited rows were ticked afresh,
+    for the window to say so."""
+    if not choices:
+        return None
+    variables = {row["variable"] for row in rows}
+    ticks = same or choices["domain"] == domain
+    kept, dropped = {}, {}
+    for variable, row in choices["rows"].items():
+        if variable not in variables or not row["edited"]:
+            continue
+        value = row["model_variable"]
+        if not same and value and _unknown_variables(value, available):
+            dropped[variable] = value
+            continue
+        kept[variable] = {
+            "model_variable": value,
+            "selected": row["selected"] if ticks else None,
+            "gridded": row["gridded"] if ticks else {},
+            "point": row["point"] if ticks else {},
+        }
+    return {
+        "settings": dict(choices["settings"]),
+        "rows": kept,
+        "dropped": dropped,
+        "retick": not ticks and any(row["edited"] for row in choices["rows"].values()),
+    }
+
+
+def _units_row(row):
+    """What a row of the units step converts, which a conversion typed for
+    it is kept for: everything but its key, and what OceanVal makes of it."""
+    return {name: value for name, value in row.items() if name not in ("key", "check")}
+
+
 def _inside(folder, path):
     """Whether path is folder or below it, both real paths."""
     try:
@@ -798,8 +956,10 @@ class App:
     before anything is matched up, while matchup waits for the answer to
     whether the matchups are right. The demo is a matchup and validate run
     that starts at "demo", which downloads its model output, and goes on to
-    "setup" with the boxes filled in. Everything the page does goes through
-    the methods here, which the server's threads call.
+    "setup" with the boxes filled in. Back goes a step the other way, until
+    anything is matched up, keeping what was entered (see back). Everything
+    the page does goes through the methods here, which the server's threads
+    call.
     """
 
     def __init__(self, cwd=None):
@@ -833,13 +993,31 @@ class App:
         self.report_arguments = None
         self._script_writer = None
         self.question = None
+        # the recipes window, while it is being shown
         self.recipes_page = None
-        # the matchups' units, while the units step is being shown, and the
-        # recipes window's choices, which the step can add conversions to
+        # the matchups' units, while the units step is being shown
         self.units_rows = None
-        self.units_choices = None
         self._units_done = threading.Event()
         self._units_conversions = None
+        self._units_back = False
+        # what was entered in the steps from the own data step on, which
+        # they are shown with again, for this run only (see _forget_steps):
+        # the last answer to whether there is data of your own, what the
+        # recipes window held when it was left (see recipes_choices) and the
+        # window it was in, and what the units step's boxes held, by row
+        self.own_answer = None
+        self.recipes_choices = None
+        self._choices_from = None
+        self.units_boxes = {}
+        # the recipes window for the simulation, kept to be shown again for
+        # Back from the steps after it; the units last read, as (what the
+        # window chose, rows); the user's own data as given, before the
+        # units step wrote conversions into it; and the files of the
+        # simulation last read, with whether they are FVCOM output
+        self._recipes = None
+        self._units_read = None
+        self._own_given = None
+        self._fvcom = None
         self.run = None
         self.run_label = None
         self.status = None
@@ -914,8 +1092,9 @@ class App:
                     "entries": self.own_data,
                     "fields": own_data.FIELDS,
                     "recipe_variables": sorted(RECIPE_VARIABLES),
+                    "answer": self.own_answer,
                 },
-                "units": {"rows": self.units_rows},
+                "units": {"rows": self.units_rows, "boxes": self._units_boxes_shown()},
                 "leftovers": {
                     "asked": self.leftovers_asked,
                     "count": len(self.leftovers),
@@ -932,7 +1111,7 @@ class App:
                         file=DEMO_FILE,
                         year=DEMO_YEAR,
                         downloaded=os.path.isfile(self._demo_path()),
-                        prefilled=DEMO_PREFILLED,
+                        prefilled=self._demo_prefilled(),
                     )
                 ),
                 "question": self.question.as_dict() if self.question else None,
@@ -956,6 +1135,8 @@ class App:
                         else None
                     ),
                     "identifying": self.identifying,
+                    # whether Back can leave it for the units step
+                    "back": self._run_back(),
                     "rejected": self.matchups_rejected,
                     "script_saved": self.matchup_script_saved,
                     "script": self.script_path if self.matchup_script_saved else None,
@@ -1090,6 +1271,7 @@ class App:
             if action not in ACTIONS + ("demo",) or self.view not in ("start", "finished"):
                 return False
             self._end_demo()
+            self._forget_steps()
             self.question = None
             self.interim = None
             if action == "demo":
@@ -1111,28 +1293,77 @@ class App:
             self._notify()
             return True
 
-    def back(self):
+    def back(self, sent=None):
+        """Go back a step, keeping what the step's boxes hold, in sent, for
+        when it is reached again. Back from the units step shows the recipes
+        window again, as it was left. Back from the matchups stops the run,
+        which is waiting for the answer, so has matched nothing up, for the
+        units step. Once anything is matched up, there is no going back."""
+        sent = sent if isinstance(sent, dict) else {}
         with self._lock:
-            earlier = {
-                "setup": "demo" if self.demo is not None else "start",
-                "validate": "start",
-                "compare": "start",
-                "own_data": "setup",
-                "point_data": "own_data",
-                "gridded_data": "point_data",
-            }
-            if self.demo is not None and self.demo["status"] != "downloading":
-                earlier["demo"] = "start"
-            if self.view == "report_options" and self._held_matchups():
-                # the matchups again, whose question is still being asked
-                earlier["report_options"] = "running"
-            if self.view not in earlier:
-                return False
-            self.view = earlier[self.view]
-            if self.view == "start":
-                self._end_demo()
-            self._notify()
-            return True
+            if self.view == "units_table":
+                self._keep_units_boxes(sent.get("conversions"))
+                # the thread waiting on the step shows the window again
+                self._units_back = True
+                self._units_done.set()
+                return True
+            if self._run_back():
+                run, page = self.run, self._recipes
+                self._leave_run()
+                self._show_units(page.result)
+            else:
+                return self._step_back(sent)
+        # outside the lock: stopping it can take a moment
+        run.stop()
+        self.console.write(
+            "\nOceanVal: stopped before anything was matched up, to go back to the units.\n"
+        )
+        threading.Thread(
+            target=self._units_again,
+            args=(page,),
+            name="oceanval-units",
+            daemon=True,
+        ).start()
+        return True
+
+    def _step_back(self, sent):
+        """Back from a step with no thread waiting on it. Called with the
+        lock held."""
+        earlier = {
+            "setup": "demo" if self.demo is not None else "start",
+            "validate": "start",
+            "compare": "start",
+            "own_data": "setup",
+            "point_data": "own_data",
+            "gridded_data": "point_data",
+        }
+        if self.demo is not None and self.demo["status"] != "downloading":
+            earlier["demo"] = "start"
+        if self.view == "report_options" and self._held_matchups():
+            # the matchups again, whose question is still being asked
+            earlier["report_options"] = "running"
+            if isinstance(sent.get("form"), dict):
+                self.validate_form = _form(sent["form"], default_validate_form())
+        if self.view not in earlier:
+            return False
+        self.view = earlier[self.view]
+        if self.view == "start":
+            self._end_demo()
+        self._notify()
+        return True
+
+    def _forget_steps(self):
+        """Forget what was entered in the steps from the own data step on,
+        and the recipes window, as another run starts. Called with the lock
+        held."""
+        self.own_answer = None
+        self.recipes_choices = None
+        self._choices_from = None
+        self.units_boxes = {}
+        self._recipes = None
+        self._units_read = None
+        self._own_given = None
+        self._fvcom = None
 
     # ---- the demo ----
 
@@ -1203,11 +1434,24 @@ class App:
             if self.demo is not demo or self.view != "demo":
                 return
             demo["status"] = "done"
-            self.setup_form = demo_setup_form()
-            self.validate_form = demo_report_form()
+            if not demo.get("filled"):
+                # only the first time, so that what was changed after Back is kept
+                self.setup_form = demo_setup_form()
+                self.validate_form = demo_report_form()
+                demo["filled"] = True
             self.setup_error = None
             self.view = "setup"
             self._notify()
+
+    def _demo_prefilled(self):
+        """The boxes the demo filled in that still hold what it filled in,
+        which the page marks as OceanVal's, for each step."""
+        filled = {"setup": demo_setup_form(), "report": demo_report_form()}
+        forms = {"setup": self.setup_form, "report": self.validate_form}
+        return {
+            step: [name for name in names if forms[step].get(name) == filled[step][name]]
+            for step, names in DEMO_PREFILLED.items()
+        }
 
     def answer_leftovers(self, action):
         """Remove the temporary files earlier sessions left behind, or keep
@@ -1264,11 +1508,14 @@ class App:
         with self._lock:
             if self.view != "own_data":
                 return False
+            # shown with the step, when it is reached again
+            self.own_answer = bool(answer)
             if answer:
                 self.view = "point_data"
                 self._notify()
                 return True
             self.own_data = {"point": [], "gridded": []}
+            self._forget_own_boxes()
         self._begin_prepare()
         return True
 
@@ -1291,6 +1538,7 @@ class App:
             if self.view != f"{kind}_data":
                 return 409, {"ok": False, "error": "This step is over."}
             self.own_data[kind].append(arguments)
+            self._forget_own_boxes()
             self._notify()
         return 200, {"ok": True}
 
@@ -1305,6 +1553,7 @@ class App:
             ):
                 return False
             del self.own_data[kind][index]
+            self._forget_own_boxes()
             self._notify()
             return True
 
@@ -1341,6 +1590,10 @@ class App:
         ).start()
 
     def _prepare(self, arguments):
+        with self._lock:
+            known = self._fvcom
+        # asked already, for the same files
+        fvcom = known[1] if known is not None and known[0] == _simulation(arguments) else None
         stream = _ConsoleStream(self.console)
         try:
             with contextlib.redirect_stdout(stream), contextlib.redirect_stderr(stream):
@@ -1349,20 +1602,19 @@ class App:
                 ):
                     out = _create_recipes(
                         **arguments,
+                        fvcom=fvcom,
                         ask=True,
                         gui=True,
                         validate=self.action == "matchup_validate",
                         own_data=self.own_data,
                     )
+                with self._lock:
+                    page = self._recipes
+                if out is not None and page is not None and not self.closed.is_set():
+                    # the units step, and then the run
+                    self._units_onwards(page, page.result)
         except Exception as error:
-            # create_recipes' own checks say what to change; anything else
-            # is worth seeing in full
-            if not isinstance(error, (ValueError, TypeError)):
-                self.console.write(traceback.format_exc())
-            with self._lock:
-                self.setup_error = str(error)
-                self.view = "setup"
-                self._notify()
+            self._went_wrong(error)
             return
         if out is None or self.closed.is_set():
             # Back, in the recipes window
@@ -1370,15 +1622,25 @@ class App:
                 if self.view in ("preparing", "recipes") and not self.closed.is_set():
                     self.view = self._before_recipes()
                     self._notify()
-            return
-        # to validate as well, the report is built once the script has run,
-        # with the options chosen after the matchups are checked
-        kind = "matchup" if self.action == "matchup_validate" else "script"
-        self.start_run([kind, out], f"python {_shown(out, self.cwd)}")
+
+    def _went_wrong(self, error):
+        """Go back to the simulation step, saying what went wrong while it
+        was read, or in the steps after it."""
+        # create_recipes' own checks say what to change; anything else
+        # is worth seeing in full
+        if not isinstance(error, (ValueError, TypeError)):
+            self.console.write(
+                "".join(traceback.format_exception(type(error), error, error.__traceback__))
+            )
+        with self._lock:
+            self.setup_error = str(error)
+            self.view = "setup"
+            self._notify()
 
     def show_recipes(self, page):
         """Show the create_recipes window as the recipes step, and wait for
-        it to be finished with (see recipes_gui.hosted_by)."""
+        it to be used (see recipes_gui.hosted_by). The window is kept, to be
+        shown again for Back from the steps after it (see _units_onwards)."""
         page.token = self.token
         page.context["app"] = {
             "action": self.action,
@@ -1399,51 +1661,95 @@ class App:
             # marked as OceanVal's in the window
             page.context["app"]["prefilled"] = list(DEMO_RECIPE_SETTINGS)
         with self._lock:
+            self._recipes = page
+            # not asked again, while the simulation is read from the same files
+            self._fvcom = (_simulation(page.context), page.context["fvcom"])
+        return self._recipes_window(page)
+
+    def _recipes_window(self, page):
+        """Show the recipes window, page, as it was last left (see
+        recipes_restore), and wait for it to be used. Returns what it
+        chose, once it has written the script, or None for Back, which goes
+        to the step before it."""
+        with self._lock:
             if self.closed.is_set():
                 return None
+            restore = recipes_restore(
+                self.recipes_choices,
+                page.rows,
+                page.available,
+                page.context["domain"],
+                same=self._choices_from is page,
+            )
+            if restore is None:
+                page.context["app"].pop("restore", None)
+            else:
+                page.context["app"]["restore"] = restore
+            page.reopen()
             self.recipes_page = page
             self.view = "recipes"
             self._notify()
         result = page.wait()
         with self._lock:
             self.recipes_page = None
+            if page.sent is not None:
+                self.recipes_choices = recipes_choices(
+                    page.sent, page.rows, page.context["domain"]
+                )
+                self._choices_from = page
             if result is None:
-                self.view = self._before_recipes()
-                self._notify()
-                return result
-            # the matchups, and the report, go where the simulation step said
-            self.results_dir = self.out_dir
-            self.units_choices = result
-            # the page says they are being read until they have been
-            self.units_rows = None
-            self._units_conversions = None
-            self._units_done.clear()
-            self.view = "units_table"
-            self._notify()
-            setup, own = dict(self.setup_arguments), self.own_data
-        rows = self._read_units(result, setup, own)
-        with self._lock:
-            if self.view == "units_table":
-                self.units_rows = rows
-                self._notify()
-        while not self._units_done.wait(0.25):
-            if self.closed.is_set():
-                return result
-        with self._lock:
-            conversions = self._units_conversions
-            result = self.units_choices
+                # the steps before it can change the simulation, so it is
+                # made afresh once they are carried on from
+                self._recipes = None
+                if not self.closed.is_set():
+                    self.view = self._before_recipes()
+                    self._notify()
+        return result
+
+    def _units_onwards(self, page, result, shown=False):
+        """The units step, for what the recipes window, page, chose
+        (result), with Back from it to the window, and then the run, once
+        the units are carried on from. shown is whether the units step is
+        being shown already, for Back from the matchups."""
+        while True:
+            conversions = self._units_step(page, result, shown)
+            shown = False
+            if conversions is None:
+                return
+            if conversions is not _BACK:
+                break
+            result = self._recipes_window(page)
+            if result is None:
+                return
         if conversions:
             result = self._convert_units(page, result, conversions)
         with self._lock:
-            self.units_choices = None
+            if self.closed.is_set():
+                return
             # to write the report options into the script, once chosen
             self._script_writer = (page.write, result)
+            # none, until the script is started, so there is nothing to leave
+            self.run = None
             self.view = "running"
             self.status = "starting"
             # the script, once written, starts by finding the files
             self.identifying = True
             self._notify()
-        return result
+        out = page.context["out"]
+        # to validate as well, the report is built once the script has run,
+        # with the options chosen after the matchups are checked
+        kind = "matchup" if self.action == "matchup_validate" else "script"
+        self.start_run([kind, out], f"python {_shown(out, self.cwd)}")
+
+    def _units_again(self, page):
+        """The units step and the steps after it, again, for Back from the
+        matchups, in a thread of its own."""
+        stream = _ConsoleStream(self.console)
+        try:
+            with contextlib.redirect_stdout(stream), contextlib.redirect_stderr(stream):
+                self._units_onwards(page, page.result, shown=True)
+        except Exception as error:
+            self._went_wrong(error)
 
     def _convert_units(self, page, result, conversions):
         """Write the script again with the conversions chosen in the units
@@ -1451,6 +1757,10 @@ class App:
         mapping, selection, settings, point_options, gridded_options = result
         gridded_options = {key: dict(value) for key, value in gridded_options.items()}
         point_options = {key: dict(value) for key, value in point_options.items()}
+        with self._lock:
+            # the conversions are written into the user's own data, so it is
+            # kept as given, for Back from the matchups to put back
+            self._own_given = copy.deepcopy(self.own_data)
         units.apply_conversions(
             conversions, gridded_options, self.own_data, point_options
         )
@@ -1458,6 +1768,82 @@ class App:
         return mapping, selection, settings, point_options, gridded_options
 
     # ---- the units step ----
+
+    def _show_units(self, result):
+        """Show the units step for what the recipes window chose (result),
+        with the rows read for it already, if they have been, as for Back
+        from the matchups. Returns whether they are still to be read. Called
+        with the lock held."""
+        # the matchups, and the report, go where the simulation step said
+        self.results_dir = self.out_dir
+        read = self._units_read if self._units_read and self._units_read[0] is result else None
+        # the page says they are being read until they have been
+        self.units_rows = read[1] if read else None
+        self._units_conversions = None
+        self._units_back = False
+        self._units_done.clear()
+        self.view = "units_table"
+        self._notify()
+        return read is None
+
+    def _units_step(self, page, result, shown=False):
+        """Show the units of the matchups the recipes window chose (result),
+        and wait for the step to be carried on from. Returns the conversions
+        to make, only those that differ from what the script has, _BACK for
+        Back, or None if OceanVal is closed. shown is whether the step is
+        being shown already."""
+        with self._lock:
+            if self.closed.is_set():
+                return None
+            to_read = self.units_rows is None if shown else self._show_units(result)
+            setup, own = dict(self.setup_arguments), self.own_data
+        if to_read:
+            rows = self._read_units(result, setup, own)
+            with self._lock:
+                self._units_read = (result, rows)
+                if self.view == "units_table":
+                    self.units_rows = rows
+                    self._notify()
+        while not self._units_done.wait(0.25):
+            if self.closed.is_set():
+                return None
+        with self._lock:
+            return _BACK if self._units_back else self._units_conversions
+
+    def _keep_units_boxes(self, sent):
+        """Keep what the units step's boxes hold, as sent, with the rows they
+        were filled in for: they are filled in again while those rows are the
+        same. Called with the lock held."""
+        if not isinstance(sent, dict):
+            return
+        for row in self.units_rows or []:
+            boxes = sent.get(row["key"])
+            if isinstance(boxes, dict):
+                self.units_boxes[row["key"]] = {
+                    "multiplier": str(boxes.get("multiplier") or ""),
+                    "adder": str(boxes.get("adder") or ""),
+                    "row": _units_row(row),
+                }
+
+    def _units_boxes_shown(self):
+        """What the units step's boxes are filled in with again: for each row
+        whose boxes were kept, if it is the same as when they were."""
+        shown = {}
+        for row in self.units_rows or []:
+            kept = self.units_boxes.get(row["key"])
+            if kept is not None and kept["row"] == _units_row(row):
+                shown[row["key"]] = {"multiplier": kept["multiplier"], "adder": kept["adder"]}
+        return shown
+
+    def _forget_own_boxes(self):
+        """Forget the units step's boxes for the user's own data, whose keys
+        are their places in the lists, as the lists change. Called with the
+        lock held."""
+        self.units_boxes = {
+            key: kept
+            for key, kept in self.units_boxes.items()
+            if not key.startswith(("own:", "ownpoint:"))
+        }
 
     def _read_units(self, choices, setup, own):
         """The units step's table: the units of each matchup the recipes
@@ -1493,6 +1879,8 @@ class App:
                 return 409, {"ok": False, "error": "That cannot be done now."}
             if self.units_rows is None:
                 return 409, {"ok": False, "error": "The units are still being read."}
+            # for Back from the steps after it, to show the step as it was left
+            self._keep_units_boxes(sent)
             if confirmed is not True:
                 return 400, {"ok": False, "error": "Confirm the units before carrying on."}
             keys = {row["key"] for row in self.units_rows}
@@ -1569,6 +1957,37 @@ class App:
         is held back for the report options to be chosen, or None."""
         question = self.question
         return question if question is not None and question.matchups else None
+
+    def _run_back(self):
+        """Whether Back can leave the run for the units step: it is the
+        matchup the units step started, still finding the files or asking
+        whether the matchups are right, so it has matched nothing up."""
+        run = self.run
+        return (
+            self.view == "running"
+            and run is not None
+            and self._recipes is not None
+            and run.args[:1] in (["matchup"], ["script"])
+            and self.report_arguments is None
+            and (self.identifying or self._held_matchups() is not None)
+        )
+
+    def _leave_run(self):
+        """Leave the run, for Back from the matchups: it is forgotten, so
+        that its end goes unnoticed once it is stopped, and the user's own
+        data is put back as given, without the conversions the units step
+        wrote into it. Called with the lock held."""
+        self.run = None
+        self.run_label = None
+        self.question = None
+        self.status = None
+        self.identifying = False
+        self._script_writer = None
+        if self._own_given is not None:
+            # into the same dictionary, which the recipes window writes the script from
+            for kind in own_data.KINDS:
+                self.own_data[kind] = self._own_given[kind]
+            self._own_given = None
 
     def _report_first(self):
         """Whether the report options are still to be chosen before this
@@ -1905,6 +2324,12 @@ class App:
             self.console.write(f"The run could not be started: {error}\n")
             run.returncode = -1
             self._run_finished(run)
+            return
+        with self._lock:
+            # left with Back as it started
+            left = run is not self.run
+        if left:
+            run.stop()
 
     def _run_finished(self, run):
         validate = None
@@ -2261,7 +2686,8 @@ class _Handler(recipes_gui._Handler):
                 payload.get("kind"), payload.get("index")
             ),
             "/api/own_next": app.next_own_data,
-            "/api/back": app.back,
+            # with what the step's boxes hold
+            "/api/back": lambda: app.back(payload),
             "/api/restart": app.restart,
             "/api/stop": app.stop,
             "/api/answer": lambda: app.answer(
@@ -2290,7 +2716,8 @@ class _Handler(recipes_gui._Handler):
                 if reply["ok"]:
                     page.finish()
         else:
-            page.cancel()
+            # Back, with what the window holds, which it is shown with again
+            page.cancel(payload)
             try:
                 self._reply_json(200, {"ok": True})
             finally:

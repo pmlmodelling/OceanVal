@@ -144,7 +144,7 @@
   .group__line.is-ersem { color: #8a5a00; font-weight: 600; }
   .s-input.is-ersem, .s-select.is-ersem { border-color: #d7a83e; background-color: #fff8df; color: #8a5a00; font-weight: 600; }
   /* what the oceanval app's demo filled in is red and bold, until it is typed over */
-  .s-input.is-oceanval, .lede .oceanval-change { color: var(--red); font-weight: 700; }
+  .s-input.is-oceanval, .lede .oceanval-change, .field__msg .oceanval-change { color: var(--red); font-weight: 700; }
   .cores-row { display: grid; grid-template-columns: minmax(0, 1fr) 84px; align-items: center; gap: 10px; }
   .cores-row .g-label { margin: 0; }
 
@@ -427,6 +427,9 @@
   // script also starts the matchup
   const app = context.app || null;
   const home = "../?token=" + encodeURIComponent(state.token);
+  // in the app, the window starts as it was last left, for Back from a later
+  // step or after going back before it (see app.recipes_restore)
+  const restore = (app && app.restore) || null;
 
   // ---- header ----
   if (app) {
@@ -483,6 +486,11 @@
     $("lede").append(" For the demo, OceanVal has filled in the year and the longitude and latitude limits, ",
       el("strong", { class: "oceanval-change", text: "in red and bold" }), ".");
   }
+  if (restore && restore.retick) {
+    // the rows edited before, whose datasets are ticked for the domain chosen since
+    $("lede").append(" ", el("strong", { class: "oceanval-change",
+      text: "As the domain has changed, OceanVal has ticked the datasets afresh for it." }));
+  }
 
   $("model-variables").append(...state.available.map((name) => el("option", { value: name })));
 
@@ -515,6 +523,13 @@
     regional: ["subregions", "subregions_file"],
   };
   const FIELDS = Object.values(GROUPS).flat();
+  // after what OceanVal filled in is taken, so Reset still puts it back,
+  // and the demo's values are only marked while they are unchanged
+  if (restore) {
+    for (const [name, value] of Object.entries(restore.settings)) {
+      if (FIELDS.includes(name)) form[name] = value;
+    }
+  }
   // each setting as the boxes it is made of, so changes and problems are
   // counted per setting rather than per box
   const SETTINGS = [
@@ -795,6 +810,11 @@
 
   function message(row) {
     const edited = row.value.trim() !== row.original;
+    // the model variable chosen before, which this simulation does not have,
+    // so OceanVal has put back what it found: said until the row is changed
+    const dropped = row.dropped && !edited
+      ? el("span", { class: "oceanval-change", text: `${row.dropped}, chosen before, is not in this simulation's output.` })
+      : null;
     if (row.status === "invalid") {
       return [icon("error"), el("span", {}, row.message + " ", row.original ? undo(row) : null)];
     }
@@ -802,13 +822,14 @@
       if (row.original) {
         return [icon("warn"), el("span", {}, `Cleared, so its datasets are off. It was ${row.original}. `, undo(row))];
       }
-      return [icon("warn"), el("span", { text: "Not identified. Type or pick a model variable to use its datasets." })];
+      return [icon("warn"), el("span", {}, dropped, dropped ? " " : null,
+        "Not identified. Type or pick a model variable to use its datasets.")];
     }
     if (edited) {
       const was = row.original ? `Changed from ${row.original}. ` : "Not identified automatically. ";
       return [el("span", {}, was, undo(row))];
     }
-    return [];
+    return dropped ? [icon("warn"), el("span", {}, dropped, " This is the one OceanVal found.")] : [];
   }
 
   function update(row) {
@@ -1016,6 +1037,38 @@
     return tr;
   }
 
+  // a row as it was left: its model variable and, unless the domain has
+  // changed since, which datasets were ticked, with their options
+  function keepRow(row, kept) {
+    row.value = kept.model_variable;
+    if (!row.value.trim()) {
+      row.datasets.forEach((dataset) => { dataset.checked = false; });
+      row.needsDefaults = true;
+    } else if (kept.selected) {
+      row.needsDefaults = false;
+      for (const dataset of row.datasets) {
+        dataset.checked = kept.selected.includes(dataset.recipe);
+        const sent = (kept[dataset.kind] || {})[dataset.recipe] || {};
+        const opts = blankOptions(dataset.kind);
+        for (const name of Object.keys(opts)) {
+          if (name in sent) opts[name] = typeof opts[name] === "boolean" ? Boolean(sent[name]) : String(sent[name]);
+        }
+        dataset.opts = opts;
+      }
+    } else if (row.needsDefaults) {
+      // ticked afresh, as for a variable filled in
+      row.datasets.forEach((dataset) => { dataset.checked = dataset.default; });
+      row.needsDefaults = false;
+    }
+  }
+
+  if (restore) {
+    for (const row of rows) {
+      if (restore.rows[row.variable]) keepRow(row, restore.rows[row.variable]);
+      row.dropped = restore.dropped[row.variable] || null;
+    }
+  }
+
   const tbody = $("rows");
   for (const row of rows) {
     tbody.append(buildRow(row));
@@ -1132,28 +1185,33 @@
     $("done-title").focus();
   }
 
-  writeButton.addEventListener("click", async () => {
-    if (busy || writeButton.disabled) return;
-    setBusy(true);
-    const payload = {
+  // what the window holds, to write the script with, or kept with Back for the
+  // window to be shown with again. Write is disabled while a model variable
+  // needs fixing, and an empty row has nothing ticked.
+  function choices() {
+    return {
       settings: form,
       rows: rows.map((row) => {
-        const ok = row.status === "ok";
         const options = { gridded: {}, point: {} };
         for (const dataset of row.datasets) {
-          if (ok && dataset.checked) options[dataset.kind][dataset.recipe] = dataset.opts;
+          if (dataset.checked) options[dataset.kind][dataset.recipe] = dataset.opts;
         }
         return {
           variable: row.variable,
-          model_variable: ok ? row.value.trim() : "",
-          selected: ok ? row.datasets.filter((dataset) => dataset.checked).map((dataset) => dataset.recipe) : [],
+          model_variable: row.value.trim(),
+          selected: row.datasets.filter((dataset) => dataset.checked).map((dataset) => dataset.recipe),
           ...options,
         };
       }),
     };
+  }
+
+  writeButton.addEventListener("click", async () => {
+    if (busy || writeButton.disabled) return;
+    setBusy(true);
     let reply;
     try {
-      reply = await post("write", payload);
+      reply = await post("write", choices());
     } catch (error) {
       finish("gone");
       return;
@@ -1204,7 +1262,7 @@
     if (busy) return;
     setBusy(true);
     try {
-      await post("cancel", {});
+      await post("cancel", choices());
     } catch (error) {
       finish("gone");
       return;

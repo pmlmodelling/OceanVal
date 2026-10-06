@@ -75,6 +75,9 @@
 
   /* ---- your own observations ---- */
   .choices.is-two { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 760px; }
+  /* the answer given before, when the step is reached again */
+  .choice.is-chosen { border-color: var(--teal-400); box-shadow: 0 0 0 1px var(--teal-400), var(--shadow-md); }
+  .choice__tag { padding: 2px 9px; border-radius: 999px; background: var(--teal-50); color: var(--teal-700); font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
   .own-legend { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 16px; color: var(--muted); font-size: 13px; }
   .own-swatch { width: 4px; height: 16px; border-radius: 2px; background: var(--red); }
   .own-legend b { color: var(--red); font-weight: 600; }
@@ -606,10 +609,12 @@
     <p class="lede">As well as OceanVal's built-in datasets, you can validate against observations of your own, point data (csv files) or gridded data (netCDF). Do you have any to add?</p>
     <div class="choices is-two">
       <button type="button" class="choice" id="own-yes">
+        <span class="choice__tag" hidden>Your answer before</span>
         <span class="choice__title">Yes, I have my own data</span>
         <span class="choice__text">Add point and gridded observations one at a time, in the next two steps.</span>
       </button>
       <button type="button" class="choice" id="own-no">
+        <span class="choice__tag" hidden>Your answer before</span>
         <span class="choice__title">No, just the built-in datasets</span>
         <span class="choice__text">Go straight on to choosing which of OceanVal's recipes to use.</span>
       </button>
@@ -688,15 +693,15 @@
           <p class="group__msg" id="vm-subset"></p>
         </fieldset>
         <fieldset class="group">
-          <legend>Regional summaries</legend>
-          <label class="g-row"><span class="g-label">Summarise by</span>
-            <select class="s-select" id="v-subregions">
+          <legend>Which regional summaries do you want?</legend>
+          <div class="g-row">
+            <select class="s-select" id="v-subregions" aria-label="Which regional summaries do you want?">
               <option value="">None</option>
               <option value="nwes">Northwest European Shelf subregions</option>
               <option value="global">Global subregions</option>
               <option value="file">A .nc file of your own…</option>
             </select>
-          </label>
+          </div>
           <label class="g-row" id="row-subregions_file" hidden><span class="g-label">Path to the file</span><input class="s-input is-mono" id="v-subregions_file" placeholder="/path/to/regions.nc" spellcheck="false" autocapitalize="off"></label>
           <p class="group__msg" id="vm-subregions"></p>
         </fieldset>
@@ -1050,9 +1055,7 @@
     $("title").textContent = title();
     $("title").classList.toggle("is-setup-title", state.view === "setup" || state.view === "report_options");
     const meta = $("meta");
-    meta.replaceChildren(el("li", { title: state.cwd },
-      el("span", { class: "meta__k", text: "OceanVal is running from" }),
-      el("span", { class: "meta__v is-mono", text: shorten(state.cwd) })));
+    meta.replaceChildren();
     if (state.demo && state.view !== "start") {
       meta.append(el("li", { class: "is-flag", title: `The demo's files are in ${state.demo.folder}` },
         el("span", { class: "meta__k", text: "Demo" }),
@@ -1070,7 +1073,7 @@
     const view = state.view;
     // only rebuilt when something in it changes, so a button keeps its focus
     const key = [view, state.action, state.run.status, Boolean(stopArmed), Boolean(state.question),
-      state.demo && state.demo.status,
+      state.demo && state.demo.status, Boolean(state.run.back),
       state.own.entries.point.length, state.own.entries.gridded.length, Boolean(state.units.rows)].join("|");
     if (key === barShown) {
       if (view === "setup") refreshSetup();
@@ -1101,17 +1104,25 @@
       // matchup waits on whether the matchups are right until these are chosen,
       // so Back shows them again; without it, they are made already
       const waiting = Boolean(state.question);
-      if (waiting) actions.push(button("Back", "ghost", () => post("api/back")));
+      // with the boxes, which are shown again as they are
+      if (waiting) actions.push(button("Back", "ghost", () => post("api/back", { form: validateForm })));
       actions.push(button(waiting ? "Match up and validate" : "Build the report", "primary",
         submitValidate, { id: "build" }));
     } else if (view === "compare") {
       actions.push(button("Back", "ghost", () => post("api/back")),
         button("Compare", "primary", submitCompare, { id: "compare" }));
     } else if (view === "units_table") {
-      // no Back: a recipes window that has been used cannot be opened again
-      actions.push(button("Continue", "primary", submitUnits,
-        { id: "units-continue", disabled: !unitsConfirmed() }));
+      // to the recipes window, as it was left, with the boxes, which are shown again as they are
+      actions.push(button("Back", "ghost", () => post("api/back", { conversions: unitsBoxes() })),
+        button("Continue", "primary", submitUnits,
+          { id: "units-continue", disabled: !unitsConfirmed() }));
     } else if (view === "running") {
+      // while the matchup is still finding the files, or asking about them, it
+      // has matched nothing up, so can be stopped to go back to the units
+      if (state.run.back) {
+        actions.push(button("Back", "ghost", () => post("api/back"),
+          { title: "Stop before anything is matched up, and go back to the units" }));
+      }
       const stop = button(stopArmed ? "Stop the run?" : "Stop", stopArmed ? "danger" : "ghost", () => {
         if (!stopArmed) {
           // a second click stops it
@@ -1174,7 +1185,13 @@
       $("units-confirm").checked = false;
       fillUnits();
     } else if (view === "own_data") {
-      $("own-yes").focus();
+      // the answer given before, as it is reached again
+      const answer = state.own.answer;
+      for (const [id, value] of [["own-yes", true], ["own-no", false]]) {
+        $(id).classList.toggle("is-chosen", answer === value);
+        $(id).querySelector(".choice__tag").hidden = answer !== value;
+      }
+      $(answer === false ? "own-no" : "own-yes").focus();
     } else if (view === "point_data" || view === "gridded_data") {
       refreshOwn(view === "point_data" ? "point" : "gridded");
       const first = document.querySelector(`#view-${view === "point_data" ? "point" : "gridded"} input:not([type=checkbox]), #view-${view === "point_data" ? "point" : "gridded"} select`);
@@ -1928,10 +1945,15 @@
   function unitsRow(row) {
     const number = (value, fallback) => (value === fallback ? "" : String(value));
     const [startMultiplier, startAdder, kept] = unitsStart(row);
+    // the boxes as they were left, for a row that is the same as it was then
+    // (see App.units_boxes): only a number OceanVal filled in is marked as its own
+    const left = (state.units.boxes || {})[row.key];
     const multiplier = el("input", { type: "text", class: "s-input is-num", inputmode: "decimal", spellcheck: "false",
-      placeholder: "1", value: number(startMultiplier, 1), "aria-label": `Multiply the ${row.title} observations by` });
+      placeholder: "1", value: left ? left.multiplier : number(startMultiplier, 1),
+      "aria-label": `Multiply the ${row.title} observations by` });
     const adder = el("input", { type: "text", class: "s-input is-num", inputmode: "decimal", spellcheck: "false",
-      placeholder: "0", value: number(startAdder, 0), "aria-label": `Add to the ${row.title} observations` });
+      placeholder: "0", value: left ? left.adder : number(startAdder, 0),
+      "aria-label": `Add to the ${row.title} observations` });
     multiplier.dataset.unitsKey = adder.dataset.unitsKey = row.key;
     multiplier.dataset.unitsBox = "multiplier";
     adder.dataset.unitsBox = "adder";
@@ -1983,13 +2005,19 @@
     return noted ? [main, el("tr", { class: "units__check" }, noteCell)] : [main];
   }
 
-  async function submitUnits() {
+  // what the boxes hold, for each matchup
+  function unitsBoxes() {
     const conversions = {};
     document.querySelectorAll(".units-body input").forEach((box) => {
       const key = box.dataset.unitsKey;
       conversions[key] = conversions[key] || {};
       conversions[key][box.dataset.unitsBox] = box.value;
     });
+    return conversions;
+  }
+
+  async function submitUnits() {
+    const conversions = unitsBoxes();
     const button = $("units-continue");
     if (button) button.disabled = true;
     const reply = await post("api/units_continue", { conversions, confirmed: $("units-confirm").checked });

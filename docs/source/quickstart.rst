@@ -42,6 +42,9 @@ output to a validation report:
    options.
 7. **Run**: the matchup and the report, with the output shown as it comes.
 
+**Back**, on every step after the first, keeps what you have entered, so you
+can go back to fix a mistake without starting again.
+
 To see how it works first, choose **Try a demo**, below the four choices. It
 downloads a year of a CMIP6 climate model's sea surface temperature (17 MB)
 and takes you through the same steps with the options filled in. It shows how
