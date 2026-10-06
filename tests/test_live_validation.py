@@ -59,6 +59,7 @@ class TestOptions:
             "region_file": None,
             "n_regions": None,
             "transect": None,
+            "depth_bins": oceanval.depths.DEFAULT_DEPTH_BINS,
         }
 
     def test_validates_report_options(self, tmp_path):
@@ -105,6 +106,13 @@ class TestOptions:
             check_options({"transect": transect}, "/run")
         with pytest.raises(TypeError, match="transect must be a dict"):
             check_options({"transect": "30W"}, "/run")
+
+    def test_depth_bins_are_checked_and_kept(self):
+        options = check_options({"depth_bins": [[20, None], [0, 20]]}, "/run")
+
+        assert options["depth_bins"] == [(0, 20), (20, None)]
+        with pytest.raises(ValueError, match="overlap"):
+            check_options({"depth_bins": [[0, 20], [10, 30]]}, "/run")
 
     @pytest.mark.parametrize("name", ["pdf", "word", "zip"])
     def test_the_full_reports_other_forms_are_for_validate(self, name):

@@ -63,3 +63,30 @@ def test_seasonal_template_titles_maps_with_full_month_names():
 
     assert "calendar.month_name[month]" in source
     assert "month_abbr" not in source
+
+
+def test_the_depth_bins_are_filled_in_where_the_notebooks_start(tmp_path):
+    import oceanval
+
+    script = tmp_path / "notebook.py"
+    script.write_text(Path("oceanval/data/chunk_start.pytemplate").read_text())
+
+    oceanval._rewrite_notebook_source(
+        str(script), None, None, False, True, True, depth_bins=[(0, 20), (20, None)]
+    )
+    assert "    depth_bins = [[0, 20], [20, None]]\n" in script.read_text()
+
+    # and OceanVal's own, if none are given
+    script.write_text(Path("oceanval/data/chunk_start.pytemplate").read_text())
+    oceanval._rewrite_notebook_source(str(script), None, None, False, True, True)
+    assert "    depth_bins = [[0, 10], [10, 30], " in script.read_text()
+
+
+@pytest.mark.parametrize("notebook", ["point_template.ipynb", "summary.ipynb"])
+def test_the_depth_bins_are_not_written_into_the_notebooks(notebook):
+    # but taken from depth_bins, which the notebooks start with
+    text = Path(f"oceanval/data/{notebook}").read_text()
+
+    assert "600-1000m" not in text
+    assert "def bin_depth(" not in text
+    assert "depth_levels" in text

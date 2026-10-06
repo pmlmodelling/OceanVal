@@ -15,6 +15,7 @@ from oceanval.matchall import matchup
 from oceanval.create_recipes import create_recipes
 import dill
 
+from oceanval import depths
 from oceanval import prompts
 from oceanval import transects
 from oceanval.session import session_info
@@ -1331,10 +1332,14 @@ def _gridded_notebook_text(
 
 
 def _rewrite_notebook_source(
-    path, lon_lim, lat_lim, fixed_scale, concise, test, transect=None
+    path, lon_lim, lat_lim, fixed_scale, concise, test, transect=None, depth_bins=None
 ):
     """Fill in the report options in a notebook's paired .py:percent file,
-    and silence R's warnings in each R cell."""
+    and silence R's warnings in each R cell. depth_bins are as
+    depths.check_depth_bins gives them, or None for the default ones."""
+    if depth_bins is None:
+        depth_bins = depths.DEFAULT_DEPTH_BINS
+    depth_bins = repr([list(pair) for pair in depth_bins])
     with open(path, "r") as file:
         filedata = file.read()
 
@@ -1361,6 +1366,7 @@ def _rewrite_notebook_source(
         new_lines[i] = new_lines[i].replace("the_lon_lim", str(lon_lim))
         new_lines[i] = new_lines[i].replace("the_lat_lim", str(lat_lim))
         new_lines[i] = new_lines[i].replace("the_transect", repr(transect))
+        new_lines[i] = new_lines[i].replace("the_depth_bins", depth_bins)
         new_lines[i] = new_lines[i].replace("fixed_scale_value", str(fixed_scale))
         # replace concice_value with concice
         if "concise_value" in new_lines[i]:
@@ -1426,6 +1432,7 @@ def validate(
     test=False,
     region=None,
     transect=None,
+    depth_bins=None,
 ):
     # docstring
     """
@@ -1453,6 +1460,8 @@ def validate(
         Deprecated, use subregions instead.
     transect : dict or None
         A transect to validate the gridded matchups along, as a dict of its start and end, each [lon, lat], e.g. {"start": [-30, 0], "end": [-30, 65]}. It must run north-south (the same longitude at both ends) or east-west (the same latitude at both ends). Each gridded matchup's page then maps it, shows the monthly climatology of the surface values along it, and, for matchups made through the water column (vertical=True), a section of the annual mean along it, interpolated onto 30 evenly spaced depths. Requires nctoolkit 1.3.6 or later. Default is None.
+    depth_bins : list or None
+        The depth ranges, in metres, that point matchups made through the water column (vertical=True) are summarised in, as a list of [min, max] pairs, e.g. [[0, 20], [20, 200], [200, None]]. A depth is in a bin if it is deeper than min and no deeper than max (the shallowest bin also takes its min). The deepest bin can have a max of None, for everything below its min. Bins can leave gaps, and observations in a gap are left out, but cannot overlap. The same bins are used for every point dataset, and in the summary. Default is None, which uses 0-10, 10-30, 30-60, 60-100, 100-150, 150-300, 300-600, 600-1000 and >1000 m.
 
     Returns
     -------
@@ -1463,6 +1472,7 @@ def validate(
         lon_lim, lat_lim, concise, fixed_scale, subregions, region
     )
     transect = transects.check_transect(transect)
+    depth_bins = depths.check_depth_bins(depth_bins)
     # convert data_dir to absolute path
     data_dir = os.path.expanduser(data_dir)
     data_dir = os.path.abspath(data_dir)
@@ -1745,7 +1755,8 @@ def validate(
         # loop through the notebooks and set r warnings options
         for ff in glob.glob(f"{book_dir}/notebooks/*.py"):
             _rewrite_notebook_source(
-                ff, lon_lim, lat_lim, fixed_scale, concise, test, transect=transect
+                ff, lon_lim, lat_lim, fixed_scale, concise, test, transect=transect,
+                depth_bins=depth_bins,
             )
 
         # sync the notebooks

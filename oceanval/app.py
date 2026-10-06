@@ -56,7 +56,7 @@ import urllib.parse
 import oceanval
 from oceanval import leftovers, live, prompts, recipes_gui
 from oceanval.app_child import ANSWER_MARKER, QUESTION_MARKER
-from oceanval import own_data, transects, units
+from oceanval import depths, own_data, transects, units
 from oceanval.create_recipes import (
     DOMAIN_REGIONS,
     RECIPE_VARIABLES,
@@ -149,7 +149,17 @@ def default_validate_form():
         "transect_start_lat": "",
         "transect_end_lon": "",
         "transect_end_lat": "",
+        "depth_bins": default_depth_boxes(),
     }
+
+
+def default_depth_boxes():
+    """The depth bins' boxes, as they start: OceanVal's own bins, each a
+    [from, to] pair as typed, with to empty for the deepest."""
+    return [
+        ["" if depth is None else str(depth) for depth in pair]
+        for pair in depths.DEFAULT_DEPTH_BINS
+    ]
 
 
 def demo_setup_form():
@@ -247,10 +257,24 @@ def _form(form, defaults):
         name: (
             bool(form.get(name, value))
             if isinstance(value, bool)
+            else _pairs(form.get(name, value))
+            if isinstance(value, list)
             else str(form.get(name, value) or "").strip()
         )
         for name, value in defaults.items()
     }
+
+
+def _pairs(rows):
+    """A grid of boxes the page sent, such as the depth bins: a list of
+    pairs of what was typed, leaving out anything that is not a pair."""
+    if not isinstance(rows, list):
+        return []
+    return [
+        [str(box if box is not None else "").strip() for box in row]
+        for row in rows
+        if isinstance(row, list) and len(row) == 2
+    ]
 
 
 def check_setup(form, cwd):
@@ -378,7 +402,60 @@ def check_report(form, cwd):
     # validate's own default is the concise report
     if not form["concise"]:
         arguments["concise"] = False
+    bins = check_depth_boxes(form["depth_bins"], errors)
+    # validate's own default is OceanVal's bins
+    if bins is not None and bins != depths.DEFAULT_DEPTH_BINS:
+        arguments["depth_bins"] = [list(pair) for pair in bins]
     return arguments, errors
+
+
+# why the depth bins cannot be used, as the page says it too
+DEPTH_FROM = "Each bin needs a From depth."
+DEPTH_NUMBER = "Depths must be numbers."
+DEPTH_NEGATIVE = "Depths must be 0 or more."
+DEPTH_ORDER = "A bin's To depth must be deeper than its From depth."
+DEPTH_NONE = "Add at least one bin."
+DEPTH_OPEN = "Only the deepest bin can leave To empty, for everything below it."
+
+
+def check_depth_boxes(rows, errors):
+    """validate()'s depth_bins, from the depth bins' boxes, sorted from the
+    shallowest. Rows left empty are ignored. None if the boxes cannot be
+    used, in which case errors["depth_bins"] says why, as the page does
+    while they are typed in."""
+    bins = []
+    for low, high in rows:
+        if not low and not high:
+            continue
+        if not low:
+            errors["depth_bins"] = DEPTH_FROM
+            return None
+        pair = (recipes_gui._number(low), recipes_gui._number(high) if high else None)
+        if pair[0] is None or (high and pair[1] is None):
+            errors["depth_bins"] = DEPTH_NUMBER
+            return None
+        if pair[0] < 0 or (pair[1] is not None and pair[1] < 0):
+            errors["depth_bins"] = DEPTH_NEGATIVE
+            return None
+        if pair[1] is not None and pair[1] <= pair[0]:
+            errors["depth_bins"] = DEPTH_ORDER
+            return None
+        bins.append(pair)
+    if not bins:
+        errors["depth_bins"] = DEPTH_NONE
+        return None
+    bins.sort(key=lambda pair: pair[0])
+    for (low, high), (next_low, next_high) in zip(bins, bins[1:]):
+        if high is None:
+            errors["depth_bins"] = DEPTH_OPEN
+            return None
+        if next_low < high:
+            errors["depth_bins"] = (
+                f"The bins {depths.depth_label(low, high)} and "
+                f"{depths.depth_label(next_low, next_high)} overlap."
+            )
+            return None
+    return depths.check_depth_bins(bins)
 
 
 def check_transect_boxes(form, errors):
@@ -1081,12 +1158,16 @@ class App:
                 "action": self.action,
                 "cwd": self.cwd,
                 "setup": {"form": self.setup_form, "error": self.setup_error},
-                "validate": {"form": self.validate_form},
+                "validate": {
+                    "form": self.validate_form,
+                    "depth_defaults": default_depth_boxes(),
+                },
                 "compare": {"form": self.compare_form},
                 "report": {
                     "given": self.report_arguments is not None,
                     "dir": self.results_dir or self.out_dir,
                     "gridded": self._report_gridded(),
+                    "vertical": self._report_vertical(),
                 },
                 "own": {
                     "entries": self.own_data,
@@ -2013,6 +2094,18 @@ class App:
             return True
         return bool(self.own_data["gridded"])
 
+    def _report_vertical(self):
+        """Whether the run's matchups include point ones through the water
+        column, which the depth bins are for: from the point recipes chosen
+        with Vertical and the user's own point data. None if that is not
+        known here, as when validating matchups made before."""
+        if self._script_writer is None:
+            return None
+        point_options = self._script_writer[1][3]
+        if any(options.get("vertical") for options in point_options.values()):
+            return True
+        return any(entry.get("vertical") for entry in self.own_data["point"])
+
     def report(self, form):
         """Take the report options of a matchup and validate run, from the
         boxes of the step after the matchups are checked. They are written
@@ -2027,6 +2120,9 @@ class App:
         # a transect is only asked for with gridded matchups
         if self._report_gridded() is False:
             form["transect"] = False
+        # and depth bins only with point matchups through the water column
+        if self._report_vertical() is False:
+            form["depth_bins"] = default_depth_boxes()
         # outside the lock: reading a regions file can take a moment
         report, errors = check_report(form, self.cwd)
         if errors:

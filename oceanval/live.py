@@ -42,7 +42,7 @@ import time
 import traceback
 
 import oceanval
-from oceanval import transects
+from oceanval import depths, transects
 
 # where the interim report is built, in the report's out_dir
 FOLDER = "oceanval_interim_report"
@@ -50,7 +50,7 @@ FOLDER = "oceanval_interim_report"
 # validate()'s arguments that live_validation takes
 OPTIONS = (
     "out_dir", "lon_lim", "lat_lim", "subregions", "fixed_scale", "concise", "transect",
-    "test",
+    "depth_bins", "test",
 )
 
 # validate()'s arguments for the other forms of the full report
@@ -123,6 +123,7 @@ def check_options(live_validation, out_dir):
     if not isinstance(options["test"], bool):
         raise ValueError("test must be a boolean")
     options["transect"] = transects.check_transect(live_validation.get("transect"))
+    options["depth_bins"] = depths.check_depth_bins(live_validation.get("depth_bins"))
     report_dir = live_validation.get("out_dir", out_dir)
     if not isinstance(report_dir, str):
         raise TypeError("live_validation's out_dir must be a string")
@@ -417,6 +418,7 @@ class InterimReport:
             options["concise"],
             options["test"],
             transect=options.get("transect"),
+            depth_bins=options.get("depth_bins"),
         )
         oceanval._run_jupytext(["--sync"], glob.escape(path))
         oceanval._fill_notebook_paths(path, self.data_dir, self.folder)

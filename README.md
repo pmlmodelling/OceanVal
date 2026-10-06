@@ -67,7 +67,9 @@ that takes you through these steps:
    a transect to validate the gridded datasets along (a start and an end
    longitude and latitude, which must run north-south or east-west, and the
    page does not let you carry on otherwise), fixed colour scales, PDF and
-   Word versions, a zipped copy, and a concise or detailed report. The
+   Word versions, a zipped copy, a concise or detailed report, and, if a
+   point dataset is matched up with Vertical, the depth bins its depth
+   summaries use (each can be changed or removed, and more added). The
    report is built beside the matchups, in the
    directory chosen in step 2. **Back** shows the matchups again, and keeps
    the options. The options are written into the matchup script's
@@ -153,6 +155,15 @@ oceanval.add_point_comparison(
     recipe={"temperature": "ices"},
     vertical=True,
 )
+```
+
+Point matchups made through the water column are summarised by depth in the
+report, by default in 0-10, 10-30, 30-60, 60-100, 100-150, 150-300, 300-600,
+600-1000 and >1000 m. `validate()` takes your own as `[min, max]` pairs in
+metres, with a max of `None` for everything below the deepest:
+
+```python
+oceanval.validate(depth_bins=[[0, 20], [20, 200], [200, None]])
 ```
 
 ### Generating a matchup script

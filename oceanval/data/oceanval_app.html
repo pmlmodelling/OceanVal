@@ -484,6 +484,55 @@
   .detail-row .g-label { margin: 0; }
   .detail-row .s-select { width: auto; }
   #v-report-dir code { color: var(--ink); font-size: 13.5px; overflow-wrap: anywhere; }
+  /* the depth bins: a row for each */
+  .depth-bins { max-width: 560px; overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); box-shadow: var(--shadow-sm); }
+  .depth-bin {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr) 10px minmax(0, 1fr) 32px;
+    gap: 10px;
+    align-items: center;
+    padding: 7px 12px;
+    border-top: 1px solid var(--line-soft);
+    transition: background-color 0.15s;
+  }
+  .depth-bin:hover { background: var(--bg-alt); }
+  .depth-bins__head { padding-top: 9px; padding-bottom: 9px; border-top: 0; background: var(--bg-alt); color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+  .depth-bin__n { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 999px; background: var(--line-soft); color: var(--muted); font: 600 12px/1 var(--font-body); font-variant-numeric: tabular-nums; }
+  .depth-bin__remove { display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 1px solid transparent; border-radius: 999px; background: none; color: var(--muted-light); cursor: pointer; transition: background-color 0.15s, border-color 0.15s, color 0.15s; }
+  .depth-bin__remove svg { width: 14px; height: 14px; }
+  .depth-bin__remove:hover { border-color: rgba(192, 57, 43, 0.22); background: rgba(192, 57, 43, 0.08); color: var(--red); }
+  .depth-bin__remove:focus-visible { outline: none; box-shadow: var(--focus); }
+  .depth-bin__remove:disabled { border-color: transparent; background: none; color: var(--line); cursor: not-allowed; }
+  .depth-bins__foot { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-top: 1px solid var(--line-soft); }
+  .depth-bins__add {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 36px;
+    border: 1px dashed #b9cfd3;
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--teal-700);
+    font: 600 13.5px/1 var(--font-body);
+    cursor: pointer;
+    transition: background-color 0.15s, border-color 0.15s;
+  }
+  .depth-bins__add svg { width: 14px; height: 14px; }
+  .depth-bins__add:hover { border-color: var(--teal-500); background: var(--teal-50); }
+  .depth-bins__add:focus-visible { outline: none; box-shadow: var(--focus); }
+  #depth-reset:disabled { background: none; color: var(--muted-light); }
+  .depth-bin.is-new { animation: depth-in 0.22s ease-out; }
+  .depth-bin.is-leaving { animation: depth-out 0.16s ease-in forwards; }
+  @keyframes depth-in { from { opacity: 0; transform: translateY(-6px); } }
+  @keyframes depth-out { to { opacity: 0; transform: translateX(12px); } }
+  @media (prefers-reduced-motion: reduce) {
+    .depth-bin.is-new, .depth-bin.is-leaving { animation: none; }
+  }
+  @media (max-width: 760px) {
+    .depth-bin { grid-template-columns: 26px minmax(0, 1fr) 8px minmax(0, 1fr) 30px; gap: 8px; padding-left: 10px; padding-right: 10px; }
+  }
   .units-confirm .tick-label { align-items: flex-start; color: var(--ink); font-size: 14.5px; line-height: 1.5; }
   .units-confirm .tick { margin-top: 2px; }
 </style>
@@ -749,6 +798,25 @@
             <option value="false">Detailed</option>
           </select>
         </div>
+      </fieldset>
+      <fieldset class="group form__wide" id="v-group-depth_bins">
+        <legend>Which depth bins do you want for vertical validation?</legend>
+        <p class="group__intro">Point datasets validated through the water column are summarised in these depth ranges. Leave <strong>To</strong> empty on the deepest bin for everything below it. Observations outside every bin are left out.</p>
+        <div class="depth-bins" role="table" aria-label="Depth bins" aria-describedby="vm-depth_bins">
+          <div class="depth-bin depth-bins__head" role="row">
+            <span role="columnheader">Bin</span>
+            <span role="columnheader">From (metres)</span>
+            <span aria-hidden="true"></span>
+            <span role="columnheader">To (metres)</span>
+            <span role="columnheader"><span class="compare-rows__hide">Remove</span></span>
+          </div>
+          <div id="depth-bins-rows" role="rowgroup"></div>
+          <div class="depth-bins__foot">
+            <button type="button" class="depth-bins__add" id="depth-add"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>Add a bin</button>
+            <button type="button" class="btn btn--text btn--small" id="depth-reset">Restore defaults</button>
+          </div>
+        </div>
+        <p class="group__msg" id="vm-depth_bins"></p>
       </fieldset>
       <button type="submit" hidden></button>
     </form>
@@ -1706,8 +1774,179 @@
     return result;
   }
 
+  // ---- the depth bins ----
+  // the same rules the server applies to them (app.check_depth_boxes)
+  const DEPTH_FROM = "Each bin needs a From depth.";
+  const DEPTH_NUMBER = "Depths must be numbers.";
+  const DEPTH_NEGATIVE = "Depths must be 0 or more.";
+  const DEPTH_ORDER = "A bin's To depth must be deeper than its From depth.";
+  const DEPTH_NONE = "Add at least one bin.";
+  const DEPTH_OPEN = "Only the deepest bin can leave To empty, for everything below it.";
+  const CROSS = '<svg viewBox="0 0 16 16"><path d="m4 4 8 8m0-8-8 8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+  // what the report calls a bin, as oceanval/depths.py writes it
+  const depthLabel = (low, high) => high === null ? `>${low}m` : `${low}-${high}m`;
+
+  // the boxes that are wrong (as "row-part", part 0 for From and 1 for To),
+  // what is wrong with them, each row's label once it can be used (for the
+  // problems), and the
+  // bins, from the shallowest. Rows left empty are not used. Nothing, if the
+  // depth bins are not asked for
+  function depthCheck() {
+    const result = { boxes: new Set(), problems: [], labels: [], bins: [] };
+    if ($("v-group-depth_bins").hidden) return result;
+    const problem = (text, ...boxes) => {
+      if (!result.problems.includes(text)) result.problems.push(text);
+      for (const box of boxes) result.boxes.add(box);
+    };
+    (validateForm.depth_bins || []).forEach(([lowText, highText], i) => {
+      const low = toNumber(lowText);
+      const high = toNumber(highText);
+      result.labels[i] = null;
+      if (low === null && high === null) return;
+      if (low === null) problem(DEPTH_FROM, `${i}-0`);
+      if (Number.isNaN(low)) problem(DEPTH_NUMBER, `${i}-0`);
+      if (Number.isNaN(high)) problem(DEPTH_NUMBER, `${i}-1`);
+      if (low === null || Number.isNaN(low) || Number.isNaN(high)) return;
+      if (low < 0) problem(DEPTH_NEGATIVE, `${i}-0`);
+      if (high !== null && high < 0) problem(DEPTH_NEGATIVE, `${i}-1`);
+      else if (high !== null && high <= low) problem(DEPTH_ORDER, `${i}-1`);
+      if (low < 0 || (high !== null && high <= low)) return;
+      result.labels[i] = depthLabel(low, high);
+      result.bins.push({ low, high, row: i });
+    });
+    if (result.problems.length) return result;
+    if (!result.bins.length) problem(DEPTH_NONE);
+    result.bins.sort((a, b) => a.low - b.low);
+    result.bins.forEach((bin, k) => {
+      const next = result.bins[k + 1];
+      if (!next) return;
+      if (bin.high === null) problem(DEPTH_OPEN, `${bin.row}-1`);
+      else if (next.low < bin.high) {
+        problem(`The bins ${result.labels[bin.row]} and ${result.labels[next.row]} overlap.`, `${bin.row}-1`, `${next.row}-0`);
+      }
+    });
+    return result;
+  }
+
+  // what the bins leave out, once they can be used
+  function depthGaps(bins) {
+    if (!bins.length) return [];
+    const gaps = [];
+    if (bins[0].low > 0) gaps.push(`Observations shallower than ${bins[0].low} m are left out.`);
+    bins.forEach((bin, k) => {
+      const next = bins[k + 1];
+      if (next && bin.high !== null && bin.high < next.low) gaps.push(`Observations between ${bin.high} and ${next.low} m are left out.`);
+    });
+    const last = bins[bins.length - 1];
+    if (last.high !== null) gaps.push(`Observations deeper than ${last.high} m are left out.`);
+    return gaps;
+  }
+
+  // a row of boxes for each bin, as validateForm has them
+  function renderDepthBins() {
+    const rows = validateForm.depth_bins;
+    $("depth-bins-rows").replaceChildren(...rows.map((pair, i) => {
+      const box = (part) => el("input", {
+        class: "s-input is-num",
+        inputmode: "decimal",
+        spellcheck: "false",
+        autocomplete: "off",
+        value: pair[part],
+        placeholder: part === 0 ? "min" : i === rows.length - 1 ? "and deeper" : "max",
+        "aria-label": `${part === 0 ? "From" : "To"} depth of bin ${i + 1}, in metres`,
+        "data-part": part,
+        oninput: (event) => {
+          validateForm.depth_bins[i][part] = event.target.value;
+          delete validateErrors.depth_bins;
+          refreshValidate();
+        },
+      });
+      return el("div", { class: "depth-bin", role: "row" },
+        el("span", { role: "cell" }, el("span", { class: "depth-bin__n", text: String(i + 1) })),
+        el("span", { role: "cell" }, box(0)),
+        el("span", { class: "dash", "aria-hidden": "true", text: "–" }),
+        el("span", { role: "cell" }, box(1)),
+        el("span", { role: "cell" }, el("button", {
+          type: "button",
+          class: "depth-bin__remove",
+          title: "Remove this bin",
+          "aria-label": `Remove bin ${i + 1}`,
+          html: CROSS,
+          disabled: rows.length === 1,
+          onclick: (event) => removeDepthBin(i, event.currentTarget.closest(".depth-bin")),
+        })));
+    }));
+  }
+
+  function removeDepthBin(i, node) {
+    if (node.classList.contains("is-leaving")) return;
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      validateForm.depth_bins.splice(i, 1);
+      delete validateErrors.depth_bins;
+      renderDepthBins();
+      refreshValidate();
+      // on to the bin that took its place, or to Add once there is one left
+      const rows = $("depth-bins-rows").children;
+      if (rows.length > 1) rows[Math.min(i, rows.length - 1)].querySelector(".depth-bin__remove").focus();
+      else $("depth-add").focus();
+    };
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return finish();
+    node.classList.add("is-leaving");
+    node.addEventListener("animationend", finish, { once: true });
+    setTimeout(finish, 300);
+  }
+
+  // a new bin starts where the deepest one ends, unless a bin starts there already
+  $("depth-add").addEventListener("click", () => {
+    const rows = validateForm.depth_bins;
+    const ends = rows.map(([, high]) => toNumber(high)).filter((value) => value !== null && !Number.isNaN(value));
+    const deepest = ends.length ? Math.max(...ends) : null;
+    const taken = rows.some(([low]) => toNumber(low) === deepest);
+    const start = deepest !== null && !taken ? String(deepest) : "";
+    rows.push([start, ""]);
+    delete validateErrors.depth_bins;
+    renderDepthBins();
+    refreshValidate();
+    const row = $("depth-bins-rows").lastElementChild;
+    row.classList.add("is-new");
+    row.querySelectorAll("input")[start ? 1 : 0].focus();
+  });
+  $("depth-reset").addEventListener("click", () => {
+    validateForm.depth_bins = state.validate.depth_defaults.map((pair) => [...pair]);
+    delete validateErrors.depth_bins;
+    renderDepthBins();
+    refreshValidate();
+    $("depth-add").focus();
+  });
+
+  function refreshDepthBins() {
+    // the depth bins are for point matchups through the water column
+    $("v-group-depth_bins").hidden = Boolean(state.report && state.report.vertical === false);
+    const depth = depthCheck();
+    [...$("depth-bins-rows").children].forEach((row, i) => {
+      for (const input of row.querySelectorAll("input")) {
+        const invalid = depth.boxes.has(`${i}-${input.dataset.part}`);
+        input.classList.toggle("is-invalid", invalid);
+        input.setAttribute("aria-invalid", String(invalid));
+      }
+    });
+    const problems = [...depth.problems];
+    if (validateErrors.depth_bins && !problems.includes(validateErrors.depth_bins)) problems.push(validateErrors.depth_bins);
+    if (problems.length) message("vm-depth_bins", problems.map((text) => line(text, "error")), true);
+    else message("vm-depth_bins", depthGaps(depth.bins).map((text) => line(text)));
+    const defaults = JSON.stringify(state.validate.depth_defaults || []);
+    $("depth-reset").disabled = JSON.stringify((validateForm.depth_bins || []).map((pair) => pair.map((box) => String(box).trim()))) === defaults;
+    return problems.length > 0;
+  }
+
   function fillValidate() {
     Object.assign(validateForm, state.validate.form);
+    // a copy, which the boxes change as they are typed in
+    validateForm.depth_bins = (state.validate.form.depth_bins || []).map((pair) => [...pair]);
+    renderDepthBins();
     for (const name of VALIDATE_TEXT) $(`v-${name}`).value = validateForm[name];
     for (const name of VALIDATE_TICKS) $(`v-${name}`).checked = Boolean(validateForm[name]);
     $("v-concise").value = String(Boolean(validateForm.concise));
@@ -1763,6 +2002,7 @@
     if (!gridded) validateForm.transect = $("v-transect").checked = false;
     $("row-transect").hidden = !validateForm.transect;
     const transect = transectCheck();
+    const depthBlocked = refreshDepthBins();
     const hints = {
       "vm-data_dir": "Where oceanval_matchups is: the directory matchup was run in, or its out_dir.",
     };
@@ -1780,15 +2020,15 @@
     // the report is not built along a transect that cannot be used
     const build = $("build");
     if (build) {
-      build.disabled = validateBusy || transect.block !== null;
+      build.disabled = validateBusy || transect.block !== null || depthBlocked;
       build.title = transect.block === "empty" ? "Fill in both ends of the transect, or untick it"
-        : transect.block ? "Fix what is marked in red first" : "";
+        : transect.block || depthBlocked ? "Fix what is marked in red first" : "";
     }
   }
 
   async function submitValidate() {
     // Enter in a box sends the form too, past the disabled button
-    if (validateBusy || transectCheck().block !== null) return;
+    if (validateBusy || transectCheck().block !== null || depthCheck().problems.length) return;
     validateBusy = true;
     refreshValidate();
     // the report options of a matchup and validate run, or the report from matchups made earlier
@@ -1801,7 +2041,9 @@
       if (reply.error) toast(reply.error);
       refreshValidate();
       const first = Object.keys(validateErrors)[0];
-      if (first) $(`v-${first}`).focus();
+      // the depth bins are a grid of boxes, rather than one
+      const box = first === "depth_bins" ? $("depth-bins-rows").querySelector("input") : first && $(`v-${first}`);
+      if (box) box.focus();
     }
   }
 

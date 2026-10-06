@@ -27,6 +27,7 @@ from oceanval import app as app_module
 from oceanval import app_child, leftovers, live, prompts
 from oceanval.app import (
     App, Console, Question, Run, check_compare, check_report, check_setup, check_validate,
+    default_validate_form,
 )
 from oceanval.app_child import ANSWER_MARKER, QUESTION_MARKER
 from oceanval.gridded import _ask_minutes, _ask_yes_no
@@ -802,6 +803,63 @@ class TestTransectChecks:
         assert check_validate({}, str(tmp_path))[1] == {}
 
 
+# the depth bins as the page sends them, other than OceanVal's own
+DEPTH_FORM = {"depth_bins": [["0", "20"], ["20", "200"], ["200", ""]]}
+
+
+class TestDepthBinChecks:
+    """The report options step's depth bins: a [from, to] pair of boxes for
+    each."""
+
+    def test_the_default_bins_are_validates_own_and_not_sent(self, tmp_path):
+        assert default_validate_form()["depth_bins"] == [
+            ["0", "10"], ["10", "30"], ["30", "60"], ["60", "100"], ["100", "150"],
+            ["150", "300"], ["300", "600"], ["600", "1000"], ["1000", ""],
+        ]
+        assert check_report({}, str(tmp_path)) == ({}, {})
+        assert check_report(default_validate_form(), str(tmp_path)) == ({}, {})
+
+    def test_bins_of_the_users_own(self, tmp_path):
+        assert check_report(DEPTH_FORM, str(tmp_path)) == (
+            {"depth_bins": [[0, 20], [20, 200], [200, None]]}, {},
+        )
+
+    def test_they_are_sorted_and_empty_rows_are_ignored(self, tmp_path):
+        form = {"depth_bins": [["50", "100.5"], ["", ""], [" 0 ", "50"]]}
+
+        assert check_report(form, str(tmp_path)) == (
+            {"depth_bins": [[0, 50], [50, 100.5]]}, {},
+        )
+
+    @pytest.mark.parametrize(
+        "rows, problem",
+        [
+            ([["", ""]], "Add at least one bin."),
+            ([], "Add at least one bin."),
+            ([["", "10"]], "Each bin needs a From depth."),
+            ([["0", "ten"]], "Depths must be numbers."),
+            ([["-5", "10"]], "Depths must be 0 or more."),
+            ([["10", "5"]], "A bin's To depth must be deeper than its From depth."),
+            ([["0", ""], ["10", "20"]], "Only the deepest bin can leave To empty, for everything below it."),
+            ([["0", "20"], ["10", "30"]], "The bins 0-20m and 10-30m overlap."),
+        ],
+    )
+    def test_bins_that_cannot_be_used_are_refused(self, tmp_path, rows, problem):
+        assert check_report({"depth_bins": rows}, str(tmp_path)) == (
+            {}, {"depth_bins": problem},
+        )
+
+    def test_anything_but_pairs_is_left_out(self, tmp_path):
+        form = {"depth_bins": [["0", "20"], ["5"], "20-30", None, ["20", None]]}
+
+        assert app_module._form(form, default_validate_form())["depth_bins"] == [
+            ["0", "20"], ["20", ""],
+        ]
+        assert check_report({"depth_bins": "0-10"}, str(tmp_path))[1] == {
+            "depth_bins": "Add at least one bin."
+        }
+
+
 def validations(directory, *names):
     """Directories as validate() leaves them, with the results compare reads."""
     for name in names:
@@ -1247,9 +1305,83 @@ class TestServer:
         assert "transect=" not in open(tmp_path / "matchup.py").read()
         assert '"transect"' not in runs[-1][0][1]
 
+    def vertical_report_step(self, app, tmp_path, runs):
+        """Get to the report options step, after the recipes window chose
+        ICES's temperature through the water column."""
+        write_simulation(tmp_path / "sim")
+        app.choose("matchup_validate")
+        post(app, "/api/setup", {"form": SETUP_FORM})
+        post(app, "/api/own_data", {"answer": False})
+        wait_for(lambda: app.view == "recipes")
+        rows = [{
+            "variable": "temperature", "model_variable": "thetao", "selected": ["ices"],
+            "point": {"ices": {"vertical": True}},
+        }]
+        settings = recipe_settings(app, thickness="z_level")
+        assert post(app, "/recipes/write", {"rows": rows, "settings": settings})[0] == 200
+        units_match(app)
+        wait_for(lambda: runs)
+        app.view = "report_options"
+
+    def test_depth_bins_are_written_into_the_script(
+        self, app, tmp_path, runs, monkeypatch
+    ):
+        monkeypatch.setattr(live, "available", lambda: True)
+        self.vertical_report_step(app, tmp_path, runs)
+        assert get_json(app, "/api/state")[1]["report"]["vertical"] is True
+
+        assert post(app, "/api/report", {"form": DEPTH_FORM})[0] == 200
+        text = open(tmp_path / "matchup.py").read()
+
+        # so it can be run again from a terminal, as the window ran it
+        assert "\noceanval.validate(\n    depth_bins=[[0, 20], [20, 200], [200, None]],\n)\n" in text
+        # and the interim report matchup builds as it goes has them too
+        call = text[text.index("oceanval.matchup(") : text.index("\noceanval.validate(")]
+        assert '    live_validation={"depth_bins": [[0, 20], [20, 200], [200, None]]},\n)' in call
+        assert json.loads(runs[-1][0][1])["depth_bins"] == [[0, 20], [20, 200], [200, None]]
+
+    def test_the_default_depth_bins_are_not_written(self, app, tmp_path, runs):
+        self.vertical_report_step(app, tmp_path, runs)
+
+        assert post(app, "/api/report", {"form": default_validate_form()})[0] == 200
+        assert "depth_bins=" not in open(tmp_path / "matchup.py").read()
+
+    def test_depth_bins_that_cannot_be_used_are_refused(self, app, tmp_path, runs):
+        self.vertical_report_step(app, tmp_path, runs)
+        overlapping = {"depth_bins": [["0", "20"], ["10", ""]]}
+
+        status, reply = post(app, "/api/report", {"form": overlapping})
+
+        assert (status, reply["errors"]) == (400, {"depth_bins": "The bins 0-20m and >10m overlap."})
+        assert app.view == "report_options"
+        # the boxes are kept, to be put right
+        assert get_json(app, "/api/state")[1]["validate"]["form"]["depth_bins"] == [
+            ["0", "20"], ["10", ""],
+        ]
+
+    def test_depth_bins_are_not_asked_for_without_vertical_point_matchups(
+        self, app, tmp_path, runs
+    ):
+        self.report_step(app, tmp_path, runs, ["ices"])
+        assert get_json(app, "/api/state")[1]["report"]["vertical"] is False
+
+        # the page does not send them, but if it did, there is nothing to bin
+        assert post(app, "/api/report", {"form": DEPTH_FORM})[0] == 200
+        assert "depth_bins=" not in open(tmp_path / "matchup.py").read()
+        assert '"depth_bins"' not in runs[-1][0][1]
+
+    def test_the_users_own_point_data_through_the_water_column_is_vertical(self, app):
+        assert app._report_vertical() is None
+        app._script_writer = (None, ({}, [], {}, {}, {}))
+        assert app._report_vertical() is False
+        app.own_data["point"].append({"name": "mine", "vertical": False})
+        assert app._report_vertical() is False
+        app.own_data["point"].append({"name": "deep", "vertical": True})
+        assert app._report_vertical() is True
+
     def test_the_users_own_gridded_data_is_gridded(self, app):
         assert app._report_gridded() is None
-        app._script_writer = (None, ({}, []))
+        app._script_writer = (None, ({}, [], {}, {}, {}))
         assert app._report_gridded() is False
         app.own_data["gridded"].append({"name": "mine"})
         assert app._report_gridded() is True
@@ -1845,7 +1977,7 @@ class TestServer:
         # matchup still waits for the answer, so nothing is matched up yet
         assert state["question"]["id"] == number
         # whether the matchups are gridded is only known from the recipes window's choices
-        assert state["report"] == {"given": False, "dir": str(tmp_path), "gridded": None}
+        assert state["report"] == {"given": False, "dir": str(tmp_path), "gridded": None, "vertical": None}
         time.sleep(0.5)
         assert "answer:" not in app.console.since(0, None)["text"]
         assert post(app, "/api/answer", {"id": number, "answer": "y"})[0] == 409
@@ -2498,7 +2630,7 @@ class TestBack:
         wait_for(lambda: app.question is not None)
         number = app.question.id
         assert post(app, "/api/answer", {"id": number, "answer": "y"})[0] == 200
-        form = {"pdf": True, "subregions": "global", "lon_min": "-20"}
+        form = {"pdf": True, "subregions": "global", "lon_min": "-20", **DEPTH_FORM}
 
         assert post(app, "/api/back", {"form": form})[0] == 200
         assert (app.view, app.question.id) == ("running", number)
@@ -2509,6 +2641,7 @@ class TestBack:
         assert (kept["pdf"], kept["subregions"], kept["lon_min"], kept["word"]) == (
             True, "global", "-20", False,
         )
+        assert kept["depth_bins"] == DEPTH_FORM["depth_bins"]
 
     def test_the_answer_about_own_data_is_kept(self, app, tmp_path, runs):
         write_simulation(tmp_path / "sim")
@@ -3042,10 +3175,11 @@ def test_the_report_options_in_a_browser(browser, tmp_path, monkeypatch):
         app.close()
 
 
-def report_options_app(tmp_path, monkeypatch, gridded=None):
+def report_options_app(tmp_path, monkeypatch, gridded=None, vertical=False):
     """An app held at the report options step of a matchup and validate run,
     with the validate runs it starts recorded. gridded is what the recipes
-    window chose, if it is to be known."""
+    window chose, if it is to be known, and vertical whether a point recipe
+    was chosen with Vertical, as is known then too."""
     script = tmp_path / "matchup.py"
     script.write_text(
         textwrap.dedent(
@@ -3062,7 +3196,14 @@ def report_options_app(tmp_path, monkeypatch, gridded=None):
     if gridded is not None:
         # the recipes window's choices: a gridded one, or none
         selection = [("temperature", "cobe2")] if gridded else []
-        app._script_writer = (lambda *choices, **options: None, ({"temperature": "thetao"}, selection))
+        point_options = {}
+        if vertical:
+            selection.append(("temperature", "ices"))
+            point_options[("temperature", "ices")] = {"vertical": True}
+        app._script_writer = (
+            lambda *choices, **options: None,
+            ({"temperature": "thetao"}, selection, {}, point_options, {}),
+        )
     validated = []
     start_run = app.start_run
     monkeypatch.setattr(
@@ -3198,6 +3339,126 @@ def test_a_transect_is_not_asked_for_without_gridded_matchups_in_a_browser(
         go_to_report_options(page, url)
 
         assert page.is_hidden("#v-group-transect")
+        assert page.is_enabled("#build")
+    finally:
+        app.close()
+
+
+def test_depth_bins_in_a_browser(browser, tmp_path, monkeypatch):
+    """With a point recipe through the water column, the report options end
+    with the depth bins: OceanVal's own to start with, each removed with its
+    x, more added with +, and the report not asked for while they cannot be
+    used."""
+    red_bold = ["rgb(192, 57, 43)", "700"]
+    app, validated = report_options_app(tmp_path, monkeypatch, gridded=False, vertical=True)
+    url = app.start()
+    try:
+        page = browser.new_page()
+        go_to_report_options(page, url)
+        group = page.locator("#v-group-depth_bins")
+        rows = page.locator("#depth-bins-rows .depth-bin")
+        box = lambda part, row: page.locator(f"[aria-label='{part} depth of bin {row}, in metres']")
+        values = lambda: [
+            (box("From", row).input_value(), box("To", row).input_value())
+            for row in range(1, rows.count() + 1)
+        ]
+        focused = lambda: page.evaluate("document.activeElement.getAttribute('aria-label')")
+
+        # below how detailed the report is, with OceanVal's bins
+        assert group.is_visible()
+        assert group.bounding_box()["y"] > page.locator("#v-concise").bounding_box()["y"]
+        assert page.text_content("#v-group-depth_bins legend") == (
+            "Which depth bins do you want for vertical validation?"
+        )
+        # the x column's heading is for screen readers only
+        assert page.locator(".depth-bins__head [role=columnheader]").all_text_contents() == [
+            "Bin", "From (metres)", "To (metres)", "Remove",
+        ]
+        assert values() == [
+            ("0", "10"), ("10", "30"), ("30", "60"), ("60", "100"), ("100", "150"),
+            ("150", "300"), ("300", "600"), ("600", "1000"), ("1000", ""),
+        ]
+        assert box("To", 9).get_attribute("placeholder") == "and deeper"
+        assert page.text_content("#vm-depth_bins") == ""
+        assert page.is_disabled("#depth-reset")
+        assert page.is_enabled("#build")
+
+        # x removes a bin, leaving a gap, which is said, and moves on to the next
+        page.click("[aria-label='Remove bin 8']")
+        page.wait_for_function("document.querySelectorAll('#depth-bins-rows .depth-bin').length === 8")
+        assert values()[-2:] == [("300", "600"), ("1000", "")]
+        assert page.text_content("#vm-depth_bins") == "Observations between 600 and 1000 m are left out."
+        assert focused() == "Remove bin 8"
+        assert page.is_enabled("#build")
+
+        # back to OceanVal's own
+        page.click("#depth-reset")
+        assert rows.count() == 9
+        assert page.is_disabled("#depth-reset")
+
+        # + starts a bin where the deepest ends, ready for its To
+        box("To", 9).fill("2000")
+        assert page.text_content("#vm-depth_bins") == "Observations deeper than 2000 m are left out."
+        page.click("#depth-add")
+        assert rows.count() == 10
+        assert box("From", 10).input_value() == "2000"
+        assert focused() == "To depth of bin 10, in metres"
+        assert values()[-2:] == [("1000", "2000"), ("2000", "")]
+        assert page.text_content("#vm-depth_bins") == ""
+
+        # or empty, if a bin starts there already, which is not used until filled in
+        page.click("#depth-add")
+        assert box("From", 11).input_value() == ""
+        assert focused() == "From depth of bin 11, in metres"
+        assert page.is_enabled("#build")
+        page.keyboard.type("3000")
+        problem = page.locator("#vm-depth_bins .group__line")
+        assert problem.text_content() == "Only the deepest bin can leave To empty, for everything below it."
+        assert problem.evaluate("node => [getComputedStyle(node).color, getComputedStyle(node).fontWeight]") == red_bold
+        assert "is-invalid" in box("To", 10).get_attribute("class")
+        assert page.is_disabled("#build")
+        assert page.get_attribute("#build", "title") == "Fix what is marked in red first"
+        page.click("[aria-label='Remove bin 11']")
+        page.wait_for_function("document.querySelectorAll('#depth-bins-rows .depth-bin').length === 10")
+        assert page.is_enabled("#build")
+
+        # bins that overlap
+        box("From", 2).fill("5")
+        assert page.text_content("#vm-depth_bins") == "The bins 0-10m and 5-30m overlap."
+        assert "is-invalid" in box("To", 1).get_attribute("class")
+        assert "is-invalid" in box("From", 2).get_attribute("class")
+        assert page.is_disabled("#build")
+        box("From", 2).fill("10")
+        assert page.is_enabled("#build")
+
+        # Back keeps them
+        page.click("#actions button:has-text('Back')")
+        page.wait_for_selector("#review:not([hidden])")
+        page.click("#review-actions button:has-text('Yes')")
+        page.wait_for_selector("#view-validate:not([hidden])")
+        assert values()[-3:] == [("600", "1000"), ("1000", "2000"), ("2000", "")]
+
+        # sent with the rest of the options
+        page.click("#build")
+        wait_for(lambda: validated)
+        assert json.loads(validated[0][1])["depth_bins"] == [
+            [0, 10], [10, 30], [30, 60], [60, 100], [100, 150], [150, 300],
+            [300, 600], [600, 1000], [1000, 2000], [2000, None],
+        ]
+    finally:
+        app.close()
+
+
+def test_depth_bins_are_not_asked_for_without_vertical_in_a_browser(
+    browser, tmp_path, monkeypatch
+):
+    app, _ = report_options_app(tmp_path, monkeypatch, gridded=True)
+    url = app.start()
+    try:
+        page = browser.new_page()
+        go_to_report_options(page, url)
+
+        assert page.is_hidden("#v-group-depth_bins")
         assert page.is_enabled("#build")
     finally:
         app.close()
@@ -3851,8 +4112,12 @@ def test_choosing_directories_in_a_browser(browser, tmp_path):
 
         page.click("text=Back")
         page.click('button.choice[data-action="validate"]')
-        # concise or detailed is the last thing asked, and concise to start with
-        assert page.locator("#validate-form fieldset").last.locator("#v-concise").count() == 1
+        # concise or detailed is the last option, and concise to start with, with
+        # only the depth bins after it, as the matchups may be through the water column
+        assert page.evaluate(
+            "[...document.querySelectorAll('#validate-form > fieldset')].slice(-2)"
+            ".map(group => group.id || group.querySelector('select').id)"
+        ) == ["v-concise", "v-group-depth_bins"]
         assert page.input_value("#v-concise") == "true"
         assert page.locator("#v-concise option").all_text_contents() == ["Concise", "Detailed"]
         page.click('[data-browse="v-data_dir"]')

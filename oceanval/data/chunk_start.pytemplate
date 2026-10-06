@@ -37,6 +37,14 @@ try:
 except:
     concise = False
 
+# the depth ranges point matchups through the water column are summarised in
+from oceanval.depths import DEFAULT_DEPTH_BINS, bin_depth, depth_labels, depth_ranges_text
+try:
+    depth_bins = the_depth_bins
+except:
+    depth_bins = DEFAULT_DEPTH_BINS
+depth_levels = depth_labels(depth_bins)
+
 # in one line
 from oceanval.tidiers import fix_unit, df_display, md, md_basic
 

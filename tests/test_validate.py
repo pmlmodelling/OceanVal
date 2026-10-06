@@ -101,6 +101,13 @@ class TestValidate:
         with pytest.raises(ValueError, match="No matchups found"):
             oceanval.validate(transect=transect, data_dir="nowhere", test=True)
 
+    def test_depth_bins_are_checked_before_the_matchups(self):
+        with pytest.raises(ValueError, match="depth_bins: the bins 0-20m and 10-30m overlap"):
+            oceanval.validate(depth_bins=[[0, 20], [10, 30]], data_dir="nowhere", test=True)
+        # bins that can be used get as far as looking for the matchups
+        with pytest.raises(ValueError, match="No matchups found"):
+            oceanval.validate(depth_bins=[[0, 20], [20, None]], data_dir="nowhere", test=True)
+
     def test_a_transect_needs_an_nctoolkit_that_extracts_it(self, monkeypatch):
         monkeypatch.setattr(oceanval.transects, "available", lambda: False)
         with pytest.raises(ValueError, match="nctoolkit 1.3.6 or later"):

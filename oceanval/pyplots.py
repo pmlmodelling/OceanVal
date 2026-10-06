@@ -11,6 +11,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
+from oceanval.depths import DEFAULT_DEPTH_BINS, depth_labels
+
 _WORLD_MAP = None
 
 
@@ -236,12 +238,11 @@ def plot_regional_timeseries(df_all):
     plt.show()
 
 
-def plot_depth_locations_map(df_mapped):
-    """Facet of matchup locations by depth bin."""
-    depth_order = [
-        "0-10m", "10-30m", "30-60m", "60-100m", "100-150m",
-        "150-300m", "300-600m", "600-1000m", ">1000m",
-    ]
+def plot_depth_locations_map(df_mapped, depth_order=None):
+    """Facet of matchup locations by depth bin, in the order of depth_order,
+    the bins' labels (see oceanval.depths), or the default bins'."""
+    if depth_order is None:
+        depth_order = depth_labels(DEFAULT_DEPTH_BINS)
     depths = [d for d in depth_order if d in df_mapped["depth"].unique()]
     n = len(depths)
     if n == 0:
@@ -328,12 +329,11 @@ def plot_correlation_map(df_cor, global_grid=False):
     plt.show()
 
 
-def plot_depth_matchup_map(df_map):
-    """Facet grid of matchup locations by variable (rows) and depth bin (columns)."""
-    depth_order = [
-        "0-10m", "10-30m", "30-60m", "60-100m", "100-150m",
-        "150-300m", "300-600m", "600-1000m",
-    ]
+def plot_depth_matchup_map(df_map, depth_order=None):
+    """Facet grid of matchup locations by variable (rows) and depth bin
+    (columns), in the order of depth_order, as for plot_depth_locations_map."""
+    if depth_order is None:
+        depth_order = depth_labels(DEFAULT_DEPTH_BINS)
     depths = [d for d in depth_order if d in df_map["depth_bin"].unique()]
     variables = list(df_map["variable"].unique())
     if len(depths) == 0 or len(variables) == 0:
