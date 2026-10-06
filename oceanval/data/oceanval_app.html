@@ -706,7 +706,7 @@
       <p class="group__msg" id="units-empty-point" hidden>No point datasets are being matched up.</p>
     </section>
     <section class="units-section" id="units-section-confirm" aria-labelledby="units-title-confirm">
-      <h2 class="section-title" id="units-title-confirm">Confirm the units</h2>
+      <h2 class="section-title" id="units-title-confirm">Are you happy with the units?</h2>
       <div class="card units-confirm">
         <label class="tick-label"><input type="checkbox" class="tick" id="units-confirm">I have checked the units of every matchup above. With these conversions, the observations are in the same units as the model.</label>
       </div>
@@ -1015,7 +1015,7 @@
 (() => {
   "use strict";
 
-  const { ICONS, $, el, icon, shorten, plural, toast, STEPS, steps } = OceanValGUI;
+  const { ICONS, $, el, icon, shorten, plural, toast, STEPS, steps, pageId } = OceanValGUI;
   const initial = JSON.parse($("state").textContent);
   const token = initial.token;
   let state = initial.state;
@@ -3038,7 +3038,7 @@
     for (;;) {
       let next;
       try {
-        const response = await fetch(`api/state?${query({ version: version ?? "", after: consoleLast, epoch: consoleEpoch ?? "" })}`, { cache: "no-store" });
+        const response = await fetch(`api/state?${query({ version: version ?? "", after: consoleLast, epoch: consoleEpoch ?? "", page: pageId })}`, { cache: "no-store" });
         if (!response.ok) throw new Error(`${response.status}`);
         next = await response.json();
       } catch (error) {

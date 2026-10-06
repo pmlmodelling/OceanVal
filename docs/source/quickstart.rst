@@ -45,6 +45,10 @@ output to a validation report:
 **Back**, on every step after the first, keeps what you have entered, so you
 can go back to fix a mistake without starting again.
 
+Closing the browser window quits ``oceanval`` in the terminal, within about
+15 seconds, stopping anything it is running, whichever browser you use. So
+do **Quit** (which is instant) and Ctrl+C.
+
 To see how it works first, choose **Try a demo**, below the four choices. It
 downloads a year of a CMIP6 climate model's sea surface temperature (17 MB)
 and takes you through the same steps with the options filled in. It shows how

@@ -2349,6 +2349,50 @@ class TestServer:
         assert app.closed.wait(5)
         assert get_json(app, "/api/state")[1]["closed"]
 
+    def test_the_heartbeat_needs_the_token(self, app):
+        assert get(app, "/api/heartbeat", token="wrong", page="a")[0] == 403
+        assert not app.closed.is_set()
+
+    def test_closing_the_browser_quits(self, app):
+        app.page_timeout = 2
+        # nothing is quit before a page has been open
+        assert not app.closed.wait(3)
+
+        assert get_json(app, "/api/state", page="a")[0] == 200
+        assert app.closed.wait(8)
+        assert app.closed_reason == "The browser window was closed."
+
+    def test_it_quits_when_the_last_page_is_gone(self, app):
+        app.page_timeout = 2
+        deadline = time.time() + 5
+        # "a" stays open, while "b" is closed after its first request
+        get_json(app, "/api/state", page="b")
+        while time.time() < deadline:
+            get_json(app, "/api/state", page="a")
+            time.sleep(0.2)
+        assert not app.closed.is_set()
+        assert app.closed.wait(8)
+
+    def test_a_held_request_keeps_the_page_open(self, app):
+        app.page_timeout = 2
+        app.heartbeat("a", hold=0)
+        started = time.time()
+        # held for longer than the page may be silent
+        assert app.heartbeat("a", hold=4) is False
+        assert time.time() - started >= 4
+        assert not app.closed.is_set()
+
+    def test_a_held_state_request_keeps_the_page_open(self, app):
+        app.page_timeout = 2
+        app.state(version=app.version, timeout=4, page="a")
+        assert not app.closed.is_set()
+        assert app.closed.wait(8)
+
+    def test_quitting_from_the_window_gives_no_reason(self, app):
+        post(app, "/api/quit")
+        assert app.closed.wait(5)
+        assert app.closed_reason is None
+
 
 class TestRecipesRestore:
     """What the recipes window starts with when it is shown again, or made
@@ -3689,6 +3733,63 @@ def test_overwrite_choice_only_appears_for_existing_matchups(browser, tmp_path):
         page.wait_for_url("**/recipes/**", timeout=90000)
         assert page.is_hidden("#s-overwrite")
         assert app.recipes_page.form["overwrite"] is True
+    finally:
+        app.close()
+
+
+def test_closing_the_browser_quits_the_app(browser, tmp_path):
+    """The window stays open for as long as the page is, through a reload,
+    and closing the page quits."""
+    app = App(cwd=str(tmp_path))
+    url = app.start()
+    app.page_timeout = 3
+    try:
+        page = browser.new_page()
+        page.goto(url)
+        page.wait_for_selector('button.choice[data-action="matchup"]')
+        time.sleep(6)
+        assert not app.closed.is_set()
+
+        page.reload()
+        page.wait_for_selector('button.choice[data-action="matchup"]')
+        time.sleep(5)
+        assert not app.closed.is_set()
+
+        page.close()
+        assert app.closed.wait(15)
+        assert app.closed_reason == "The browser window was closed."
+    finally:
+        app.close()
+
+
+def test_the_recipes_window_keeps_the_app_open(browser, tmp_path, monkeypatch):
+    """The recipes window makes no state requests, so it says it is open with
+    heartbeats, and closing it quits the app."""
+    write_simulation(tmp_path / "sim", tracers=True)
+    app = App(cwd=str(tmp_path))
+    beats = []
+    heartbeat = app.heartbeat
+    monkeypatch.setattr(
+        app, "heartbeat", lambda page, **kwargs: beats.append(page) or heartbeat(page, **kwargs)
+    )
+    url = app.start()
+    app.page_timeout = 3
+    try:
+        page = browser.new_page()
+        page.goto(url)
+        page.click('button.choice[data-action="matchup"]')
+        page.fill("#f-simdir", "sim")
+        page.wait_for_function("document.querySelector('#f-end').value === '2012'")
+        page.fill("#f-ndown", "2")
+        page.click("#continue")
+        page.click("#own-no")
+        page.wait_for_url("**/recipes/**", timeout=90000)
+        wait_for(lambda: beats, timeout=15)
+        time.sleep(6)
+        assert not app.closed.is_set()
+
+        page.close()
+        assert app.closed.wait(15)
     finally:
         app.close()
 

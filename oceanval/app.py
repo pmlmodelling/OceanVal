@@ -44,8 +44,10 @@ import os
 import queue
 import random
 import secrets
+import select
 import shlex
 import signal
+import socket
 import subprocess
 import sys
 import threading
@@ -69,6 +71,13 @@ from oceanval.create_recipes import (
 
 # what the first step offers
 ACTIONS = ("matchup_validate", "matchup", "validate", "compare")
+
+# closing the browser quits the command: a page open in it has a request
+# waiting on the app (the state's, or a heartbeat held for HEARTBEAT_HOLD
+# seconds), which keeps it known to the app, and once every page has been
+# gone for PAGE_TIMEOUT seconds the window counts as closed
+HEARTBEAT_HOLD = 10
+PAGE_TIMEOUT = 15
 
 # how many simulations the compare step has rows for
 COMPARE_ROWS = 5
@@ -1045,6 +1054,14 @@ class App:
         self.url = None
         self.port = None
         self.closed = threading.Event()
+        # why the window closed, when it was not Quit or Ctrl+C
+        self.closed_reason = None
+        # the pages open in a browser, by id, and when each was last heard
+        # from (see touch); with how long one is silent before it counts as
+        # closed, which is longer than the state request it waits on
+        self.page_timeout = PAGE_TIMEOUT
+        self._pages = {}
+        self._page_seen = False
         self._lock = threading.RLock()
         self._changed = threading.Condition(self._lock)
         self.version = 0
@@ -1126,21 +1143,77 @@ class App:
             self.version += 1
             self._changed.notify_all()
 
+    def touch(self, page):
+        """Note that the page with this id is open in a browser."""
+        if not page or self.closed.is_set():
+            return
+        with self._lock:
+            self._pages[str(page)[:64]] = time.monotonic()
+            self._page_seen = True
+
+    def heartbeat(self, page, hold=HEARTBEAT_HOLD, connected=None):
+        """What the pages with no state request of their own (the recipes
+        window) ask: held for hold seconds, or until the window closes, so
+        that the browser keeps no timer going. Returns whether it closed.
+        connected says whether the page is still there to be answered."""
+        deadline = time.monotonic() + hold
+        while not self.closed.is_set() and (connected is None or connected()):
+            self.touch(page)
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            self.closed.wait(min(1, remaining))
+        return self.closed.is_set()
+
+    def _watch(self):
+        """Quit once the pages that were open in the browser are all gone,
+        which is how closing the browser reaches the terminal: no browser
+        reliably says that it is closing, so the pages are heard from
+        instead. Nothing happens before the first page has been."""
+        while not self.closed.wait(1):
+            with self._lock:
+                now = time.monotonic()
+                for page, seen in list(self._pages.items()):
+                    if now - seen > self.page_timeout:
+                        del self._pages[page]
+                gone = self._page_seen and not self._pages
+            if gone:
+                self.quit("The browser window was closed.")
+
     def authorised(self, token):
         return secrets.compare_digest(
             str(token).encode("utf-8"), self.token.encode("utf-8")
         )
 
-    def state(self, after=0, epoch=None, version=None, timeout=20, console=True):
+    def state(
+        self,
+        after=0,
+        epoch=None,
+        version=None,
+        timeout=20,
+        console=True,
+        page=None,
+        connected=None,
+    ):
         """What the page shows, and what has been printed since it last
         asked. Given the version the page has, waits up to timeout seconds
-        for something to change first. Without console, what has been
-        printed is left for the page to ask for."""
+        for something to change first, while page (its id) is known to be
+        open, as long as connected (if given) says it is still there to be
+        answered. Without console, what has been printed is left for the
+        page to ask for."""
         with self._changed:
             if version is not None:
-                self._changed.wait_for(
-                    lambda: self.version != version or self.closed.is_set(), timeout
-                )
+                deadline = time.monotonic() + timeout
+                while (
+                    self.version == version
+                    and not self.closed.is_set()
+                    and (connected is None or connected())
+                ):
+                    self.touch(page)
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        break
+                    self._changed.wait(min(1, remaining))
             report = None
             which = "report"
             if self.action in ("matchup_validate", "validate") and self.results_dir:
@@ -2563,13 +2636,15 @@ class App:
         threading.Thread(
             target=self._server.serve_forever, name="oceanval-window", daemon=True
         ).start()
+        threading.Thread(target=self._watch, name="oceanval-watch", daemon=True).start()
         return self.url
 
-    def quit(self):
+    def quit(self, reason=None):
         """Stop whatever is running, and let main() return."""
         with self._lock:
             if self.closed.is_set():
                 return
+            self.closed_reason = reason
             self.closed.set()
             self._demo_cancel.set()
             run, page = self.run, self.recipes_page
@@ -2599,6 +2674,16 @@ def _number(text):
 
 class _Handler(recipes_gui._Handler):
     app = None  # set on the subclass each App makes
+
+    def _connected(self):
+        """Whether the browser is still waiting for the reply: the request
+        has been read, so what can be read from the connection is its end."""
+        try:
+            if not select.select([self.connection], [], [], 0)[0]:
+                return True
+            return self.connection.recv(1, socket.MSG_PEEK) != b""
+        except OSError:
+            return False
 
     def _redirect(self, location):
         self.send_response(303)
@@ -2656,6 +2741,7 @@ class _Handler(recipes_gui._Handler):
             "/",
             "/recipes/",
             "/api/state",
+            "/api/heartbeat",
             "/api/probe",
             "/api/browse",
             "/api/files",
@@ -2677,13 +2763,25 @@ class _Handler(recipes_gui._Handler):
                 self._redirect("/?token=" + urllib.parse.quote(self.app.token))
             else:
                 self._reply(200, page.html(), "text/html; charset=utf-8")
+        elif url.path == "/api/heartbeat":
+            self._reply_json(
+                200,
+                {
+                    "closed": self.app.heartbeat(
+                        query.get("page"), connected=self._connected
+                    )
+                },
+            )
         elif url.path == "/api/state":
+            self.app.touch(query.get("page"))
             self._reply_json(
                 200,
                 self.app.state(
                     after=_number(query.get("after")) or 0,
                     epoch=_number(query.get("epoch")),
                     version=_number(query.get("version")),
+                    page=query.get("page"),
+                    connected=self._connected,
                 ),
             )
         elif url.path == "/api/browse":
@@ -2851,21 +2949,26 @@ def main(argv=None):
     if recipes_gui._can_open_browser() and recipes_gui._open_browser(url):
         print(
             f"OceanVal is open in your web browser:\n  {url}\n"
-            "Press Ctrl+C here to quit.",
+            "Press Ctrl+C here to quit, or close the window.",
             flush=True,
         )
     else:
         print(
             f"Open this link in a web browser to use OceanVal:\n  {url}\n"
             f"On a remote machine, forward port {app.port} to reach it (VS Code "
-            "does this for you). Press Ctrl+C here to quit.",
+            "does this for you). Press Ctrl+C here to quit, or close the window.",
             flush=True,
         )
     try:
         # waiting in steps, so Ctrl+C is not held up
         while not app.closed.wait(0.25):
             pass
-        print("OceanVal was closed from its window.", flush=True)
+        print(
+            f"{app.closed_reason} OceanVal is quitting."
+            if app.closed_reason
+            else "OceanVal was closed from its window.",
+            flush=True,
+        )
     except KeyboardInterrupt:
         print("\nClosing OceanVal.", flush=True)
     finally:

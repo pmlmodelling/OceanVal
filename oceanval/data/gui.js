@@ -69,5 +69,26 @@ const OceanValGUI = (() => {
     node.hidden = false;
   }
 
-  return { ICONS, $, el, icon, shorten, plural, toast, STEPS, steps };
+  // names this page load to the oceanval app, which quits when the browser
+  // has closed every page it knows of (see App.touch)
+  const pageId = Math.random().toString(36).slice(2) + Date.now().toString(36);
+
+  // for the pages with no request of their own waiting on the app: each
+  // request is held by the app for a few seconds, and the next is made as
+  // that one is answered, as no timer is relied on (the browser slows those
+  // in tabs in the background). root is where the app's api is, from the
+  // page's address
+  async function heartbeat(token, root) {
+    for (;;) {
+      try {
+        const response = await fetch(`${root}api/heartbeat?${new URLSearchParams({ token, page: pageId })}`, { cache: "no-store" });
+        if (!response.ok) return;
+        if ((await response.json()).closed) return;
+      } catch (error) {
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+      }
+    }
+  }
+
+  return { ICONS, $, el, icon, shorten, plural, toast, STEPS, steps, pageId, heartbeat };
 })();

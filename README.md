@@ -96,6 +96,10 @@ datasets afresh if you changed the domain, and says in red and bold what it
 could not keep. The units always have to be confirmed again. Once anything
 is matched up, there is no going back.
 
+Closing the browser window quits `oceanval` in the terminal, within about 15
+seconds, stopping anything it is running, whichever browser you use. So do
+**Quit** (which is instant) and Ctrl+C.
+
 Outside the window, `matchup(live_validation=...)` builds the same interim
 report (HTML only, in `oceanval_interim_report`), with `True` or a dict of
 `validate()`'s report options, before `validate()` builds the full report:
