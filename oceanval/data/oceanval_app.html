@@ -132,6 +132,12 @@
   .group__intro { margin: -2px 0 12px; color: var(--muted); font-size: 13.5px; line-height: 1.45; }
   .group__line.is-ok { color: var(--teal-700); }
   .group__line .link { font-size: inherit; }
+  /* no files to use is the one thing that has to be seen: red, bold and twice the size */
+  .group__line.is-nofiles { color: var(--red); font-weight: 700; font-size: 25px; line-height: 1.3; }
+  .group__line.is-nofiles .link { color: inherit; font-weight: 700; }
+  .group__line.is-nofiles .icon { flex: none; width: 1em; height: 1em; margin-top: 0.15em; }
+  /* units OceanVal has concluded are the same: amber, as a suggestion to check */
+  .group__line.is-same { color: var(--amber); }
   .banner {
     display: flex;
     gap: 10px;
@@ -1442,7 +1448,7 @@
   }
 
   function line(text, kind, ...extra) {
-    const pictures = { ok: "check", warn: "warn", error: "error", oceanval: "warn" };
+    const pictures = { ok: "check", warn: "warn", error: "error", oceanval: "warn", nofiles: "warn" };
     return el("span", { class: "group__line" + (kind ? ` is-${kind}` : "") },
       pictures[kind] ? icon(pictures[kind]) : null, el("span", {}, text, ...extra));
   }
@@ -1477,17 +1483,17 @@
         if (probe.years) found += probe.years[0] === probe.years[1] ? `, named for ${probe.years[0]}` : `, named for ${probe.years[0]}–${probe.years[1]}`;
         simulation.push(line(found + ".", "ok"));
       } else if (depth !== null && probe.all_files > 0) {
-        simulation.push(line(`None of the ${probe.all_files} netCDF files ${depthText(depth)} pass the file filters.`, "warn"));
+        simulation.push(line(`None of the ${probe.all_files} netCDF files ${depthText(depth)} pass the file filters.`, "nofiles"));
       } else if (depth !== null && probe.suggestion) {
         const other = probe.suggestion;
-        simulation.push(line(`No netCDF files ${depthText(depth)}, but there are ${other.files} ${depthText(other.ndown)}. `, "warn",
+        simulation.push(line(`No netCDF files ${depthText(depth)}, but there are ${other.files} ${depthText(other.ndown)}. `, "nofiles",
           el("button", { type: "button", class: "link", text: `Use ${other.ndown}`, onclick: () => {
             setup.ndown = $("f-ndown").value = String(other.ndown);
             askProbe(0);
             refreshSetup();
           } })));
       } else if (depth !== null) {
-        simulation.push(line(`No netCDF files ${depthText(depth)}, nor at any depth down to 3 directories.`, "warn"));
+        simulation.push(line(`No netCDF files ${depthText(depth)}, nor at any depth down to 3 directories.`, "nofiles"));
       }
     }
     if (String(setup.exclude).trim() || String(setup.require).trim()) {
@@ -2181,8 +2187,8 @@
         && (check.multiplier !== row.obs_multiplier || check.adder !== row.obs_adder)) {
       return line(`OceanVal would multiply by ${check.multiplier} and add ${check.adder}, but the conversion you gave is kept.`, "ok");
     }
-    // what OceanVal thinks are the same units is a suggestion, so it gets no tick
-    return line(check.note, { unknown: "warn", same: "" }[check.status] ?? "ok");
+    // what OceanVal thinks are the same units is a suggestion, so it gets no tick: it is amber
+    return line(check.note, { unknown: "warn", same: "same" }[check.status] ?? "ok");
   }
 
   function unitsRow(row) {

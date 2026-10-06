@@ -3748,6 +3748,30 @@ def test_the_interim_report_in_a_browser(browser, tmp_path):
         app.close()
 
 
+def test_no_files_in_the_simulation_is_red_bold_and_large(browser, tmp_path):
+    write_simulation(tmp_path / "sim")
+    app = App(cwd=str(tmp_path))
+    url = app.start()
+    try:
+        page = browser.new_page()
+        page.goto(url)
+        page.click('button.choice[data-action="matchup"]')
+        page.fill("#f-simdir", "sim")
+        page.wait_for_function("document.querySelector('#f-end').value === '2012'")
+        page.fill("#f-ndown", "0")
+        warning = page.locator("#m-simulation .group__line.is-nofiles")
+        warning.wait_for()
+        assert "No netCDF files in the directory itself" in warning.text_content()
+        found = page.locator("#m-simulation .group__line.is-ok")
+        assert found.count() == 0
+        body = warning.evaluate(
+            "node => [getComputedStyle(node).color, getComputedStyle(node).fontWeight, getComputedStyle(node).fontSize]"
+        )
+        assert body == ["rgb(192, 57, 43)", "700", "25px"]
+    finally:
+        app.close()
+
+
 def test_overwrite_choice_only_appears_for_existing_matchups(browser, tmp_path):
     write_simulation(tmp_path / "sim")
     (tmp_path / "old" / "oceanval_matchups").mkdir(parents=True)
@@ -3909,6 +3933,9 @@ def test_the_units_step_in_a_browser(browser, tmp_path, monkeypatch):
         assert look(oceanval_note) == red_bold
         assert look(multiplier)[1] == "400"
         assert look(temperature.locator(f"{below}//*[contains(@class, 'group__line')]"))[1] == "400"
+        # units OceanVal has concluded are the same are amber
+        assert "is-same" in temperature.locator(f"{below}//*[contains(@class, 'group__line')]").get_attribute("class")
+        assert look(temperature.locator(f"{below}//*[contains(@class, 'group__line')]"))[0] == "rgb(168, 106, 0)"
         # but not once it is changed, which the note says, and it is again if put back
         oceanval.fill("2")
         assert look(oceanval)[1] == "400"
