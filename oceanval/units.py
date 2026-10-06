@@ -5,7 +5,8 @@ OceanVal can tell (see oceanval.unit_conversion).
 The model's units are read from the netCDF files of the simulation, and the
 observations' from RECIPE_CATALOGUE and POINT_RECIPE_CATALOGUE for the recipes
 OceanVal ships with, which the Units column of
-https://pmlmodelling.github.io/OceanVal/recipes.html repeats, or, for the
+https://pmlmodelling.github.io/OceanVal/recipes.html repeats, from the recipes
+the user registered (see oceanval.user_recipes), or, for the
 user's own gridded data, from the netCDF file they supplied. Their own point
 data is csv files, which have no units, so those are left to them.
 """
@@ -17,10 +18,10 @@ import os
 import xarray as xr
 
 from oceanval.create_recipes import (
-    POINT_RECIPE_CATALOGUE,
-    RECIPE_CATALOGUE,
     _model_variable_names,
     _WOA23_PERIODS,
+    gridded_catalogue,
+    point_catalogue,
     simulation_files,
 )
 from oceanval.parsers import find_recipe
@@ -84,20 +85,20 @@ def own_obs_units(arguments, cwd="."):
     return str(units) if units is not None else None
 
 
-def _recipe_entry(variable, recipe, point=False):
-    catalogue = POINT_RECIPE_CATALOGUE if point else RECIPE_CATALOGUE
+def _recipe_entry(variable, recipe, point=False, cwd=None):
+    catalogue = point_catalogue(cwd) if point else gridded_catalogue(cwd)
     for entry in catalogue:
         if entry["variable"] == variable and entry["recipe"] == recipe:
             return entry
     return None
 
 
-def _recipe_obs_variable(variable, recipe):
+def _recipe_obs_variable(variable, recipe, cwd=None):
     """The variable in a recipe's observation files, without the network."""
     # WOA23 temperature and salinity need a decade to name their variable
     years = {"start": _WOA23_PERIODS[-2][0], "end": _WOA23_PERIODS[-2][1]}
     try:
-        found = find_recipe({variable: recipe}, **years)
+        found = find_recipe({variable: recipe}, cwd=cwd, **years)
     except Exception:
         return None
     # ICES observations are named by their parameter code
@@ -124,16 +125,16 @@ def _check(variable, obs_units, model):
     return suggest(variable, obs_units, parts[0])
 
 
-def _recipe_rows(point, mapping, selection, options, model_unit_lookup):
+def _recipe_rows(point, mapping, selection, options, model_unit_lookup, cwd=None):
     """The rows for the selected recipes of one kind, point or gridded, that
     have a model variable."""
-    catalogue = POINT_RECIPE_CATALOGUE if point else RECIPE_CATALOGUE
+    catalogue = point_catalogue(cwd) if point else gridded_catalogue(cwd)
     order = {entry["variable"]: index for index, entry in enumerate(catalogue)}
     rows = []
     for variable, recipe in sorted(
         selection, key=lambda pair: (order.get(pair[0], 99), pair)
     ):
-        entry = _recipe_entry(variable, recipe, point)
+        entry = _recipe_entry(variable, recipe, point, cwd)
         if entry is None or variable not in mapping:
             # the other kind of recipe, or one with no model variable
             continue
@@ -145,7 +146,7 @@ def _recipe_rows(point, mapping, selection, options, model_unit_lookup):
                 "key": f"{'point' if point else 'recipe'}:{variable}:{recipe}",
                 "title": f"{variable} ({recipe}{', point' if point else ''})",
                 "model": model,
-                "obs_variable": _recipe_obs_variable(variable, recipe),
+                "obs_variable": _recipe_obs_variable(variable, recipe, cwd),
                 "obs_units": entry["units"],
                 "obs_multiplier": chosen.get("obs_multiplier", 1),
                 "obs_adder": chosen.get("obs_adder", 0),
@@ -180,8 +181,8 @@ def matchups(
     are None, with a note saying so, as csv files have none, and their
     observation variable is the csv's observation column.
     """
-    rows = _recipe_rows(False, mapping, selection, gridded_options, model_unit_lookup)
-    rows += _recipe_rows(True, mapping, selection, point_options, model_unit_lookup)
+    rows = _recipe_rows(False, mapping, selection, gridded_options, model_unit_lookup, cwd)
+    rows += _recipe_rows(True, mapping, selection, point_options, model_unit_lookup, cwd)
     for kind, prefix in (("gridded", "own"), ("point", "ownpoint")):
         point = kind == "point"
         for index, arguments in enumerate(own_data.get(kind) or []):
@@ -206,14 +207,14 @@ def matchups(
     return rows
 
 
-def model_variables(mapping, selection, own_data):
+def model_variables(mapping, selection, own_data, cwd=None):
     """Every model variable named by a gridded or point matchup, so their
     units can be read in one go."""
     names = []
     for variable, recipe in selection:
         if variable in mapping and (
-            _recipe_entry(variable, recipe) is not None
-            or _recipe_entry(variable, recipe, point=True) is not None
+            _recipe_entry(variable, recipe, cwd=cwd) is not None
+            or _recipe_entry(variable, recipe, point=True, cwd=cwd) is not None
         ):
             names.extend(_model_variable_names(mapping[variable]))
     for kind in ("gridded", "point"):

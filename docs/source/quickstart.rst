@@ -32,6 +32,8 @@ output to a validation report:
 
 1. **Choose** what to do: match up and validate, match up only, or validate
    matchups made earlier.
+   Or register recipes of your own for observations you use again, which are
+   saved in a ``.oceanvalrc`` file (see :doc:`recipes`).
 2. **Simulation**: where the model output is, and which files to use.
 3. **Own data**: add observations of your own, if you have any.
 4. **Recipes**: check the model variables found, and choose the

@@ -23,6 +23,8 @@ that takes you through these steps:
 
 1. **Choose** to match up new data and validate it, to match up only, or to
    validate matchups made earlier.
+   **Register user-defined data recipes** saves observations of your own as
+   recipes in a `.oceanvalrc` file (see below), instead of running anything.
 2. **Simulation**: where the model output is, how many directories down its
     files are, which files to skip or keep (the file filters), and the domain.
     Type the directory, with folders suggested as you go, or pick
@@ -126,6 +128,29 @@ The script it runs is written first, to `matchup.py` unless you choose
 another name, so you can run it again later with `python matchup.py`. On a
 remote machine, open the link `oceanval` prints: VS Code forwards its port
 for you, and over plain SSH, `oceanval --port 8765` picks a port to forward.
+
+## Your own recipes
+
+Observations you use again can be saved as recipes of your own, in a
+`.oceanvalrc` file: in the directory you run OceanVal from, for that
+directory, or in your home directory, for everywhere (the one in the directory
+wins). Choose **Register user-defined data recipes** in the `oceanval` window,
+then point (csv files) or gridded data (netCDF on this machine, on a THREDDS
+server or at a web address). OceanVal opens the data to check it, and checks
+the recipe against its own and your others, before it is saved. A source called
+`MySat` for chlorophyll is then used like any other recipe, and is offered in
+the recipes window, tagged **Yours**:
+
+```python
+oceanval.add_gridded_comparison(
+    model_variable="chl",
+    recipe={"chlorophyll": "mysat"},
+)
+```
+
+See the [recipes page](https://pmlmodelling.github.io/OceanVal/recipes.html#your-recipes)
+for the file's format. Recipes of your own are in the development version only
+(`main`), not yet in a tagged release.
 
 ## Using built-in recipes
 

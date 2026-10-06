@@ -58,19 +58,20 @@ import urllib.parse
 import oceanval
 from oceanval import leftovers, live, prompts, recipes_gui
 from oceanval.app_child import ANSWER_MARKER, QUESTION_MARKER
-from oceanval import depths, own_data, transects, units
+from oceanval import depths, own_data, recipe_checks, recipe_forms, transects, units, user_recipes
 from oceanval.create_recipes import (
     DOMAIN_REGIONS,
-    RECIPE_VARIABLES,
     _create_recipes,
     _literal,
     _unknown_variables,
+    recipe_variables,
     simulation_paths,
     simulation_years,
 )
 
-# what the first step offers
-ACTIONS = ("matchup_validate", "matchup", "validate", "compare")
+# what the first step offers: the last registers recipes of your own (see
+# oceanval.user_recipes), which is not a run
+ACTIONS = ("matchup_validate", "matchup", "validate", "compare", "register")
 
 # closing the browser quits the command: a page open in it has a request
 # waiting on the app (the state's, or a heartbeat held for HEARTBEAT_HOLD
@@ -1048,7 +1049,10 @@ class App:
     before anything is matched up, while matchup waits for the answer to
     whether the matchups are right. The demo is a matchup and validate run
     that starts at "demo", which downloads its model output, and goes on to
-    "setup" with the boxes filled in. Back goes a step the other way, until
+    "setup" with the boxes filled in. Registering recipes of your own is
+    "register_kind" (point or gridded data), and then "register_point" or
+    "register_gridded", where each is described, checked and saved to a
+    .oceanvalrc file (see oceanval.user_recipes). Back goes a step the other way, until
     anything is matched up, keeping what was entered (see back). Everything
     the page does goes through the methods here, which the server's threads
     call.
@@ -1083,6 +1087,18 @@ class App:
         # the user's own observations, as the arguments of the calls to
         # register them
         self.own_data = {"point": [], "gridded": []}
+        # registering recipes of the user's own: which kind was chosen last,
+        # what each kind's boxes held when left, what has been saved since
+        # the step was chosen, and the check of data on a server that is
+        # running or was last made (see register_data)
+        self.register_answer = None
+        self.register_forms = {
+            kind: recipe_forms.default_form(kind) for kind in recipe_forms.KINDS
+        }
+        self.register_saved = []
+        self.register_job = None
+        self._register_check = None
+        self._register_jobs = 0
         self.validate_form = default_validate_form()
         self.compare_form = default_compare_form()
         # the compare() arguments of the comparison being made, whose report,
@@ -1251,9 +1267,10 @@ class App:
                 "own": {
                     "entries": self.own_data,
                     "fields": own_data.FIELDS,
-                    "recipe_variables": sorted(RECIPE_VARIABLES),
+                    "recipe_variables": sorted(recipe_variables(self.cwd)),
                     "answer": self.own_answer,
                 },
+                "register": self._register_state(),
                 "units": {"rows": self.units_rows, "boxes": self._units_boxes_shown()},
                 "leftovers": {
                     "asked": self.leftovers_asked,
@@ -1434,6 +1451,12 @@ class App:
             self._forget_steps()
             self.question = None
             self.interim = None
+            if action == "register":
+                self._forget_register()
+                self.action = action
+                self.view = "register_kind"
+                self._notify()
+                return True
             if action == "demo":
                 self.action = "matchup_validate"
                 self.demo = {"status": "idle", "bytes": 0, "total": None, "file": 0, "error": None}
@@ -1496,6 +1519,9 @@ class App:
             "own_data": "setup",
             "point_data": "own_data",
             "gridded_data": "point_data",
+            "register_kind": "start",
+            "register_point": "register_kind",
+            "register_gridded": "register_kind",
         }
         if self.demo is not None and self.demo["status"] != "downloading":
             earlier["demo"] = "start"
@@ -1506,6 +1532,12 @@ class App:
                 self.validate_form = _form(sent["form"], default_validate_form())
         if self.view not in earlier:
             return False
+        if self.view in ("register_point", "register_gridded"):
+            # the boxes are shown again as they were left
+            kind = self.view.partition("_")[2]
+            if isinstance(sent.get("form"), dict):
+                self.register_forms[kind] = recipe_forms.clean(kind, sent["form"])
+            self._cancel_register_check()
         self.view = earlier[self.view]
         if self.view == "start":
             self._end_demo()
@@ -1667,6 +1699,201 @@ class App:
             self._notify()
         return 200, {"ok": True}
 
+    # ---- recipes of the user's own ----
+
+    def _forget_register(self):
+        """Start registering recipes afresh. Called with the lock held."""
+        self._cancel_register_check()
+        self.register_forms = {
+            kind: recipe_forms.default_form(kind) for kind in recipe_forms.KINDS
+        }
+        self.register_saved = []
+        self.register_answer = None
+        self.register_job = None
+
+    def _cancel_register_check(self):
+        """Stop looking at data on a server, if that is being done. Called
+        with the lock held."""
+        check, self._register_check = self._register_check, None
+        self.register_job = None
+        if check is not None:
+            check.cancel()
+
+    def _register_state(self):
+        return {
+            "kind": self.register_answer,
+            "forms": self.register_forms,
+            "saved": self.register_saved,
+            "job": self.register_job,
+            "recipes": user_recipes.listing(self.cwd),
+            "files": {
+                where: user_recipes.path_for(where, self.cwd) for where in user_recipes.WHERE
+            },
+            "same_file": user_recipes.same_file(self.cwd),
+            "problems": user_recipes.problem_in_files(self.cwd),
+            "builtin": list(user_recipes.BUILTIN_SOURCES),
+            "labels": {
+                variable: user_recipes.labels(variable, self.cwd)
+                for variable in sorted(
+                    set(user_recipes.VARIABLE_LABELS) | set(user_recipes.variables(self.cwd))
+                )
+            },
+        }
+
+    def register_kind(self, kind):
+        """Choose to register point or gridded data, on the way to its page."""
+        with self._lock:
+            if self.view != "register_kind" or kind not in recipe_forms.KINDS:
+                return False
+            self.register_answer = kind
+            self.view = f"register_{kind}"
+            self._notify()
+            return True
+
+    def register_names(self, kind, form):
+        """What is wrong with the names in a form, and where it would be
+        saved, as they are typed. Returns the HTTP status and the reply."""
+        if kind not in recipe_forms.KINDS:
+            return 400, {"ok": False, "error": "Choose point or gridded data."}
+        errors, warnings, info = recipe_forms.check_names(kind, form, self.cwd)
+        return 200, {"ok": True, "errors": errors, "warnings": warnings, "info": info}
+
+    def register_data(self, kind, form):
+        """Look at the data of a form. Data on this machine is looked at
+        straight away, and the reply says what is in it. Data on a server
+        takes as long as the server does, so it is looked at in a process of
+        its own, and the reply only says that this has begun: the job is in
+        the state, when it is done."""
+        if kind not in recipe_forms.KINDS:
+            return 400, {"ok": False, "error": "Choose point or gridded data."}
+        form = recipe_forms.clean(kind, form)
+        if not recipe_forms.is_remote(kind, form):
+            return 200, dict(recipe_forms.check_data(kind, form, self.cwd), running=False)
+        location = form["location"]
+        urls = recipe_checks.addresses(form["obs_path"])
+        try:
+            recipe_checks.check_addresses(location, urls)
+        except recipe_checks.CheckFailed as error:
+            return 200, {"ok": False, "error": str(error), "running": False}
+        with self._lock:
+            if self.view != f"register_{kind}":
+                return 409, {"ok": False, "error": "This step is over."}
+            self._cancel_register_check()
+            self._register_jobs += 1
+            number = self._register_jobs
+            self.register_job = {
+                "id": number,
+                "kind": kind,
+                "signature": recipe_forms.signature(kind, form, self.cwd),
+                "status": "running",
+                "error": None,
+                "found": None,
+            }
+            check = recipe_checks.RemoteCheck(
+                location,
+                urls if location == "thredds" else urls[0],
+                lambda reply: self._register_checked(number, reply),
+                cwd=self.cwd,
+            )
+            self._register_check = check
+            self._notify()
+        check.start()
+        return 200, {"ok": True, "running": True}
+
+    def _register_checked(self, number, reply):
+        with self._lock:
+            job = self.register_job
+            if job is None or job["id"] != number:
+                return
+            job["status"] = "ok" if reply.get("ok") else "failed"
+            job["error"] = reply.get("error")
+            job["found"] = reply.get("found")
+            self._register_check = None
+            self._notify()
+
+    def register_save(self, kind, form):
+        """Check a form, and add its recipe to the file it is to be saved
+        in. Returns the HTTP status and the reply for the page."""
+        if kind not in recipe_forms.KINDS:
+            return 400, {"ok": False, "error": "Choose point or gridded data."}
+        with self._lock:
+            if self.view != f"register_{kind}":
+                return 409, {"ok": False, "error": "This step is over."}
+            job = self.register_job
+            if job is not None and job["status"] == "running":
+                return 400, {
+                    "ok": False,
+                    "errors": {"obs_path": "The data is still being checked."},
+                }
+            remote = (
+                None
+                if job is None
+                else {
+                    "signature": job["signature"],
+                    "ok": job["status"] == "ok",
+                    "error": job["error"],
+                    "found": job["found"],
+                }
+            )
+        # outside the lock: it opens the data
+        recipe, errors, warnings, _ = recipe_forms.check_save(kind, form, self.cwd, remote)
+        if errors:
+            return 400, {"ok": False, "errors": errors, "warnings": warnings}
+        where = recipe_forms.clean(kind, form)["where"]
+        try:
+            path = user_recipes.save(recipe, where, self.cwd)
+        except (ValueError, OSError) as error:
+            return 400, {"ok": False, "errors": {"": str(error)}, "warnings": warnings}
+        key = user_recipes.key_of(recipe["source"])
+        saved = {
+            "variable": recipe["variable"],
+            "key": key,
+            "source": recipe["source"],
+            "kind": kind,
+            "where": where,
+            "path": path,
+            "recipe": f'recipe={{"{recipe["variable"]}": "{key}"}}',
+        }
+        with self._lock:
+            self.register_saved.append(saved)
+            # the next recipe starts afresh, in the same place
+            fresh = recipe_forms.default_form(kind)
+            fresh["where"] = where
+            if kind == "gridded":
+                fresh["location"] = recipe_forms.clean(kind, form)["location"]
+            self.register_forms[kind] = fresh
+            self._cancel_register_check()
+            self._notify()
+        return 200, {"ok": True, "saved": saved, "warnings": warnings}
+
+    def register_remove(self, variable, key, where):
+        """Take a recipe out of the file it is in. Returns the HTTP status
+        and the reply for the page."""
+        with self._lock:
+            if self.view not in ("register_point", "register_gridded"):
+                return 409, {"ok": False, "error": "This step is over."}
+        if where not in user_recipes.WHERE:
+            return 400, {"ok": False, "error": "Choose which file it is in."}
+        try:
+            removed = user_recipes.remove(variable, key, where, self.cwd)
+        except (ValueError, OSError) as error:
+            return 400, {"ok": False, "error": str(error)}
+        if not removed:
+            return 409, {"ok": False, "error": "That recipe is not in the file."}
+        self._notify()
+        return 200, {"ok": True}
+
+    def register_done(self):
+        """Finish registering recipes, and go back to the start."""
+        with self._lock:
+            if self.view not in ("register_kind", "register_point", "register_gridded"):
+                return False
+            self._cancel_register_check()
+            self.view = "start"
+            self.action = None
+            self._notify()
+            return True
+
     # ---- the user's own observations ----
 
     def has_own_data(self, answer):
@@ -1774,6 +2001,7 @@ class App:
                         gui=True,
                         validate=self.action == "matchup_validate",
                         own_data=self.own_data,
+                        cwd=self.cwd,
                     )
                 with self._lock:
                     page = self._recipes
@@ -2021,7 +2249,7 @@ class App:
         model_units = units.model_units(
             setup["simdir"],
             setup["ndown"],
-            units.model_variables(mapping, selection, own),
+            units.model_variables(mapping, selection, own, self.cwd),
             # the window can change the file filters along with the rest
             exclude=settings.get("exclude"),
             require=settings.get("require"),
@@ -2426,6 +2654,7 @@ class App:
             "folders": [],
             "more": 0,
             "nc_files": 0,
+            "csv_files": 0,
             "example": None,
             "has_matchups": False,
             "error": None,
@@ -2434,7 +2663,7 @@ class App:
                 {"label": "Home", "path": os.path.expanduser("~")},
             ],
         }
-        folders, files = [], []
+        folders, files, csv_files = [], [], 0
         try:
             with os.scandir(directory) as entries:
                 for entry in entries:
@@ -2444,6 +2673,8 @@ class App:
                                 folders.append(entry.name)
                         elif entry.name.endswith(".nc"):
                             files.append(entry.name)
+                        elif entry.name.endswith(".csv"):
+                            csv_files += 1
                     except OSError:
                         # e.g. a link to something that has gone
                         continue
@@ -2462,6 +2693,7 @@ class App:
         ]
         found["more"] = max(0, len(folders) - _MOST_FOLDERS)
         found["nc_files"] = len(files)
+        found["csv_files"] = csv_files
         found["example"] = min(files) if files else None
         found["has_matchups"] = "oceanval_matchups" in folders
         # a validation, for the compare step
@@ -2661,6 +2893,7 @@ class App:
             self.closed.set()
             self._demo_cancel.set()
             run, page = self.run, self.recipes_page
+            self._cancel_register_check()
             self._notify()
         if run is not None:
             run.stop()
@@ -2872,6 +3105,22 @@ class _Handler(recipes_gui._Handler):
                 *app.add_own_data(payload.get("kind"), payload.get("form"))
             )
             return
+        if path == "/api/recipe_names":
+            self._reply_json(*app.register_names(payload.get("kind"), payload.get("form")))
+            return
+        if path == "/api/recipe_data":
+            self._reply_json(*app.register_data(payload.get("kind"), payload.get("form")))
+            return
+        if path == "/api/recipe_save":
+            self._reply_json(*app.register_save(payload.get("kind"), payload.get("form")))
+            return
+        if path == "/api/recipe_remove":
+            self._reply_json(
+                *app.register_remove(
+                    payload.get("variable"), payload.get("key"), payload.get("where")
+                )
+            )
+            return
         if path == "/api/demo_download":
             self._reply_json(*app.demo_download())
             return
@@ -2893,6 +3142,8 @@ class _Handler(recipes_gui._Handler):
                 payload.get("kind"), payload.get("index")
             ),
             "/api/own_next": app.next_own_data,
+            "/api/register_kind": lambda: app.register_kind(payload.get("kind")),
+            "/api/register_done": app.register_done,
             # with what the step's boxes hold
             "/api/back": lambda: app.back(payload),
             "/api/restart": app.restart,

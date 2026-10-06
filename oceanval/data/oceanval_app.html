@@ -46,6 +46,10 @@
   .choice.is-demo { grid-column: 1 / -1; flex-direction: row; align-items: center; gap: 18px; border-style: dashed; border-color: var(--teal-200); background: var(--teal-50); box-shadow: none; }
   .choice.is-demo .choice__icon { flex: none; margin: 0; background: var(--bg); }
   .choice.is-demo .choice__body { display: grid; gap: 4px; }
+  /* registering recipes of your own: across both columns, between the four and the demo */
+  .choice.is-register { grid-column: 1 / -1; flex-direction: row; align-items: center; gap: 18px; }
+  .choice.is-register .choice__icon { flex: none; margin: 0; }
+  .choice.is-register .choice__body { display: grid; gap: 4px; }
 
   /* ---- the demo ---- */
   .demo { display: grid; gap: 18px; max-width: 900px; }
@@ -109,6 +113,36 @@
   .own-optional[open] > summary { color: var(--ink-soft); }
   .own-actions { display: flex; align-items: center; gap: 14px; margin-top: 22px; }
   .own-multi { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+
+  /* ---- registering recipes of your own ---- */
+  .reg-form { display: block; padding: 22px 26px 24px; }
+  .reg-title { margin: 28px 0 12px; padding-top: 18px; border-top: 1px solid var(--line-soft); font: 600 15px/1.3 var(--font-head); }
+  .reg-form h2 + .own-legend + .reg-title, .reg-form .reg-title:first-of-type { margin-top: 4px; padding-top: 0; border-top: 0; }
+  .reg-form textarea.s-input { display: block; height: auto; min-height: 66px; resize: vertical; }
+  .reg-form textarea.s-input.is-mono { font: 500 13px/20px var(--font-mono); }
+  .reg-preview { display: block; margin-top: 6px; color: var(--ink-soft); font: 500 13px/1.4 var(--font-mono); overflow-wrap: anywhere; }
+  .reg-preview:empty { display: none; }
+  .reg-labels { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px 32px; }
+  .reg-labels__note { grid-column: 1 / -1; margin: 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
+  .reg-where { display: grid; gap: 12px; }
+  .reg-where label { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 10px; align-items: start; cursor: pointer; font-size: 14.5px; }
+  .reg-where input { grid-row: 1 / span 2; margin: 3px 0 0; accent-color: var(--teal-600); }
+  .reg-where small { grid-column: 2; color: var(--muted); font: 500 12.5px/1.4 var(--font-mono); overflow-wrap: anywhere; }
+  .reg-where strong { font-weight: 600; }
+  .reg-check { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-top: 10px; }
+  .reg-list { margin: 0 0 18px; padding: 16px 20px; }
+  .reg-list h2 { margin: 0 0 10px; font: 600 15px/1.3 var(--font-head); }
+  .reg-list ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+  .reg-list li { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg-alt); font-size: 13.5px; }
+  .reg-list li > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .reg-list li.is-shadowed > span { color: var(--muted); }
+  .reg-list .is-mono { font-family: var(--font-mono); font-size: 12.5px; }
+  .reg-list small { display: block; color: var(--muted); font-size: 12.5px; }
+  .reg-list .is-saved { color: var(--teal-700); font-weight: 600; }
+  /* what OceanVal fills in is red and bold, until it is typed over */
+  .reg-form .s-input.is-oceanval, .reg-form .s-select.is-oceanval, .reg-form .group__line.is-oceanval { color: var(--red); font-weight: 700; }
+  .reg-form .s-input:disabled.is-oceanval { color: var(--red); -webkit-text-fill-color: var(--red); opacity: 1; }
+  @media (max-width: 720px) { .reg-labels { grid-template-columns: minmax(0, 1fr); } }
   @media (max-width: 720px) { .own-fields, .choices.is-two { grid-template-columns: minmax(0, 1fr); } }
 
   /* ---- forms ---- */
@@ -579,6 +613,13 @@
         <span class="choice__title">Compare existing validations</span>
         <span class="choice__text">Compare the validation reports of up to five simulations, side by side, in one report.</span>
       </button>
+      <button type="button" class="choice is-register" data-action="register">
+        <span class="choice__icon" data-icon="recipe"></span>
+        <span class="choice__body">
+          <span class="choice__title">Register user-defined data recipes</span>
+          <span class="choice__text">Add observations of your own, point or gridded, as recipes in a <code>.oceanvalrc</code> file, to use in matchups like OceanVal's built-in ones.</span>
+        </span>
+      </button>
       <button type="button" class="choice is-demo" data-action="demo">
         <span class="choice__icon" data-icon="play"></span>
         <span class="choice__body">
@@ -678,6 +719,25 @@
 
   <section id="view-point" hidden data-own="point"></section>
   <section id="view-gridded" hidden data-own="gridded"></section>
+
+  <section id="view-register-kind" hidden>
+    <p class="lede">A recipe describes a set of observations once, so that you can use it again in any matchup by name, like <code>recipe={"chlorophyll": "occci"}</code>, which is one of OceanVal's own. Your recipes are kept in <code>.oceanvalrc</code> files: in the directory you run OceanVal from, for that directory only, or in your home directory, for everywhere. Which kind of data is the recipe for?</p>
+    <div class="choices is-two">
+      <button type="button" class="choice" id="register-point">
+        <span class="choice__tag" hidden>Your answer before</span>
+        <span class="choice__title">Point data</span>
+        <span class="choice__text">A directory of csv files on this machine, with lon, lat and observation columns, and any of year, month, day, depth and source.</span>
+      </button>
+      <button type="button" class="choice" id="register-gridded">
+        <span class="choice__tag" hidden>Your answer before</span>
+        <span class="choice__title">Gridded data</span>
+        <span class="choice__text">netCDF files on this machine, on a THREDDS server, or at a web address.</span>
+      </button>
+    </div>
+    <div class="reg-list card" id="register-list-kind" hidden></div>
+  </section>
+  <section id="view-register-point" hidden data-register="point"></section>
+  <section id="view-register-gridded" hidden data-register="gridded"></section>
 
   <section id="view-units-table" hidden>
     <p class="lede">A model and its observations can report the same quantity in different units, for example nutrients in mmol/m3 against µmol/kg, and OceanVal compares the values as they are. So OceanVal has compared the units of each matchup. Where it thinks they are the same, it has left the boxes empty, and where it thinks they differ, it has suggested a conversion: the observations become <strong>observations × multiply by + add</strong> before they are compared with the model.</p>
@@ -1034,6 +1094,7 @@
     match: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13m0 0-3.5-3.5M17 8l-3.5 3.5"/><path d="M20 16H7m0 0 3.5-3.5M7 16l3.5 3.5"/></svg>',
     report: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="m9 14.5 2 2 4-4.5"/></svg>',
     play: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m10 8.5 5.5 3.5-5.5 3.5z"/></svg>',
+    recipe: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M12 11.5v5M9.5 14h5"/></svg>',
     warn: ICONS.warn,
   };
   document.querySelectorAll("[data-icon]").forEach((node) => { node.innerHTML = PICTURES[node.dataset.icon]; });
@@ -1089,6 +1150,8 @@
   function stepIndex(view, action) {
     if (view === "start" || view === "demo") return 0;
     if (view === "setup" || view === "validate" || view === "compare") return 1;
+    if (view === "register_kind") return 1;
+    if (view === "register_point" || view === "register_gridded") return 2;
     if (view === "own_data" || view === "point_data" || view === "gridded_data") return 2;
     if (view === "recipes" || view === "preparing") return 3;
     if (view === "units_table") return 4;
@@ -1107,6 +1170,9 @@
       case "demo": return "Try OceanVal with a demo";
       case "setup": return "What kind of datasets do you want to use for validation?";
       case "own_data": return "Do you have your own data?";
+      case "register_kind": return "Which kind of data is your recipe for?";
+      case "register_point": return "Register a point data recipe";
+      case "register_gridded": return "Register a gridded data recipe";
       case "point_data": return "Your point data";
       case "gridded_data": return "Your gridded data";
       case "preparing": return "Reading the simulation";
@@ -1148,7 +1214,8 @@
     // only rebuilt when something in it changes, so a button keeps its focus
     const key = [view, state.action, state.run.status, Boolean(stopArmed), Boolean(state.question),
       state.demo && state.demo.status, Boolean(state.run.back),
-      state.own.entries.point.length, state.own.entries.gridded.length, Boolean(state.units.rows)].join("|");
+      state.own.entries.point.length, state.own.entries.gridded.length, Boolean(state.units.rows),
+      state.register.saved.length].join("|");
     if (key === barShown) {
       if (view === "setup") refreshSetup();
       return;
@@ -1164,6 +1231,15 @@
     } else if (view === "setup") {
       actions.push(button("Back", "ghost", () => post("api/back")),
         button("Continue", "primary", submitSetup, { id: "continue" }));
+    } else if (view === "register_kind") {
+      actions.push(button("Back", "ghost", () => post("api/back")));
+      if (state.register.saved.length) actions.push(button("Finish", "primary", () => post("api/register_done")));
+    } else if (view === "register_point" || view === "register_gridded") {
+      const kind = view === "register_point" ? "point" : "gridded";
+      // with the boxes, which are shown again as they are
+      actions.push(button("Back", "ghost", () => post("api/back", { form: readRegister(kind) })));
+      if (state.register.saved.length) actions.push(button("Finish", "ghost", () => post("api/register_done")));
+      actions.push(button("Save the recipe", "primary", () => submitRegister(kind), { id: "register-save", disabled: true }));
     } else if (view === "own_data") {
       actions.push(button("Back", "ghost", () => post("api/back")));
     } else if (view === "point_data" || view === "gridded_data") {
@@ -1229,11 +1305,14 @@
     // the new button is held back as the transect says
     if (view === "validate" || view === "report_options") refreshValidate();
     if (view === "compare") refreshCompare();
+    if (view === "register_point") refreshRegister("point");
+    if (view === "register_gridded") refreshRegister("gridded");
   }
 
   // ---- the views ----
   const VIEWS = { start: "view-start", demo: "view-demo", setup: "view-setup", validate: "view-validate", compare: "view-compare",
     report_options: "view-validate", own_data: "view-own", point_data: "view-point", gridded_data: "view-gridded",
+    register_kind: "view-register-kind", register_point: "view-register-point", register_gridded: "view-register-gridded",
     units_table: "view-units-table",
     preparing: "view-run", running: "view-run", finished: "view-run",
     script_saved: "view-script-saved" };
@@ -1258,6 +1337,16 @@
       // the units are confirmed afresh every time this step is reached
       $("units-confirm").checked = false;
       fillUnits();
+    } else if (view === "register_kind") {
+      // the answer given before, as it is reached again
+      for (const kind of ["point", "gridded"]) {
+        const chosen = state.register.kind === kind;
+        $(`register-${kind}`).classList.toggle("is-chosen", chosen);
+        $(`register-${kind}`).querySelector(".choice__tag").hidden = !chosen;
+      }
+      $(state.register.kind === "gridded" ? "register-gridded" : "register-point").focus();
+    } else if (view === "register_point" || view === "register_gridded") {
+      fillRegister(view === "register_point" ? "point" : "gridded");
     } else if (view === "own_data") {
       // the answer given before, as it is reached again
       const answer = state.own.answer;
@@ -1289,6 +1378,9 @@
     renderBar();
     if (state.view === "point_data") refreshOwn("point");
     if (state.view === "gridded_data") refreshOwn("gridded");
+    if (state.view === "register_kind") renderRegisterList("kind");
+    if (state.view === "register_point") renderRegister("point");
+    if (state.view === "register_gridded") renderRegister("gridded");
     // the units are read after the step is shown
     if (state.view === "units_table" && !unitsFilled && state.units.rows) fillUnits();
     if (VIEWS[state.view] === "view-run") renderRun();
@@ -1297,7 +1389,7 @@
   }
 
   // ---- 1: choosing what to do ----
-  document.querySelectorAll(".choice").forEach((choice) => {
+  document.querySelectorAll("#view-start .choice").forEach((choice) => {
     choice.addEventListener("click", () => post("api/choose", { action: choice.dataset.action }));
   });
 
@@ -1698,6 +1790,595 @@
     banner.hidden = !general;
     if (general) banner.replaceChildren(icon("error"), el("span", { text: general }));
     if (firstBad) firstBad.input.focus();
+  }
+
+  // ---- registering recipes of your own ----
+  // Each kind of data has a form, built here, which is checked as it is filled
+  // in: the names (post api/recipe_names) as they are typed, and the data they
+  // point at (api/recipe_data) - at once for data on this machine, and for data
+  // on a server when asked, as that takes as long as the server does. What
+  // OceanVal fills in is red and bold until it is typed over. Back keeps what
+  // was entered, which is sent with it.
+  $("register-point").addEventListener("click", () => post("api/register_kind", { kind: "point" }));
+  $("register-gridded").addEventListener("click", () => post("api/register_kind", { kind: "gridded" }));
+
+  const REGISTER_TEXT = {
+    point: {
+      noun: "point data recipe",
+      lede: "A point data recipe is a directory of csv files on this machine. Each needs lon, lat and observation columns, and can have year, month, day, depth and source. Describe the observations, and OceanVal checks the files as you do.",
+    },
+    gridded: {
+      noun: "gridded data recipe",
+      lede: "A gridded data recipe is netCDF data: files on this machine, on a THREDDS server, or at a web address. Describe the observations, and OceanVal opens the data to check it as you do, in the way a matchup will.",
+    },
+  };
+  const LOCATION_CHOICES = [["disk", "On this machine"], ["thredds", "THREDDS server"], ["url", "Web address"]];
+  const LOCATION_HELP = {
+    disk: "A netCDF file, a directory of them, or a pattern ending in .nc, such as obs/chl_*.nc. A path that is not in full is from the directory OceanVal runs from.",
+    thredds: "The OPeNDAP address of each file, one to a line. It has dodsC in it, and ends in .nc.",
+    url: "The web address of one netCDF file, which is downloaded when it is matched up.",
+  };
+  const reg = { point: {}, gridded: {} };
+  const freshReg = () => ({ names: { errors: {}, warnings: [], info: null }, data: { status: "none" },
+    asked: { names: 0, data: 0 }, handled: "", timers: {} });
+  const regState = { point: freshReg(), gridded: freshReg() };
+
+  // parts are what the field is made of, in its row: by default, just its input
+  function regField(kind, name, { label, required = false, help = "", input, wide = false, parts = null, read, write }) {
+    const id = `r-${kind}-${name}`;
+    const error = el("span", { class: "own-err", id: `${id}-err`, role: "alert" });
+    const note = help ? el("span", { class: "own-help", id: `${id}-help`, text: help }) : null;
+    const wrapper = el("div", { class: "own-field" + (required ? " is-required" : "") + (wide ? " is-wide" : "") },
+      label ? el("label", { class: "g-label", for: id }, label, required ? el("span", { class: "own-req", text: "Required" }) : null) : null,
+      ...(parts || [input]), note, error);
+    const mark = (bad) => {
+      if (input.classList) { input.classList.toggle("is-invalid", bad); input.setAttribute("aria-invalid", String(bad)); }
+    };
+    const control = {
+      wrapper, input, note,
+      read: read || (() => input.value),
+      write: write || ((value) => { input.value = value; }),
+      show(text) { error.textContent = text; mark(true); },
+      clear() { error.textContent = ""; mark(false); },
+    };
+    const touched = (event) => {
+      if (event.target.classList) event.target.classList.remove("is-oceanval");
+      control.clear();
+      onRegisterInput(kind, name);
+    };
+    wrapper.addEventListener("input", touched);
+    wrapper.addEventListener("change", touched);
+    reg[kind][name] = control;
+    return wrapper;
+  }
+
+  function regText(kind, name, { mono = false, placeholder = "", list = null } = {}) {
+    const id = `r-${kind}-${name}`;
+    return el("input", { type: "text", class: "s-input" + (mono ? " is-mono" : ""), id, placeholder,
+      spellcheck: "false", autocapitalize: "off", autocomplete: "off", list,
+      "aria-describedby": `${id}-help ${id}-err` });
+  }
+
+  function buildRegister(kind) {
+    const section = $(`view-register-${kind}`);
+    const gridded = kind === "gridded";
+    const text = REGISTER_TEXT[kind];
+
+    // ---- the recipe ----
+    const variable = regField(kind, "variable", { label: "Variable", required: true,
+      help: "What the observations are of, e.g. nitrate. Letters and numbers only. Choose one OceanVal has recipes for, or enter your own.",
+      input: regText(kind, "variable", { placeholder: "e.g. chlorophyll", list: "own-variable-options" }) });
+    const preview = el("span", { class: "reg-preview", id: `r-${kind}-preview` });
+    const source = regField(kind, "source", { label: "Source", required: true,
+      help: "What the observations are called: the recipe is named after it. Letters and numbers only, so no spaces or underscores.",
+      input: regText(kind, "source", { placeholder: "e.g. MySat" }), parts: null });
+    source.querySelector("input").after(preview);
+    const sourceInfo = regField(kind, "source_info", { label: "Source information", required: true, wide: true,
+      help: "A description or citation of the observations, shown in the report.",
+      input: el("textarea", { class: "s-input", id: `r-${kind}-source_info`, rows: "2", spellcheck: "false",
+        "aria-describedby": `r-${kind}-source_info-help r-${kind}-source_info-err` }) });
+    const labelNote = el("p", { class: "reg-labels__note", id: `r-${kind}-labels-note` });
+    const labels = el("div", { class: "reg-labels", id: `r-${kind}-labels`, hidden: true }, labelNote,
+      regField(kind, "long_name", { label: "Long name", help: "The variable's full name in the report.",
+        input: regText(kind, "long_name") }),
+      regField(kind, "short_name", { label: "Short name", help: "Used for the variable's figures and files.",
+        input: regText(kind, "short_name") }),
+      regField(kind, "short_title", { label: "Short title", help: "The title of the variable's report page.",
+        input: regText(kind, "short_title") }));
+
+    // ---- the data ----
+    const dataFields = [];
+    if (gridded) {
+      const radios = LOCATION_CHOICES.map(([value, label]) => el("label", {},
+        el("input", { type: "radio", name: "r-gridded-location", value }), el("span", { text: label })));
+      dataFields.push(regField(kind, "location", { label: "Where is the data?", wide: true,
+        input: el("div", { class: "segmented", role: "radiogroup", "aria-label": "Where the data is", id: "r-gridded-location" }, ...radios),
+        read: () => (radios.map((label) => label.firstChild).find((box) => box.checked) || {}).value || "disk",
+        write: (value) => radios.forEach((label) => { label.firstChild.checked = label.firstChild.value === value; }) }));
+    }
+    const pathId = `r-${kind}-obs_path`;
+    const single = regText(kind, "obs_path", { mono: true, list: `${pathId}-folders`,
+      placeholder: gridded ? "path/to/observations.nc" : "path/to/csv_directory" });
+    const browseButton = el("button", { type: "button", class: "btn btn--ghost btn--field", "data-browse": pathId, text: "Browse…" });
+    const many = el("textarea", { class: "s-input is-mono", id: `${pathId}_many`, rows: "3", hidden: true, spellcheck: "false",
+      placeholder: "https://example.org/thredds/dodsC/obs/chl_2010.nc", "aria-label": "The addresses of the data" });
+    const path = regField(kind, "obs_path", { required: true, wide: true,
+      label: gridded ? "The data" : "Observations directory",
+      help: gridded ? LOCATION_HELP.disk : "A directory of csv files. Each needs lon, lat and observation columns, and can have year, month, day, depth and source.",
+      input: single,
+      parts: [el("div", { class: "path-field", id: `${pathId}-field` }, single, browseButton), many,
+        el("datalist", { id: `${pathId}-folders` })],
+      read: () => (gridded && reg.gridded.location.read() === "thredds" ? many.value : single.value),
+      write: (value) => { single.value = value; many.value = value; } });
+    reg[kind].obs_path.many = many;
+    reg[kind].obs_path.browse = browseButton;
+    dataFields.push(path);
+    const dataMessage = el("p", { class: "group__msg", id: `r-${kind}-data-msg`, "aria-live": "polite" });
+    const checkRow = gridded ? el("div", { class: "reg-check", id: "r-gridded-check-row", hidden: true },
+      el("button", { type: "button", class: "btn btn--ghost", id: "r-gridded-check", text: "Check the data",
+        onclick: () => askRemote(kind) }),
+      el("span", { class: "own-help", id: "r-gridded-check-text" })) : null;
+
+    // ---- what is in it ----
+    const contents = [];
+    if (gridded) {
+      const select = el("select", { class: "s-select", id: "r-gridded-obs_variable",
+        "aria-describedby": "r-gridded-obs_variable-help r-gridded-obs_variable-err" },
+        el("option", { value: "", text: "Check the data first" }));
+      contents.push(regField(kind, "obs_variable", { label: "Observation variable", required: true,
+        help: "The variable in the data to compare with.", input: select }));
+    }
+    contents.push(regField(kind, "units", { label: "Units", required: true,
+      help: gridded ? "What the observations are measured in, e.g. mg m-3. It is read from the data where it says." : "What the observations are measured in, e.g. mg m-3. A csv file does not say, so make sure they are the model's, or convert them in the units step.",
+      input: regText(kind, "units", { placeholder: "e.g. mg m-3" }) }));
+    if (gridded) {
+      contents.push(regField(kind, "climatology", { label: "Climatology", required: true,
+        help: "Yes if the observations are a climatology, with one value for each month, rather than a time series.",
+        input: el("select", { class: "s-select", id: "r-gridded-climatology",
+          "aria-describedby": "r-gridded-climatology-help r-gridded-climatology-err" },
+          el("option", { value: "", text: "Choose…" }), el("option", { value: "yes", text: "Yes" }), el("option", { value: "no", text: "No" })) }));
+    }
+    const contentsMessage = el("p", { class: "group__msg", id: `r-${kind}-contents-msg`, "aria-live": "polite" });
+
+    // ---- where to save it ----
+    const whereRadios = ["local", "global"].map((value) => el("input", { type: "radio", name: `r-${kind}-where`, value,
+      id: `r-${kind}-where-${value}` }));
+    const whereLabels = whereRadios.map((box, index) => el("label", { for: box.id },
+      box, el("strong", { id: `r-${kind}-where-${box.value}-title`, text: index === 0 ? "This directory only" : "Everywhere" }),
+      el("small", { id: `r-${kind}-where-${box.value}-path` })));
+    const where = regField(kind, "where", { label: "Where should the recipe be saved?", required: true, wide: true,
+      input: el("div", { class: "reg-where", role: "radiogroup", id: `r-${kind}-where` }, ...whereLabels),
+      read: () => (whereRadios.find((box) => box.checked) || {}).value || "",
+      write: (value) => whereRadios.forEach((box) => { box.checked = box.value === value; }) });
+    const whereMessage = el("p", { class: "group__msg", id: `r-${kind}-where-msg`, "aria-live": "polite" });
+
+    const form = el("form", { class: "own-form reg-form card", id: `register-form-${kind}`, novalidate: true, autocomplete: "off" },
+      el("h2", { text: `Add a ${text.noun}` }),
+      el("p", { class: "own-legend" }, el("span", { class: "own-swatch", "aria-hidden": "true" }),
+        el("span", {}, "Marked in ", el("b", { text: "red" }), " is what has to be given.")),
+      el("h3", { class: "reg-title", text: "The recipe" }),
+      el("div", { class: "own-fields" }, variable, source, sourceInfo, labels),
+      el("h3", { class: "reg-title", text: "The data" }),
+      el("div", { class: "own-fields" }, ...dataFields),
+      dataMessage, checkRow,
+      el("h3", { class: "reg-title", text: "What is in it" }),
+      el("div", { class: "own-fields" }, ...contents),
+      contentsMessage,
+      el("h3", { class: "reg-title", text: "Where to save it" }),
+      el("div", { class: "own-fields" }, where),
+      whereMessage);
+    form.addEventListener("submit", (event) => { event.preventDefault(); submitRegister(kind); });
+    section.append(
+      el("p", { class: "lede", text: text.lede }),
+      el("div", { class: "reg-list card", id: `register-list-${kind}`, hidden: true }),
+      el("div", { class: "banner", id: `register-error-${kind}`, role: "alert", hidden: true }),
+      form);
+    reg[kind].location && reg[kind].location.write("disk");
+  }
+  ["point", "gridded"].forEach(buildRegister);
+
+  const regForm = (kind) => {
+    const form = {};
+    for (const [name, control] of Object.entries(reg[kind])) form[name] = control.read();
+    return form;
+  };
+  function readRegister(kind) { return regForm(kind); }
+
+  // the boxes as they were left, or empty (see App.register_forms)
+  function fillRegister(kind) {
+    const saved = state.register.forms[kind];
+    const st = regState[kind];
+    Object.values(st.timers).forEach(clearTimeout);
+    regState[kind] = freshReg();
+    for (const [name, control] of Object.entries(reg[kind])) {
+      control.clear();
+      if (name in saved) control.write(saved[name]);
+      if (control.input.classList) control.input.classList.remove("is-oceanval");
+    }
+    // the variables there are recipes for, with those of your own
+    const options = $("own-variable-options");
+    const names = new Set([...initial.state.own.recipe_variables, ...Object.keys(state.register.labels)]);
+    options.replaceChildren(...[...names].sort().map((variable) => el("option", { value: variable })));
+    $(`register-error-${kind}`).hidden = true;
+    syncLocation(kind);
+    showNames(kind);
+    askNames(kind, 0);
+    askData(kind, 0);
+    renderRegister(kind);
+    reg[kind].variable.input.focus();
+  }
+
+  // the boxes for where the data is: a path, with Browse, or addresses
+  function syncLocation(kind) {
+    if (kind !== "gridded") return;
+    const location = reg.gridded.location.read();
+    const path = reg.gridded.obs_path;
+    $("r-gridded-obs_path-field").hidden = location === "thredds";
+    path.many.hidden = location !== "thredds";
+    path.browse.hidden = location !== "disk";
+    path.note.textContent = LOCATION_HELP[location];
+    path.input.placeholder = location === "url" ? "https://example.org/data/observations.nc" : "path/to/observations.nc";
+    $("r-gridded-check-row").hidden = location === "disk";
+  }
+
+  function onRegisterInput(kind, name) {
+    $(`register-error-${kind}`).hidden = true;
+    if (name === "variable" || name === "source" || name === "where") askNames(kind, 250);
+    if (name === "obs_path" || name === "location") {
+      syncLocation(kind);
+      askData(kind, 400);
+    }
+    if (name === "obs_variable") fillFromVariable(kind);
+    if (name === "climatology") renderContents(kind);
+    refreshRegister(kind);
+  }
+
+  // ---- the names ----
+  function askNames(kind, delay) {
+    const st = regState[kind];
+    clearTimeout(st.timers.names);
+    st.timers.names = setTimeout(async () => {
+      const mine = ++st.asked.names;
+      const reply = await post("api/recipe_names", { kind, form: regForm(kind) });
+      if (mine !== st.asked.names || !reply.ok) return;
+      st.names = reply;
+      showNames(kind);
+      refreshRegister(kind);
+    }, delay);
+  }
+
+  function showNames(kind) {
+    const { errors, warnings, info } = regState[kind].names;
+    for (const name of ["variable", "source", "where"]) {
+      if (errors[name]) reg[kind][name].show(errors[name]);
+      else reg[kind][name].clear();
+    }
+    $(`r-${kind}-preview`).textContent = info && info.recipe ? `You will use it as ${info.recipe}` : "";
+    // a variable OceanVal has recipes for is named as it names it; a new one is named here
+    const typed = reg[kind].variable.read().trim();
+    $(`r-${kind}-labels`).hidden = !typed;
+    const known = Boolean(info && info.known);
+    const order = ["short_name", "long_name", "short_title"];
+    order.forEach((name, index) => {
+      const control = reg[kind][name];
+      const input = control.input;
+      if (known) {
+        input.value = info.labels[index];
+        input.disabled = true;
+        input.classList.add("is-oceanval");
+        input.dataset.filled = "1";
+      } else {
+        input.disabled = false;
+        input.classList.remove("is-oceanval");
+        if (input.dataset.filled) { input.value = ""; delete input.dataset.filled; }
+        input.placeholder = name === "short_title" ? "default: the variable, capitalised" : "default: the variable's name";
+      }
+    });
+    $(`r-${kind}-labels-note`).textContent = known
+      ? `OceanVal already names this variable ${info.labels[2]} in the report, so its recipes share that name.`
+      : "This is a variable of your own: say how it is named in the report, or leave these blank to use its name.";
+    message(`r-${kind}-where-msg`, (errors.where ? [] : warnings).map((warning) => line(warning, "same")), false);
+  }
+
+  // ---- the data ----
+  const regSignature = (kind) => {
+    const form = regForm(kind);
+    const location = kind === "gridded" ? form.location : "disk";
+    const text = form.obs_path.trim();
+    return location === "disk" ? [location, text] : [location, text.split(/[\s,]+/).filter(Boolean)];
+  };
+  const isRemote = (kind) => kind === "gridded" && reg.gridded.location.read() !== "disk";
+
+  function askData(kind, delay) {
+    const st = regState[kind];
+    clearTimeout(st.timers.data);
+    st.asked.data += 1;
+    st.handled = "";
+    st.data = { status: "none" };
+    renderContents(kind);
+    const form = regForm(kind);
+    if (!form.obs_path.trim() || isRemote(kind)) return;
+    st.data = { status: "checking" };
+    renderContents(kind);
+    const mine = st.asked.data;
+    st.timers.data = setTimeout(async () => {
+      const reply = await post("api/recipe_data", { kind, form });
+      if (mine !== st.asked.data) return;
+      useData(kind, reply, form.obs_path.trim());
+    }, delay);
+  }
+
+  // the data on a server is looked at when asked, and the job is in the state
+  async function askRemote(kind) {
+    const st = regState[kind];
+    const form = regForm(kind);
+    st.handled = "";
+    const reply = await post("api/recipe_data", { kind, form });
+    if (reply.ok && reply.running) {
+      st.data = { status: "checking" };
+    } else if (!reply.ok) {
+      st.data = { status: "error", error: reply.error || "The data could not be checked." };
+    }
+    renderContents(kind);
+    refreshRegister(kind);
+  }
+
+  function useData(kind, reply, typed) {
+    const st = regState[kind];
+    if (!reply.ok) {
+      st.data = { status: "error", error: reply.error || "The data could not be checked." };
+    } else {
+      st.data = { status: "ok", found: reply.found, typed };
+      fillFromData(kind);
+    }
+    renderContents(kind);
+    refreshRegister(kind);
+  }
+
+  // what is in the data goes into the boxes that ask for it, in red and bold
+  function fillFromData(kind) {
+    const found = regState[kind].data.found;
+    if (kind !== "gridded") return;
+    const select = reg.gridded.obs_variable.input;
+    const before = select.value;
+    select.replaceChildren(el("option", { value: "", text: "Choose…" }),
+      ...found.variables.map((variable) => el("option", { value: variable.name,
+        text: variable.long_name ? `${variable.name} (${variable.long_name})` : variable.name })));
+    if (found.variables.some((variable) => variable.name === before)) {
+      select.value = before;
+    } else if (found.variables.length === 1) {
+      select.value = found.variables[0].name;
+      select.classList.add("is-oceanval");
+    } else {
+      select.value = "";
+    }
+    const climatology = reg.gridded.climatology.input;
+    if (found.years && found.years[0] < found.years[1] && (!climatology.value || climatology.classList.contains("is-oceanval"))) {
+      climatology.value = "no";
+      climatology.classList.add("is-oceanval");
+    }
+    fillFromVariable(kind);
+  }
+
+  function chosenVariable(kind) {
+    const data = regState[kind].data;
+    if (kind !== "gridded" || data.status !== "ok") return null;
+    const name = reg.gridded.obs_variable.read();
+    return data.found.variables.find((variable) => variable.name === name) || null;
+  }
+
+  function fillFromVariable(kind) {
+    const variable = chosenVariable(kind);
+    const units = reg[kind].units.input;
+    if (variable && variable.units && (!units.value.trim() || units.classList.contains("is-oceanval"))) {
+      units.value = variable.units;
+      units.classList.add("is-oceanval");
+    }
+    renderContents(kind);
+  }
+
+  const span = (years) => (years[0] === years[1] ? `${years[0]}` : `${years[0]}–${years[1]}`);
+
+  function renderContents(kind) {
+    const st = regState[kind];
+    const data = st.data;
+    const lines = [];
+    const path = reg[kind].obs_path;
+    path.input.classList.toggle("is-invalid", data.status === "error");
+    const remote = isRemote(kind);
+    if (data.status === "checking") {
+      lines.push(line(remote ? "Checking the data on the server. This can take a while…" : "Checking the data…"));
+    } else if (data.status === "error") {
+      lines.push(line(data.error, "error"));
+    } else if (data.status === "ok") {
+      const found = data.found;
+      if (kind === "point") {
+        lines.push(line(`${plural(found.files, "csv file")} found, with the columns ${found.columns.join(", ")}.`, "ok"));
+        if (found.years) lines.push(line(`The first file covers ${span(found.years)}.`));
+        lines.push(line(found.depth ? "There is a depth column, so the data can be validated through the water column." : "There is no depth column, so the data is validated at the surface.", "ok"));
+      } else {
+        lines.push(line(`${plural(found.files, "file")} found${found.years ? `, covering ${span(found.years)}` : ""}. It holds ${plural(found.variables.length, "variable")}.`, "ok"));
+        const typed = (data.typed || reg.gridded.obs_path.read()).trim();
+        if (!remote && found.obs_path !== typed) {
+          lines.push(line(`The recipe is saved with the path in full: ${found.obs_path}`, "oceanval"));
+        }
+      }
+    } else if (remote && reg[kind].obs_path.read().trim()) {
+      lines.push(line("Press “Check the data” to open it on the server. A recipe is only saved once the data has been checked."));
+    }
+    message(`r-${kind}-data-msg`, lines, data.status === "error");
+
+    const info = [];
+    if (kind === "gridded" && data.status === "ok") {
+      const variable = chosenVariable(kind);
+      if (variable) {
+        info.push(line(variable.nlevels > 1
+          ? `${variable.name} has ${variable.nlevels} levels, so it can be validated through the water column.`
+          : `${variable.name} has no levels, so it is validated at the surface.`, "ok"));
+        if (!variable.units) info.push(line(`${variable.name} does not say what its units are: enter them.`, "warn"));
+      }
+      const years = data.found.years;
+      const climatology = reg.gridded.climatology.input;
+      if (years && years[0] < years[1] && climatology.value === "yes") {
+        info.push(line(`The data covers ${span(years)}, so it is not a climatology, which has one value for each month. Choose no.`, "error"));
+      } else if (years && years[0] < years[1] && climatology.classList.contains("is-oceanval")) {
+        info.push(line(`The data covers ${span(years)}, so OceanVal has answered no: it is not a climatology.`, "oceanval"));
+      } else if (years && !climatology.value) {
+        info.push(line(`The data covers ${span(years)} only. Choose yes if it holds one value for each month of a typical year, and no if it is that year's own months.`));
+      }
+    }
+    message(`r-${kind}-contents-msg`, info, info.some((node) => node.classList.contains("is-error")));
+    const check = $("r-gridded-check");
+    if (check && kind === "gridded") {
+      check.disabled = data.status === "checking" || !reg.gridded.obs_path.read().trim();
+      check.textContent = data.status === "checking" ? "Checking…" : "Check the data";
+    }
+  }
+
+  // the check of data on a server is a job in the state
+  function applyJob(kind) {
+    if (!isRemote(kind)) return;
+    const job = state.register.job;
+    const st = regState[kind];
+    if (!job || job.kind !== kind) return;
+    if (JSON.stringify(job.signature) !== JSON.stringify(regSignature(kind))) return;
+    const key = `${job.id}:${job.status}`;
+    if (st.handled === key) return;
+    st.handled = key;
+    if (job.status === "running") st.data = { status: "checking" };
+    else if (job.status === "ok") useData(kind, { ok: true, found: job.found }, reg[kind].obs_path.read().trim());
+    else useData(kind, { ok: false, error: job.error }, "");
+    if (job.status === "running") renderContents(kind);
+  }
+
+  // ---- saving ----
+  function registerProblems(kind) {
+    const form = regForm(kind);
+    const st = regState[kind];
+    const problems = [];
+    for (const name of ["variable", "source", "source_info", "units", "where", "obs_path"]) {
+      if (!String(form[name]).trim()) problems.push(name);
+    }
+    if (kind === "gridded") {
+      for (const name of ["obs_variable", "climatology"]) if (!form[name]) problems.push(name);
+      const years = st.data.status === "ok" ? st.data.found.years : null;
+      if (form.climatology === "yes" && years && years[0] < years[1]) problems.push("climatology");
+    }
+    if (Object.keys(st.names.errors).length) problems.push("names");
+    if (st.data.status !== "ok") problems.push("data");
+    return problems;
+  }
+
+  function refreshRegister(kind) {
+    const button = $("register-save");
+    if (!button || !state.view.endsWith(kind)) return;
+    const problems = registerProblems(kind);
+    button.disabled = problems.length > 0 || Boolean(regState[kind].saving);
+    button.title = problems.length ? "Fill in everything first, and let the data be checked" : "";
+  }
+
+  async function submitRegister(kind) {
+    if (registerProblems(kind).length || regState[kind].saving) return;
+    const form = regForm(kind);
+    for (const control of Object.values(reg[kind])) control.clear();
+    $(`register-error-${kind}`).hidden = true;
+    regState[kind].saving = true;
+    refreshRegister(kind);
+    const reply = await post("api/recipe_save", { kind, form });
+    regState[kind].saving = false;
+    if (reply.ok) {
+      const where = reply.saved.where === "global" ? "everywhere" : "this directory";
+      toast(`Saved for ${where}. Use it as ${reply.saved.recipe}. Add another, or finish.`);
+      resetRegister(kind, form);
+      return;
+    }
+    const errors = reply.errors || {};
+    let first = null;
+    for (const [name, text] of Object.entries(errors)) {
+      const control = reg[kind][name];
+      if (!control) continue;
+      control.show(text);
+      first = first || control;
+    }
+    const general = errors[""] || reply.error;
+    const banner = $(`register-error-${kind}`);
+    banner.hidden = !general;
+    if (general) banner.replaceChildren(icon("error"), el("span", { text: general }));
+    if (first && first.input.focus) first.input.focus();
+    refreshRegister(kind);
+  }
+
+  // the form again, for the next recipe, in the same place as the last
+  function resetRegister(kind, form) {
+    Object.values(regState[kind].timers).forEach(clearTimeout);
+    regState[kind] = freshReg();
+    for (const [name, control] of Object.entries(reg[kind])) {
+      control.clear();
+      if (name === "where") control.write(form.where);
+      else if (name === "location") control.write(form.location);
+      else control.write("");
+      if (control.input.classList) control.input.classList.remove("is-oceanval");
+    }
+    reg[kind].obs_variable && reg[kind].obs_variable.input.replaceChildren(el("option", { value: "", text: "Check the data first" }));
+    syncLocation(kind);
+    showNames(kind);
+    askNames(kind, 0);
+    renderContents(kind);
+    refreshRegister(kind);
+    reg[kind].variable.input.focus();
+  }
+
+  // ---- the recipes there are ----
+  let removing = null;
+  function renderRegisterList(which) {
+    const box = $(`register-list-${which}`);
+    const recipes = state.register.recipes.filter((recipe) => which === "kind" || recipe.kind === which);
+    box.hidden = recipes.length === 0;
+    if (!recipes.length) return;
+    const saved = new Set(state.register.saved.map((item) => `${item.where}:${item.variable}:${item.key}`));
+    const place = { local: "this directory", global: "everywhere" };
+    box.replaceChildren(
+      el("h2", { text: which === "kind" ? "Your recipes" : `Your ${which} data recipes` }),
+      el("ul", {}, ...recipes.map((recipe) => {
+        const id = `${recipe.where}:${recipe.variable}:${recipe.key}`;
+        const armed = removing === id;
+        return el("li", { class: recipe.shadowed ? "is-shadowed" : null },
+          el("span", {},
+            el("strong", { text: recipe.variable }), ` from ${recipe.source}, `,
+            `${recipe.kind}, for ${place[recipe.where]}`,
+            saved.has(id) ? el("span", { class: "is-saved", text: " (saved now)" }) : null,
+            el("small", { class: "is-mono", text: shorten(recipe.path, 90) }),
+            recipe.shadowed ? el("small", { text: "This directory has a recipe of the same name, which is used in its place." }) : null),
+          button(armed ? "Click again to remove" : "Remove", armed ? "danger" : "text", async () => {
+            if (!armed) {
+              removing = id;
+              setTimeout(() => { if (removing === id) { removing = null; renderRegisterList(which); } }, 4000);
+              renderRegisterList(which);
+              return;
+            }
+            removing = null;
+            const reply = await post("api/recipe_remove", { variable: recipe.variable, key: recipe.key, where: recipe.where });
+            if (!reply.ok && reply.error) toast(reply.error);
+          }, { "aria-label": `Remove ${recipe.variable} from ${recipe.source}, for ${place[recipe.where]}` }));
+      })));
+  }
+
+  // what a page shows of the state: the files, the recipes, and the check of data on a server
+  function renderRegister(kind) {
+    const files = state.register.files;
+    for (const where of ["local", "global"]) {
+      $(`r-${kind}-where-${where}-path`).textContent = files[where];
+    }
+    $(`r-${kind}-where-global-title`).textContent = state.register.same_file
+      ? "Everywhere (the same file, as OceanVal is running in your home directory)" : "Everywhere";
+    renderRegisterList(kind);
+    applyJob(kind);
+    for (const [where, reason] of Object.entries(state.register.problems || {})) {
+      if (!reg[kind].where.read() || reg[kind].where.read() === where) {
+        message(`r-${kind}-where-msg`, [line(`${files[where]} cannot be read, so OceanVal will not write to it: ${reason}`, "error")], true);
+      }
+    }
+    refreshRegister(kind);
   }
 
   // ---- 2: the report options ----
@@ -2329,6 +3010,19 @@
         : ["No oceanval_results here: choose the directory validate() built its report in.", "warn"],
     };
   }
+  // the directories of recipes of your own
+  DESCRIBE["r-point-obs_path"] = {
+    title: "Choose the directory of csv files",
+    describe: (listing) => listing.csv_files
+      ? [`${listing.csv_files} csv file${listing.csv_files === 1 ? "" : "s"} directly in here.`, "ok"]
+      : ["No csv files directly in here.", "warn"],
+  };
+  DESCRIBE["r-gridded-obs_path"] = {
+    title: "Choose the directory of netCDF files",
+    describe: (listing) => listing.nc_files
+      ? [`${listing.nc_files} netCDF file${listing.nc_files === 1 ? "" : "s"} directly in here, e.g. ${listing.example}.`, "ok"]
+      : ["No netCDF files directly in here, which is fine if they are in folders below it.", ""],
+  };
   const picker = { listing: null, input: null, opener: null, number: 0 };
   // what is behind the folder browser, which cannot be used while it is open
   const BEHIND = [document.querySelector(".masthead"), document.querySelector("main"), $("bar")];

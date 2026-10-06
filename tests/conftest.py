@@ -3,6 +3,17 @@
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def oceanvalrc(tmp_path_factory, monkeypatch):
+    """Keep the user's own ~/.oceanvalrc out of the tests, and the tests out of
+    it: the global file is one in a directory of the test's own, which the
+    processes the oceanval window starts use too. (HOME is not changed, as
+    that would hide the browsers and caches the tests use.)"""
+    path = tmp_path_factory.mktemp("oceanvalrc") / ".oceanvalrc"
+    monkeypatch.setenv("OCEANVALRC", str(path))
+    return path
+
+
 @pytest.fixture
 def browser():
     """A Chromium browser, for the tests that drive a page, which are skipped

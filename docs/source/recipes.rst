@@ -173,3 +173,85 @@ it can tell how to convert one into the other, and writes them for you.
 Always check the dataset units and climatology period before comparing the
 result with model output. See :doc:`how_to_use` for matching and time-resolution
 guidance.
+
+
+Your own recipes
+----------------
+
+.. warning::
+
+   Recipes of your own are on the ``main`` branch but not yet in a tagged
+   release (see the `version history <https://pmlmodelling.github.io/OceanVal/version-history.html>`_).
+
+A recipe describes a set of observations once, so that you can use it by name
+in any matchup, like OceanVal's own. Your recipes are kept in ``.oceanvalrc``
+files, which are JSON:
+
+- ``.oceanvalrc`` in the directory you run OceanVal from holds the recipes for
+  that directory only;
+- ``.oceanvalrc`` in your home directory holds the recipes for everywhere. The
+  ``OCEANVALRC`` environment variable names another file to use in its place.
+
+Where the same recipe is in both, the one in the directory is used. A recipe
+is used by the name of its source, in lower case: a source called ``MySat``,
+for chlorophyll, is ``recipe={"chlorophyll": "mysat"}``, with
+:func:`oceanval.add_gridded_comparison` or :func:`oceanval.add_point_comparison`
+as for any other recipe. The variable can be one of OceanVal's, or a new one.
+
+Register them in the ``oceanval`` window: **Register user-defined data
+recipes** on its first page. Choose point or gridded data and describe it:
+
+- **Gridded data** is netCDF data, on this machine (a file, a directory of
+  files, or a pattern ending in ``.nc`` such as ``obs/chl_*.nc``), on a THREDDS
+  server (OPeNDAP addresses, with ``dodsC`` in them) or at a web address, which
+  is downloaded when it is matched up.
+- **Point data** is a directory of csv files on this machine, with ``lon``,
+  ``lat`` and ``observation`` columns and any of ``year``, ``month``, ``day``,
+  ``depth`` and ``source``.
+
+OceanVal opens the data as you describe it, as a matchup will, and checks it:
+that the variable is in the netCDF files, that the years fit what you say about
+a climatology, that the csv columns can be used, and that a server answers.
+What it works out, such as units, is filled in **in red and bold**. A recipe
+is saved only once its data has been checked, so one on a server that cannot
+be reached is not saved. You choose whether to save it for this directory only
+or for everywhere, and OceanVal refuses a source name that is one of its own
+recipes, or is already in the file, and warns if the other file has a recipe of
+the same name.
+
+Once saved, a recipe is offered in the recipes window beside OceanVal's own,
+with a **Yours** tag, ticked wherever a model variable is found for it. For a
+variable that OceanVal has no recipes for, it can only identify the model
+variable if exactly one is named for it, or has its description in its
+``long_name``. Otherwise the model variable is left blank for you to fill in.
+The matchup script registers it with a ``recipe=`` argument, and the units step
+lists its units like those of any other recipe.
+
+A recipe in a file looks like this:
+
+.. code-block:: json
+
+   {
+     "version": 1,
+     "recipes": {
+       "chlorophyll": {
+         "mysat": {
+           "kind": "gridded",
+           "source": "MySat",
+           "source_info": "My satellite chlorophyll, v2",
+           "location": "thredds",
+           "obs_path": ["https://example.org/thredds/dodsC/chl/2010.nc"],
+           "obs_variable": "chl",
+           "climatology": false,
+           "depth_resolved": false,
+           "units": "mg m-3"
+         }
+       }
+     }
+   }
+
+A point recipe has ``"kind": "point"``, with ``obs_path`` the directory of csv
+files and no ``location``, ``obs_variable`` or ``climatology``. A recipe for a
+variable of your own also has ``long_name``, ``short_name`` and ``short_title``,
+which name it in the report. You can edit the files by hand: OceanVal ignores,
+and says so, any file or recipe in them that it cannot use.

@@ -27,15 +27,16 @@ import urllib.parse
 import webbrowser
 
 from oceanval.create_recipes import (
-    POINT_RECIPE_CATALOGUE,
-    RECIPE_CATALOGUE,
-    RECIPE_VARIABLES,
+    USER_REGION,
     _WOA23_PERIODS,
     _has_vertical_option,
     _model_variable_names,
     _unknown_variables,
     default_selection,
+    gridded_catalogue,
     matchup_defaults,
+    point_catalogue,
+    recipe_variables,
     validate_defaults,
 )
 
@@ -53,6 +54,8 @@ DATASET_LABELS = {
 REGION_TAGS = {
     "Global": "Global",
     "Northwest European Shelf": "NWES",
+    # the recipes the user registered (see oceanval.user_recipes)
+    USER_REGION: "Yours",
 }
 
 # ICES covers the shelf, though its catalogue entries carry no region
@@ -397,13 +400,18 @@ def check_gridded_options(form, years, vertical_option=False, decadal=False):
     return options, errors
 
 
-def _title(variable):
+def _title(variable, cwd=None):
     """How a variable is named in the window, e.g. "pH" or "KD490".
 
-    Taken from the notes its first recipe opens with, "<title> - <source>".
+    Taken from the notes its first recipe opens with, "<title> - <source>",
+    or the title of a recipe of the user's, for a variable only they have.
     """
-    entry = next(entry for entry in RECIPE_CATALOGUE if entry["variable"] == variable)
-    return entry["notes"][0].split(" - ")[0]
+    entry = next(
+        entry
+        for entry in gridded_catalogue(cwd) + point_catalogue(cwd)
+        if entry["variable"] == variable
+    )
+    return entry.get("title") or entry["notes"][0].split(" - ")[0]
 
 
 def _description(entry):
@@ -420,28 +428,31 @@ def _description(entry):
     return source, details
 
 
-def recipe_rows(mapping, domain):
+def recipe_rows(mapping, domain, cwd=None):
     """One row of the window per observational variable, alphabetically.
 
     A dataset starts ticked where the script would register it were nothing
     changed (default_selection), so writing the script straight away gives
     the one gui=False would. "default" is whether it would be ticked if the
     variable had been identified, which the page ticks it by when you fill
-    in a variable that was not.
+    in a variable that was not. The recipes the user registered for the
+    directory cwd (see oceanval.user_recipes) are in the rows too, and are
+    ticked wherever there is a model variable for them.
     """
-    ticked = default_selection(mapping, domain)
-    defaults = default_selection(
-        {variable: variable for variable in RECIPE_VARIABLES}, domain
-    )
+    variables = recipe_variables(cwd)
+    ticked = default_selection(mapping, domain, cwd)
+    defaults = default_selection({variable: variable for variable in variables}, domain, cwd)
 
     def dataset(entry, region):
         key = (entry["variable"], entry["recipe"])
         source, details = _description(entry)
         return {
             "recipe": entry["recipe"],
-            "label": DATASET_LABELS[entry["recipe"]],
+            "label": entry.get("label") or DATASET_LABELS[entry["recipe"]],
             "region": REGION_TAGS[region],
             "region_name": region,
+            "user": bool(entry.get("user")),
+            "path": entry.get("path"),
             "source": source,
             "details": details,
             "default": key in defaults,
@@ -455,20 +466,20 @@ def recipe_rows(mapping, domain):
     return [
         {
             "variable": variable,
-            "title": _title(variable),
+            "title": _title(variable, cwd),
             "model_variable": mapping.get(variable) or "",
             "gridded": [
                 dataset(entry, entry["region"])
-                for entry in RECIPE_CATALOGUE
+                for entry in gridded_catalogue(cwd)
                 if entry["variable"] == variable
             ],
             "point": [
-                dataset(entry, POINT_REGION)
-                for entry in POINT_RECIPE_CATALOGUE
+                dataset(entry, entry.get("region", POINT_REGION))
+                for entry in point_catalogue(cwd)
                 if entry["variable"] == variable
             ],
         }
-        for variable in sorted(RECIPE_VARIABLES)
+        for variable in sorted(variables)
     ]
 
 
@@ -876,7 +887,9 @@ def choose_recipes(mapping, domain, available, context, write, open_browser=True
     write was called with, or None if the window was cancelled. Inside
     hosted_by, the window is one of the host's pages instead.
     """
-    page = RecipePage(recipe_rows(mapping, domain), available, context, write)
+    page = RecipePage(
+        recipe_rows(mapping, domain, context.get("cwd")), available, context, write
+    )
     if _host is not None:
         return _host.show_recipes(page)
     url = page.start()

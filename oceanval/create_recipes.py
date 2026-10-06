@@ -33,6 +33,7 @@ import nctoolkit as nc
 import xarray as xr
 
 from oceanval import prompts
+from oceanval import user_recipes
 from oceanval import live as interim_report
 from oceanval.fvcom import fvcom_contents
 from oceanval.own_data import FIELDS as OWN_DATA_FIELDS
@@ -337,6 +338,74 @@ RECIPE_VARIABLES = tuple(
     )
 )
 
+# where the recipes the user registered are listed, in place of a region
+USER_REGION = "Your recipes"
+
+
+def _user_entry(recipe, cwd=None):
+    """The catalogue entry for one recipe in a .oceanvalrc file: as the
+    built-in ones, with "user" set, the key for "recipe" and the source for
+    its "label"."""
+    variable, key = recipe["variable"], recipe["key"]
+    short_name, long_name, title = (
+        user_recipes.labels(variable, cwd) or (variable, variable, variable.title())
+    )
+    point = recipe["kind"] == "point"
+    units = recipe.get("units")
+    notes = [
+        f"{title} - {recipe['source']} (your recipe, in {recipe['path']})",
+        f"recipe: '{key}'",
+        *user_recipes.wrap(recipe.get("source_info") or ""),
+    ]
+    if units:
+        notes.append(f"Reported in {units}.")
+    arguments = ()
+    if recipe.get("depth_resolved"):
+        arguments = ("vertical=False,  # set True to validate the full water column",)
+    return {
+        "variable": variable,
+        "recipe": key,
+        "region": USER_REGION,
+        "label": recipe["source"],
+        "title": title,
+        "long_name": long_name,
+        "example_variable": variable,
+        "notes": tuple(notes),
+        "arguments": arguments,
+        "units": units,
+        "user": True,
+        "where": recipe["where"],
+        "path": recipe["path"],
+        "point": point,
+    }
+
+
+def _user_entries(cwd=None):
+    return [_user_entry(recipe, cwd) for recipe in user_recipes.load(cwd)]
+
+
+def gridded_catalogue(cwd=None):
+    """RECIPE_CATALOGUE, and then the user's own gridded recipes (see
+    oceanval.user_recipes) for the directory cwd, the one worked in by
+    default."""
+    return RECIPE_CATALOGUE + tuple(e for e in _user_entries(cwd) if not e["point"])
+
+
+def point_catalogue(cwd=None):
+    """POINT_RECIPE_CATALOGUE, and then the user's own point recipes."""
+    return POINT_RECIPE_CATALOGUE + tuple(e for e in _user_entries(cwd) if e["point"])
+
+
+def recipe_variables(cwd=None):
+    """RECIPE_VARIABLES, and then the variables only the user's own recipes
+    are for."""
+    return RECIPE_VARIABLES + tuple(
+        variable
+        for variable in dict.fromkeys(e["variable"] for e in _user_entries(cwd))
+        if variable not in RECIPE_VARIABLES
+    )
+
+
 # the decadal periods WOA23 publishes temperature and salinity for, as
 # find_recipe() understands them
 _WOA23_PERIODS = (
@@ -511,12 +580,38 @@ def _nitrate_fallback(contents, mapping):
     return list(nitrogen.variable)[0]
 
 
-def generate_recipe_mapping(path, fvcom=False):
+def _user_variable_match(variable, long_name, contents):
+    """The one model variable that is, or describes, a variable only the
+    user's own recipes are for, or None.
+
+    There are no rules for such a variable to go by, so it is the model
+    variable named for it, or else the one whose long_name holds its long
+    name, and only if there is just one: a guess that could be wrong is
+    left for the user to make.
+    """
+    names = list(dict.fromkeys(contents.variable))
+    named = [name for name in names if str(name).lower() == variable.lower()]
+    if len(named) == 1:
+        return named[0]
+    phrase = long_name.lower()
+    matches = [
+        name
+        for name, described in zip(contents.variable, _long_names(contents))
+        if phrase
+        and phrase in described.lower()
+        and not any(word in described.lower() for word in ("benthic", "river"))
+    ]
+    matches = list(dict.fromkeys(matches))
+    return matches[0] if len(matches) == 1 else None
+
+
+def generate_recipe_mapping(path, fvcom=False, cwd=None):
     """Map each recipe variable to the model variable holding it in one file.
 
     Returns a dict keyed by the observational variable name. Variables the
     file does not hold, and ones it describes ambiguously, map to None.
-    fvcom=True reads a raw FVCOM file.
+    fvcom=True reads a raw FVCOM file. cwd is the directory the user's own
+    recipes are read for (see oceanval.user_recipes).
     """
     if fvcom:
         # CDO skips the variables on FVCOM's mesh, temperature and salinity
@@ -553,6 +648,20 @@ def generate_recipe_mapping(path, fvcom=False):
     fallback = _nitrate_fallback(nitrogen_source, mapping)
     if fallback is not None:
         mapping["nitrate"] = fallback
+
+    # variables only the user's own recipes are for
+    for variable in recipe_variables(cwd):
+        if variable in mapping:
+            continue
+        mapping[variable] = None
+        long_name = (user_recipes.labels(variable, cwd) or (None, variable))[1]
+        for search in searches:
+            if len(search) == 0:
+                continue
+            found = _user_variable_match(variable, long_name, search)
+            if found is not None:
+                mapping[variable] = found
+                break
 
     # these carry no long_name worth matching on, so they go by name
     variables = list(contents.variable)
@@ -611,7 +720,7 @@ def simulation_files(simdir, ndown, exclude=None, require=None):
 
 
 def extract_recipe_variable_mapping(
-    simdir, ndown, fvcom=False, exclude=None, require=None
+    simdir, ndown, fvcom=False, exclude=None, require=None, cwd=None
 ):
     """Work out which model variable holds each recipe variable.
 
@@ -619,7 +728,8 @@ def extract_recipe_variable_mapping(
     most streams agree on, so a diagnostic file holding a stray copy of a
     variable cannot outvote the stream that is actually reporting it.
     fvcom=True reads the files as raw FVCOM output, and exclude and require
-    leave out the files matchup() would.
+    leave out the files matchup() would. cwd is the directory the user's own
+    recipes are read for.
     """
     paths = simulation_files(simdir, ndown, exclude, require)
     if not paths:
@@ -629,10 +739,10 @@ def extract_recipe_variable_mapping(
             "Check the ndown argument and the simulation directory structure."
         )
 
-    votes = {variable: {} for variable in RECIPE_VARIABLES}
+    votes = {variable: {} for variable in recipe_variables(cwd)}
     for path in paths:
         try:
-            mapping = generate_recipe_mapping(path, fvcom)
+            mapping = generate_recipe_mapping(path, fvcom, cwd)
         except Exception:
             # a stream OceanVal cannot read is not a reason to give up on
             # the rest of the simulation
@@ -963,7 +1073,7 @@ def _point_recipe_block(
     return lines
 
 
-def _header(simdir, ndown, mapping, years, domain, fvcom=False):
+def _header(simdir, ndown, mapping, years, domain, fvcom=False, user=False):
     found = ", ".join(sorted(mapping)) if mapping else "none"
     lines = [
         '"""OceanVal matchup script, generated by oceanval.create_recipes.',
@@ -975,6 +1085,13 @@ def _header(simdir, ndown, mapping, years, domain, fvcom=False):
     ]
     if fvcom:
         lines.append("Model output: raw FVCOM, regridded by matchup(fvcom=True).")
+    if user:
+        lines += [
+            "",
+            "It also registers recipes of your own, from a .oceanvalrc file in the",
+            "directory this is run from or in your home directory, in their own",
+            "section below.",
+        ]
     lines += [
         "",
         "Every recipe OceanVal ships with is below. The live ones are the",
@@ -1140,13 +1257,14 @@ def _preferred_entries(mapping, domain):
     return preferred
 
 
-def default_selection(mapping, domain):
+def default_selection(mapping, domain, cwd=None):
     """The recipes left live when none are chosen by hand.
 
     For each variable a model variable was found for, the one gridded recipe
     _preferred_entries picks for the domain, and for domain="nwes" its ICES
-    point recipe as well. The create_recipes window starts with these
-    ticked. Returned as a set of (variable, recipe) pairs.
+    point recipe as well, along with every recipe of the user's own (see
+    oceanval.user_recipes) for it. The create_recipes window starts with
+    these ticked. Returned as a set of (variable, recipe) pairs.
     """
     selection = {
         (variable, entry["recipe"])
@@ -1158,6 +1276,11 @@ def default_selection(mapping, domain):
             for entry in POINT_RECIPE_CATALOGUE
             if mapping.get(entry["variable"]) is not None
         )
+    selection.update(
+        (entry["variable"], entry["recipe"])
+        for entry in _user_entries(cwd)
+        if mapping.get(entry["variable"]) is not None
+    )
     return selection
 
 
@@ -1175,6 +1298,7 @@ def build_recipe_script(
     validate=True,
     own_data=None,
     report=None,
+    cwd=None,
 ):
     """The text of the matchup script for one simulation's variable mapping.
 
@@ -1191,11 +1315,14 @@ def build_recipe_script(
     written after the recipes. With validate=False, the validate() call is
     written commented out. report, if given, holds the validate() arguments
     to write, other than data_dir and out_dir, in place of those in settings.
+    cwd is the directory the user's own recipes (see oceanval.user_recipes)
+    are read for, the one worked in by default.
     """
     point_options = point_options or {}
     gridded_options = gridded_options or {}
     if selection is None:
-        selection = default_selection(mapping, domain)
+        selection = default_selection(mapping, domain, cwd)
+    user_entries = _user_entries(cwd)
 
     def live(entry):
         return (
@@ -1203,7 +1330,7 @@ def build_recipe_script(
             and (entry["variable"], entry["recipe"]) in selection
         )
 
-    lines = _header(simdir, ndown, mapping, years, domain, fvcom)
+    lines = _header(simdir, ndown, mapping, years, domain, fvcom, bool(user_entries))
     period = _woa23_period(years)
 
     region = None
@@ -1241,6 +1368,26 @@ def build_recipe_script(
             )
             lines.append("")
 
+    if user_entries:
+        lines.extend(_section("Your recipes, from .oceanvalrc"))
+        for entry in user_entries:
+            variable = entry["variable"]
+            if entry["point"]:
+                options = point_options.get((variable, entry["recipe"]))
+                lines.extend(
+                    _point_recipe_block(
+                        entry, mapping.get(variable), live(entry), options, fvcom
+                    )
+                )
+            else:
+                options = gridded_options.get((variable, entry["recipe"]))
+                lines.extend(
+                    _recipe_block(
+                        entry, mapping.get(variable), None, years, live(entry), (), options, fvcom
+                    )
+                )
+            lines.append("")
+
     own_lines = _own_data_block(own_data or {})
     if own_lines:
         lines.extend(_section("Your own observations"))
@@ -1259,13 +1406,13 @@ def _write_script(out, script):
         generated.write(script)
 
 
-def _report(out, mapping, selection, settings=None):
+def _report(out, mapping, selection, settings=None, cwd=None):
     """Say what was written, and which variables were left commented out."""
     print(f"Wrote {out}")
     for variable in sorted(mapping):
         print(f"  {variable}: {mapping[variable]}")
     missing = [
-        variable for variable in RECIPE_VARIABLES if mapping.get(variable) is None
+        variable for variable in recipe_variables(cwd) if mapping.get(variable) is None
     ]
     if missing:
         print(f"  commented out (no model variable found): {', '.join(missing)}")
@@ -1306,6 +1453,7 @@ def _create_recipes(
     exclude=None,
     require=None,
     own_data=None,
+    cwd=None,
 ):
     """Write a matchup script for a simulation, with its variables filled in.
 
@@ -1395,6 +1543,10 @@ def _create_recipes(
         add_gridded_comparison calls under "gridded", each a list of
         dictionaries. They are written after the recipes. The oceanval
         window fills this in. Defaults to None.
+    cwd : str
+        The directory your own recipes (a .oceanvalrc file in it, and one in
+        your home directory) are read for. Defaults to the directory
+        worked in.
 
     Returns
     -------------
@@ -1450,6 +1602,7 @@ def _create_recipes(
     if not os.path.isdir(simdir):
         raise ValueError(f"{simdir} is not a directory")
 
+    cwd = os.path.abspath(cwd or os.getcwd())
     interactive = ask and prompts.interactive()
     if fvcom is None:
         fvcom = any(
@@ -1464,7 +1617,7 @@ def _create_recipes(
                 "is not."
             )
 
-    mapping = extract_recipe_variable_mapping(simdir, ndown, fvcom, **filters)
+    mapping = extract_recipe_variable_mapping(simdir, ndown, fvcom, cwd=cwd, **filters)
 
     def write(
         mapping,
@@ -1495,6 +1648,7 @@ def _create_recipes(
             validate,
             own_data,
             report,
+            cwd,
         )
         _write_script(out, script)
         return os.path.abspath(out)
@@ -1517,6 +1671,7 @@ def _create_recipes(
             "end": end,
             "fvcom": fvcom,
             "out": os.path.abspath(out),
+            "cwd": cwd,
             # the Global settings start with them
             "exclude": exclude,
             "require": require,
@@ -1528,13 +1683,13 @@ def _create_recipes(
         mapping, selection, settings, _, _ = chosen
     else:
         missing = [
-            variable for variable in RECIPE_VARIABLES if mapping.get(variable) is None
+            variable for variable in recipe_variables(cwd) if mapping.get(variable) is None
         ]
         if missing and interactive:
             mapping = _ask_for_missing_variables(
                 mapping, missing, _available_variables(simdir, ndown, **filters)
             )
-        selection = default_selection(mapping, domain)
+        selection = default_selection(mapping, domain, cwd)
         settings = None
         if exclude or require:
             # so the script's matchup() call is given them
@@ -1542,7 +1697,7 @@ def _create_recipes(
             settings.update(exclude=exclude or [], require=require)
         write(mapping, selection, settings)
 
-    _report(out, mapping, selection, settings)
+    _report(out, mapping, selection, settings, cwd)
     return out
 
 

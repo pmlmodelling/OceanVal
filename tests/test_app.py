@@ -3614,7 +3614,7 @@ def test_comparing_validations_in_a_browser(browser, tmp_path, monkeypatch):
         page = browser.new_page()
         page.goto(url)
         page.wait_for_selector("#view-start:not([hidden])")
-        assert page.locator("#view-start .choice:not(.is-demo)").count() == 4
+        assert page.locator("#view-start .choice:not(.is-demo):not(.is-register)").count() == 4
         card = page.locator(".choice[data-action=compare]")
         assert card.locator(".choice__title").text_content() == "Compare existing validations"
         card.click()

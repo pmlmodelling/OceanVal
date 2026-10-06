@@ -92,6 +92,8 @@
     letter-spacing: 0.05em;
   }
   .chip__region.is-domain { background: rgba(15, 143, 150, 0.13); color: var(--teal-700); }
+  /* the recipes the user registered */
+  .chip__region.is-yours { background: rgba(215, 107, 69, 0.14); color: var(--coral-dark); }
   .none { display: inline-block; padding-top: 8px; color: var(--muted-light); }
 
   /* ---- global settings ---- */
@@ -996,7 +998,7 @@
       box,
       el("span", { class: "chip__name", text: dataset.label }),
       el("span", {
-        class: "chip__region" + (dataset.region_name === context.region ? " is-domain" : ""),
+        class: "chip__region" + (dataset.user ? " is-yours" : dataset.region_name === context.region ? " is-domain" : ""),
         text: dataset.region,
       }));
     return { dataset, box, label, opts: buildOptions(row, dataset) };

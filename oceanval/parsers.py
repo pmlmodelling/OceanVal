@@ -6,6 +6,7 @@ import glob
 import warnings
 from oceanval.session import session_info
 from oceanval.utils import loud_warning
+from oceanval import user_recipes
 
 
 def read_point(ff, nrows = None):
@@ -47,7 +48,13 @@ recipe_list = [
 ]
 
 
-def find_recipe(x, start=None, end=None):
+def find_recipe(x, start=None, end=None, cwd=None):
+    """What a recipe, such as {"nitrate": "woa23"}, stands for.
+
+    Recipes OceanVal comes with are worked out here. Any other is looked for
+    in the .oceanvalrc files (see oceanval.user_recipes), those of the
+    directory cwd (the one worked in, by default) and of the home directory.
+    """
     output = dict()
     if len(x.keys()) != 1:
         raise ValueError("Recipe dictionary must have exactly one key")
@@ -60,52 +67,22 @@ def find_recipe(x, start=None, end=None):
     output["vertical"] = None
     output["point"] = False
 
-    if name.lower() == "chlorophyll":
-        output["short_name"] = "chlorophyll concentration"
-        output["long_name"] = "chlorophyll a concentration"
-        output["short_title"] = "Chlorophyll"
-    elif name.lower() == "oxygen":
-        output["short_name"] = "dissolved oxygen"
-        output["long_name"] = "dissolved oxygen concentration"
-        output["short_title"] = "Oxygen"
-    elif name.lower() == "temperature":
-        output["short_name"] = "sea temperature"
-        output["long_name"] = "sea water temperature"
-        output["short_title"] = "Temperature"
-    elif name.lower() == "salinity":
-        output["short_name"] = "salinity"
-        output["long_name"] = "sea water salinity"
-        output["short_title"] = "Salinity"
-    elif name.lower() == "nitrate":
-        output["short_name"] = "nitrate concentration"
-        output["long_name"] = "nitrate concentration"
-        output["short_title"] = "Nitrate"
-    elif name.lower() == "ammonium":
-        output["short_name"] = "ammonium concentration"
-        output["long_name"] = "ammonium concentration"
-        output["short_title"] = "Ammonium"
-    elif name.lower() == "phosphate":
-        output["short_name"] = "phosphate concentration"
-        output["long_name"] = "phosphate concentration"
-        output["short_title"] = "Phosphate"
-    elif name.lower() == "silicate":
-        output["short_name"] = "silicate concentration"
-        output["long_name"] = "silicate concentration"
-        output["short_title"] = "Silicate"
-    elif name.lower() == "kd490":
-        output["short_name"] = "KD490"
-        output["long_name"] = "diffuse attenuation coefficient at 490 nm"
-        output["short_title"] = "KD490"
-    elif name.lower() == "ph":
-        output["short_name"] = "pH"
-        output["long_name"] = "sea water pH"
-        output["short_title"] = "pH"
-    elif name.lower() == "alkalinity":
-        output["short_name"] = "total alkalinity"
-        output["long_name"] = "sea water total alkalinity"
-        output["short_title"] = "Total Alkalinity"
+    labels = user_recipes.VARIABLE_LABELS.get(str(name).lower())
+    if labels is not None:
+        output["short_name"], output["long_name"], output["short_title"] = labels
 
     value = str(value).lower()
+    name = str(name)
+
+    if value not in user_recipes.BUILTIN_SOURCES:
+        found = user_recipes.find(name, value, cwd)
+        if found is not None:
+            return found
+        raise ValueError(
+            f"Recipe value {value} is not valid for recipe name {name}. It is not one of "
+            "OceanVal's recipes, nor is there a recipe of yours for it in "
+            f"{user_recipes.local_path(cwd)} or {user_recipes.global_path()}."
+        )
 
     if value == "glodap":
         if name.lower() == "ph":
@@ -471,7 +448,7 @@ class Validator:
                 obs_path = recipe_info["obs_path"]
             if source is None:
                 source = recipe_info["source"]
-            if source == "GLODAPv2.2016b":
+            if source == "GLODAPv2.2016b" or recipe_info.get("file_check") is False:
                 file_check = False
             if source_info is None:
                 source_info = recipe_info["source_info"]
@@ -563,7 +540,8 @@ class Validator:
         if file_check:
             if gridded_dir != "auto":
                 if thredds is False:
-                    if not os.path.exists(gridded_dir):
+                    # a pattern such as obs/*.nc is matched up as it is
+                    if not os.path.exists(gridded_dir) and not glob.glob(gridded_dir):
                         raise ValueError(f"Gridded directory {gridded_dir} does not exist")
         # thredds must be boolean
         if not isinstance(thredds, bool):
@@ -577,7 +555,9 @@ class Validator:
             if isinstance(obs_path, list):
                 sample_file = obs_path[0]
             else:
-                if obs_path.endswith(".nc"):
+                if glob.has_magic(obs_path) and not os.path.exists(obs_path):
+                    sample_file = sorted(glob.glob(obs_path))[0]
+                elif obs_path.endswith(".nc"):
                     sample_file = obs_path
                 else:
                     sample_file = nc.glob(obs_path)[0]
@@ -745,7 +725,12 @@ class Validator:
             if not recipe_info["point"]:
                 raise ValueError(f"Recipe {recipe} is for gridded data, so use add_gridded_comparison")
             if obs_path is not None:
-                raise ValueError("obs_path cannot be supplied with a recipe, as the recipe downloads its own data")
+                raise ValueError("obs_path cannot be supplied with a recipe, as the recipe supplies its own data")
+            # the recipes of the user's own point data are csv files, which
+            # are read and checked as any others are
+            user_point = recipe_info.get("user", False)
+            if user_point:
+                obs_path = recipe_info["obs_path"]
             if name is None:
                 name = recipe_info["name"]
             if source is None:
@@ -758,10 +743,13 @@ class Validator:
                 short_name = recipe_info["short_name"]
             if short_title is None:
                 short_title = recipe_info["short_title"]
-            recipe = dict(
-                parameter = recipe_info["ices_parameter"],
-                dataset = recipe_info["ices_dataset"],
-            )
+            if user_point:
+                recipe = None
+            else:
+                recipe = dict(
+                    parameter = recipe_info["ices_parameter"],
+                    dataset = recipe_info["ices_dataset"],
+                )
 
         if name is None:
             raise ValueError("Name must be supplied")

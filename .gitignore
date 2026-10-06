@@ -13,6 +13,8 @@ __pycache__/
 data/soc/*
 matched/*
 /oceanval_*
+# recipes of your own, for the directory worked in
+/.oceanvalrc
 /hidden/
 # the site search index, built by .github/workflows/pages.yml
 docs-site/pagefind/
