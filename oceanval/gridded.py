@@ -494,7 +494,11 @@ def gridded_matchup(
                         if variable == "auto":
                             variable = ds_zz.variables[0]
                         if ds_zz.contents.query("variable == @variable").nlevels.values[0] > 1:
-                            ds_obs.cdo_command("topvalue")
+                            if comparison["recipe"] and vv_source == "WOA23":
+                                # the first level, which is the surface at 0 m
+                                ds_obs.top()
+                            else:
+                                ds_obs.cdo_command("topvalue")
 
 
                     try:

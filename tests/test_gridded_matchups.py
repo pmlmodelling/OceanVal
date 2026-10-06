@@ -338,3 +338,118 @@ class TestMultipleSources:
 
         shutil.rmtree("oceanval_matchups", ignore_errors=True)
         oceanval.reset()
+
+
+class TestSurfaceOfMultiLevelObservations:
+    """A surface-only comparison with multi-level observations takes their top
+    level with top() for the WOA23 recipes, and with topvalue for any other."""
+
+    @staticmethod
+    def monthly_obs(folder):
+        """Twelve monthly files of multi-level temperature, standing in for
+        WOA23's, made from the example model's own output."""
+        os.makedirs(folder)
+        files = []
+        for month in range(1, 13):
+            source = f"data/example/2000/{month:02d}/amm7_1d_2000{month:02d}01_2000{month:02d}"
+            source = glob.glob(source + "*_grid_T.nc")[0]
+            out = os.path.join(folder, f"obs_{month:02d}.nc")
+            ds = nc.open_data(source, checks=False)
+            ds.subset(variables="votemper")
+            ds.tmean()
+            ds.to_nc(out, zip=False, overwrite=True)
+            files.append(out)
+        return files
+
+    @staticmethod
+    def spy_on_obs(monkeypatch, obs_files):
+        """Which of top and topvalue are asked of the observations, before any
+        of them has been run, so that they are still the files given."""
+        asked = []
+        names = {os.path.basename(x) for x in obs_files}
+        top, cdo_command = nc.DataSet.top, nc.DataSet.cdo_command
+
+        def on_obs(ds):
+            try:
+                return os.path.basename(str(ds[0])) in names
+            except Exception:
+                return False
+
+        def spy_top(self):
+            if on_obs(self):
+                asked.append("top")
+            return top(self)
+
+        def spy_cdo_command(self, command=None, *args, **kwargs):
+            if command == "topvalue" and on_obs(self):
+                asked.append("topvalue")
+            return cdo_command(self, command, *args, **kwargs)
+
+        monkeypatch.setattr(nc.DataSet, "top", spy_top)
+        monkeypatch.setattr(nc.DataSet, "cdo_command", spy_cdo_command)
+        return asked
+
+    @staticmethod
+    def matchup():
+        oceanval.matchup(
+            sim_dir = "data/example",
+            start = 2000,
+            end = 2000,
+            ask = False,
+            cores = 1)
+
+    def test_woa23_takes_the_top_level(self, tmp_path, monkeypatch):
+        shutil.rmtree("oceanval_matchups", ignore_errors=True)
+        oceanval.reset()
+        files = self.monthly_obs(str(tmp_path / "woa23"))
+        asked = self.spy_on_obs(monkeypatch, files)
+
+        oceanval.add_gridded_comparison(
+            name = "temperature",
+            model_variable = "votemper",
+            recipe = {"temperature": "woa23"},
+            obs_variable = "votemper",
+            start = 2000,
+            end = 2000,
+            file_check = False,
+        )
+        # the twelve OPeNDAP urls are served by the local files
+        local = dict(zip(
+            oceanval.definitions["temperature"].gridded_comparisons["WOA23"]["obs_path"], files))
+
+        def open_thredds(path, **kwargs):
+            paths = [local.get(x, x) for x in ([path] if isinstance(path, str) else path)]
+            return nc.open_data(paths if len(paths) > 1 else paths[0], checks = False)
+
+        monkeypatch.setattr(nc, "open_thredds", open_thredds)
+        self.matchup()
+
+        assert "top" in asked
+        assert "topvalue" not in asked
+        assert os.path.exists("oceanval_matchups/gridded/temperature/WOA23_temperature_surface.nc")
+        shutil.rmtree("oceanval_matchups", ignore_errors=True)
+        oceanval.reset()
+
+    def test_other_sources_take_the_topvalue(self, tmp_path, monkeypatch):
+        shutil.rmtree("oceanval_matchups", ignore_errors=True)
+        oceanval.reset()
+        files = self.monthly_obs(str(tmp_path / "foo"))
+        asked = self.spy_on_obs(monkeypatch, files)
+
+        oceanval.add_gridded_comparison(
+            name = "temperature",
+            obs_path = str(tmp_path / "foo"),
+            source = "foo",
+            model_variable = "votemper",
+            obs_variable = "votemper",
+            climatology = True,
+            start = 2000,
+            end = 2000,
+        )
+        self.matchup()
+
+        assert "topvalue" in asked
+        assert "top" not in asked
+        assert os.path.exists("oceanval_matchups/gridded/temperature/foo_temperature_surface.nc")
+        shutil.rmtree("oceanval_matchups", ignore_errors=True)
+        oceanval.reset()
