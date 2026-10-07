@@ -59,10 +59,17 @@ that takes you through these steps:
    `obs_adder`.
 6. **Files**: the page says it is identifying the files that meet your
    criteria, then shows what it found as a table: each variable, its model
-   variable, the observations it is compared with and the files it is in,
+   variable, the observations it is compared with, the files it is in,
    with **List all files** for each (OceanVal applies temporal subsetting to
-   them). Carry on if the matchups are right; No stops the run; **Back**
-   stops it too, before anything is matched up, and goes back to the units.
+   them), and their time resolution (`monthly`, or `1d`, `5d` and so on; the
+   finest is used). Carry on if the matchups are right; No stops the run;
+   **Back** stops it too, before anything is matched up, and goes back to
+   the units. If a point dataset is matched by day (its `point_time_res`
+   includes `day`, as the default does) against output coarser than daily,
+   a page then says most of its observations may go unmatched, and offers
+   to change `point_time_res` for all such datasets (OceanVal suggests year
+   and month) or for each one, or to keep it. The choice is written into the
+   matchup script. At a terminal, `matchup()` asks the same.
 7. **Report** (to match up and validate): "One last thing... How would you
    like your validation report?" The report's options, asked for before
    anything is matched up: a subregion to validate, regional summaries,

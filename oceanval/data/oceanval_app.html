@@ -501,6 +501,14 @@
   .form .s-input.is-oceanval, .form .s-select.is-oceanval, .demo-about .oceanval-change { color: var(--red); font-weight: 700; }
   /* the units always have to be confirmed, after the tables */
   .units-confirm { padding: 16px 20px; }
+  .ptr-choice { margin-bottom: 16px; }
+  .ptr-modes { display: grid; gap: 12px; margin: 0; padding: 16px 20px; border: 0; }
+  .ptr-mode { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; color: var(--ink); font-size: 14.5px; cursor: pointer; }
+  .ptr-mode input { width: 16px; height: 16px; margin: 0; accent-color: var(--teal-600); cursor: pointer; }
+  .ptr-mode .s-select { width: auto; min-width: 200px; }
+  .ptr .s-select { width: 100%; }
+  .ptr .s-select:disabled { color: var(--muted); background: var(--bg-alt); }
+  .ptr .s-select.is-oceanval, .ptr-mode .s-select.is-oceanval { color: var(--red); font-weight: 700; }
   .form__stack { display: grid; gap: 26px; max-width: 560px; }
   /* ---- comparing validations ---- */
   .compare-info { max-width: 820px; margin: 0 0 16px; color: var(--ink-soft); font-size: 14px; line-height: 1.55; }
@@ -779,6 +787,26 @@
     </section>
   </section>
 
+  <section id="view-point-time-res" hidden>
+    <p class="lede">OceanVal matches each observation in these point datasets to the model output on the same day, as their point_time_res includes <strong>day</strong>. But the model output for their variables is coarser than daily: monthly, or once every few days. So most of their observations may find no model output on the same day, and be left out of the matchups.</p>
+    <p class="lede">Matching them by year and month instead compares each observation with the model output for its month. OceanVal suggests that, <strong class="oceanval-change">in red and bold</strong>, but you can choose for all of them at once, for each one, or keep them as they are.</p>
+    <div class="card ptr-choice" role="radiogroup" aria-label="What to do with these point datasets">
+      <div class="ptr-modes">
+        <label class="ptr-mode"><input type="radio" name="ptr-mode" value="all" id="ptr-mode-all">Change all of them to <select class="s-select" id="ptr-all" aria-label="How to match all of them"></select></label>
+        <label class="ptr-mode"><input type="radio" name="ptr-mode" value="each" id="ptr-mode-each">Change each one, in the table below</label>
+        <label class="ptr-mode"><input type="radio" name="ptr-mode" value="keep" id="ptr-mode-keep">Keep them as they are</label>
+      </div>
+    </div>
+    <div class="card units ptr"><table>
+      <colgroup><col style="width:20%"><col style="width:16%"><col style="width:16%"><col style="width:20%"><col style="width:28%"></colgroup>
+      <thead><tr>
+      <th scope="col">Variable</th><th scope="col">Dataset</th><th scope="col">Time resolution</th>
+      <th scope="col">Matched by now</th><th scope="col">Match observations by</th>
+      </tr></thead>
+      <tbody id="ptr-body"></tbody>
+    </table></div>
+  </section>
+
   <section id="view-validate" hidden>
     <p class="lede" id="v-report-dir" hidden></p>
     <form class="form card" id="validate-form" novalidate autocomplete="off">
@@ -937,9 +965,9 @@
       </div>
       <p class="review__time-note" id="review-time-note"></p>
       <div class="review__table"><table>
-        <colgroup><col style="width:20%"><col style="width:24%"><col style="width:18%"><col style="width:38%"></colgroup>
+        <colgroup><col style="width:17%"><col style="width:19%"><col style="width:16%"><col style="width:32%"><col style="width:16%"></colgroup>
         <thead><tr>
-        <th scope="col">Variable</th><th scope="col">Model variable</th><th scope="col">Observations</th><th scope="col">Files</th>
+        <th scope="col">Variable</th><th scope="col">Model variable</th><th scope="col">Observations</th><th scope="col">Files</th><th scope="col">Time resolution</th>
         </tr></thead>
         <tbody id="review-body"></tbody>
       </table></div>
@@ -1156,6 +1184,10 @@
     if (view === "recipes" || view === "preparing") return 3;
     if (view === "units_table") return 4;
     if (view === "report_options") return STEPS[action].indexOf("Report");
+    if (view === "point_time_res") {
+      const files = STEPS[action].indexOf("Files");
+      return files >= 0 ? files : STEPS[action].length - 1;
+    }
     // to validate as well, the matchups are checked before the report options are chosen
     if (view === "running" && STEPS[action].includes("Files") && !state.report.given) {
       return STEPS[action].indexOf("Files");
@@ -1180,6 +1212,7 @@
       case "validate": return "Build a validation report";
       case "compare": return "Which validations do you want to compare?";
       case "report_options": return "One last thing... How would you like your validation report?";
+      case "point_time_res": return "Some point observations may not match the model's output";
       case "running": return ACTION_TITLES[state.action];
       case "script_saved": return "Your matchup script is saved";
       default:
@@ -1258,6 +1291,10 @@
       if (waiting) actions.push(button("Back", "ghost", () => post("api/back", { form: validateForm })));
       actions.push(button(waiting ? "Match up and validate" : "Build the report", "primary",
         submitValidate, { id: "build" }));
+    } else if (view === "point_time_res") {
+      // to the matchups, whose question is still being asked, with the boxes
+      actions.push(button("Back", "ghost", () => post("api/back", { form: readPointTimeRes() })),
+        button("Continue", "primary", submitPointTimeRes, { id: "ptr-continue" }));
     } else if (view === "compare") {
       actions.push(button("Back", "ghost", () => post("api/back")),
         button("Compare", "primary", submitCompare, { id: "compare" }));
@@ -1313,7 +1350,7 @@
   const VIEWS = { start: "view-start", demo: "view-demo", setup: "view-setup", validate: "view-validate", compare: "view-compare",
     report_options: "view-validate", own_data: "view-own", point_data: "view-point", gridded_data: "view-gridded",
     register_kind: "view-register-kind", register_point: "view-register-point", register_gridded: "view-register-gridded",
-    units_table: "view-units-table",
+    units_table: "view-units-table", point_time_res: "view-point-time-res",
     preparing: "view-run", running: "view-run", finished: "view-run",
     script_saved: "view-script-saved" };
   let shownView = null;
@@ -1361,6 +1398,9 @@
       if (first) first.focus();
     } else if (view === "script_saved") {
       $("script-saved-title").focus();
+    } else if (view === "point_time_res") {
+      fillPointTimeRes();
+      $(`ptr-mode-${readPointTimeRes().mode}`).focus();
     }
     if (VIEWS[view] !== "view-run") {
       // a question shown again, as on Back from the report options, is shown afresh
@@ -3526,6 +3566,73 @@
     if (!reply.ok) toast("That question has been answered already.");
   }
 
+  // ---- point datasets matched by day against output coarser than daily ----
+  function timeResSelect(value, props) {
+    const select = el("select", { class: "s-select", ...props },
+      ...state.point_time_res.options.map((option) =>
+        el("option", { value: option.value, text: `${option.label} (${option.hint})` })));
+    select.value = value;
+    return select;
+  }
+
+  // what OceanVal suggests is in red and bold until it is changed
+  function markSuggested(select) {
+    select.classList.toggle("is-oceanval", select.value === state.point_time_res.suggested);
+  }
+
+  function refreshPointTimeRes() {
+    const mode = readPointTimeRes().mode;
+    document.querySelectorAll("#ptr-body select").forEach((select) => { select.disabled = mode !== "each"; });
+  }
+
+  function fillPointTimeRes() {
+    const { rows, form, options } = state.point_time_res;
+    const all = $("ptr-all");
+    all.replaceChildren(...options.map((option) =>
+      el("option", { value: option.value, text: `${option.label} (${option.hint})` })));
+    all.value = form.all;
+    markSuggested(all);
+    $(`ptr-mode-${form.mode}`).checked = true;
+    const labels = Object.fromEntries(options.map((option) => [option.value, option.label]));
+    $("ptr-body").replaceChildren(...rows.map((row) => {
+      const now = row.point_time_res.join(",");
+      return el("tr", { "data-key": row.key },
+        el("td", {}, el("strong", { text: row.title })),
+        el("td", { text: row.source }),
+        el("td", {}, el("span", { class: "is-mono", text: row.time_res })),
+        el("td", { text: labels[now] || row.point_time_res.join(", ") }),
+        el("td", {}, timeResSelect(form.each[row.key] || now, {
+          "data-key": row.key, "aria-label": `How to match ${row.title} (${row.source})`,
+        })));
+    }));
+    refreshPointTimeRes();
+  }
+
+  function readPointTimeRes() {
+    const checked = document.querySelector("input[name=ptr-mode]:checked");
+    const each = {};
+    document.querySelectorAll("#ptr-body select").forEach((select) => { each[select.dataset.key] = select.value; });
+    return { mode: checked ? checked.value : "all", all: $("ptr-all").value, each };
+  }
+
+  document.querySelectorAll("input[name=ptr-mode]").forEach((radio) =>
+    radio.addEventListener("change", refreshPointTimeRes));
+  // picking from the dropdown chooses it for all of them
+  $("ptr-all").addEventListener("change", () => {
+    $("ptr-all").classList.remove("is-oceanval");
+    $("ptr-mode-all").checked = true;
+    refreshPointTimeRes();
+  });
+
+  async function submitPointTimeRes() {
+    $("ptr-continue").disabled = true;
+    const reply = await post("api/point_time_res", { form: readPointTimeRes() });
+    if (!reply.ok) {
+      toast(reply.error || "That could not be done.");
+      $("ptr-continue").disabled = false;
+    }
+  }
+
   // ---- the matchups matchup asks about: each variable, and the files it is in ----
   function renderReview(question) {
     const details = question.details;
@@ -3545,7 +3652,8 @@
         el("div", { class: "review__files" },
           el("small", { text: plural(row.files, "file") }),
           button("List all files", "text", () => openFiles(question, row),
-            { class: "btn btn--text btn--small", "aria-haspopup": "dialog", "aria-label": `List all files for ${row.title}` }))))));
+            { class: "btn btn--text btn--small", "aria-haspopup": "dialog", "aria-label": `List all files for ${row.title}` }))),
+      el("td", {}, el("span", { class: "is-mono", text: row.time_res || "—" })))));
     $("review-actions").replaceChildren(
       button("No, stop the run", "ghost", () => send(question.id, "n")),
       button("No, store the matchup Python script. I will run it later.", "ghost", () => send(question.id, "save")),

@@ -200,6 +200,7 @@ An example is shown below:
 
 **Note**: If you are validating a simulation with only monthly resolution, then you probably want to set the `point_time_res` parameter to `["year", "month"]` when matching up in-situ observations.
 This will result in day of year being ignored when matching up observations with the simulation output. If you use the default for `point_time_res`, then very few matchups will be found, as the day of year in the observations will almost never match that in the simulation output.
+`matchup` shows the time resolution of the files it uses for each variable (`monthly`, or `1d`, `5d` and so on), and if a point dataset is matched by day against output coarser than daily, it warns you and offers to change `point_time_res` for all such datasets or for each one before anything is matched up.
 
 **Summing up simulation output**
 

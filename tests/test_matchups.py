@@ -394,8 +394,113 @@ class TestMatchupsQuestion:
                 "pattern": pattern,
                 "observations": ["foo"],
                 "files": len(files),
+                # one time a day in each file
+                "time_res": "1d",
             }
         ]
         assert details["files"] == {pattern: files}
+        # daily output, and no point datasets, is nothing to check
+        assert "point_time_res" not in details
         # no is not a matchup
         assert not os.path.exists(tmp_path / "oceanval_matchups" / "mapping.csv")
+
+class TestPointTimeResCheck:
+    """Point datasets matched by day against output coarser than daily are
+    asked about once the matchups are right (see oceanval.time_res)."""
+
+    def register(self, **own):
+        oceanval.reset()
+        oceanval.add_point_comparison(
+            name="temperature",
+            source="foo",
+            model_variable="votemper",
+            obs_path="data/evaldata/point/nws/all/temperature",
+            **own,
+        )
+
+    def matchup(self, tmp_path, answers, **kwargs):
+        asked = []
+
+        def answerer(question, choices, details):
+            asked.append((question, choices, details))
+            answer = answers.pop(0)
+            if isinstance(answer, Exception):
+                raise answer
+            return answer
+
+        with prompts.answered_by(answerer):
+            try:
+                oceanval.matchup(
+                    sim_dir="data/example", start=2004, end=2004, cores=1,
+                    out_dir=str(tmp_path), **kwargs,
+                )
+            except KeyboardInterrupt:
+                pass
+        return asked
+
+    def test_monthly_output_flags_a_dataset_matched_by_day(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(matchall, "get_time_res", lambda *args: "monthly")
+        self.register()
+        asked = self.matchup(tmp_path, ["n"])
+
+        [(_, _, details)] = asked
+        assert details["rows"][0]["time_res"] == "monthly"
+        assert details["point_time_res"] == {
+            "default": ["year", "month", "day"],
+            "rows": [
+                {
+                    "key": "temperature/foo",
+                    "variable": "temperature",
+                    "title": "Temperature",
+                    "source": "foo",
+                    "time_res": "monthly",
+                    "point_time_res": ["year", "month", "day"],
+                    "own": False,
+                }
+            ],
+        }
+
+    def test_daily_output_or_matching_by_month_is_not_flagged(self, tmp_path, monkeypatch):
+        self.register()
+        [(_, _, details)] = self.matchup(tmp_path, ["n"])
+        assert "point_time_res" not in details
+
+        monkeypatch.setattr(matchall, "get_time_res", lambda *args: "monthly")
+        self.register(point_time_res=["year", "month"])
+        [(_, _, details)] = self.matchup(tmp_path, ["n"])
+        assert "point_time_res" not in details
+
+    def test_the_window_chooses_along_with_yes(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(matchall, "get_time_res", lambda *args: "5d")
+        self.register(point_time_res=["month", "day"])
+        choice = {"default": None, "datasets": {"temperature/foo": ["month"]}}
+        original = matchall.time_res.apply
+
+        def apply(*args):
+            original(*args)
+            # stopped once the choice is used, before anything is matched up
+            raise KeyboardInterrupt
+
+        monkeypatch.setattr(matchall.time_res, "apply", apply)
+        asked = self.matchup(tmp_path, [prompts.Answer("y", {"point_time_res": choice})])
+
+        # not asked again at the terminal
+        assert len(asked) == 1
+        comparison = oceanval.definitions["temperature"].point_comparisons["foo"]
+        assert comparison["point_time_res"] == ["month"]
+
+    def test_a_terminal_is_asked(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(matchall, "get_time_res", lambda *args: "monthly")
+        self.register()
+        original = matchall.time_res.apply
+
+        def apply(*args):
+            original(*args)
+            raise KeyboardInterrupt
+
+        monkeypatch.setattr(matchall.time_res, "apply", apply)
+        # a plain answer is one typed at a terminal
+        asked = self.matchup(tmp_path, ["y", "a", "2"])
+
+        assert [question for question, _, _ in asked][1].startswith("Change point_time_res")
+        assert session_info["point_time_res"] == ["year", "month"]

@@ -58,7 +58,7 @@ import urllib.parse
 import oceanval
 from oceanval import leftovers, live, prompts, recipes_gui
 from oceanval.app_child import ANSWER_MARKER, QUESTION_MARKER
-from oceanval import depths, own_data, recipe_checks, recipe_forms, transects, units, user_recipes
+from oceanval import depths, own_data, recipe_checks, recipe_forms, time_res, transects, units, user_recipes
 from oceanval.create_recipes import (
     DOMAIN_REGIONS,
     _create_recipes,
@@ -68,6 +68,7 @@ from oceanval.create_recipes import (
     simulation_paths,
     simulation_years,
 )
+from oceanval.parsers import find_recipe
 
 # what the first step offers: the last registers recipes of your own (see
 # oceanval.user_recipes), which is not a run
@@ -264,6 +265,55 @@ def _shown(path, cwd):
     """A path as the page shows it: relative, if it is inside cwd."""
     relative = os.path.relpath(path, cwd)
     return path if relative.startswith("..") else relative
+
+
+# a point_time_res as the page sends it, "year,month", and back
+_TIME_RES_VALUES = {",".join(value): list(value) for value, _, _ in time_res.POINT_TIME_RES_OPTIONS}
+
+
+def default_point_time_res_form(rows):
+    """What the point_time_res step starts with: OceanVal's suggestion for
+    all of the datasets it lists in rows, each of which keeps its own until
+    changed."""
+    return {
+        "mode": "all",
+        "all": ",".join(time_res.SUGGESTED),
+        "each": {row["key"]: ",".join(row["point_time_res"]) for row in rows},
+    }
+
+
+def point_time_res_choice(form, rows):
+    """The choice (see oceanval.time_res.clean_choice) the point_time_res
+    step's form makes, and the form as it is kept, or raises ValueError."""
+    defaults = default_point_time_res_form(rows)
+    form = form if isinstance(form, dict) else {}
+    mode = form.get("mode") if form.get("mode") in ("all", "each", "keep") else None
+    if mode is None:
+        raise ValueError("Choose what to do with them.")
+    every = form.get("each") if isinstance(form.get("each"), dict) else {}
+    kept = {
+        "mode": mode,
+        "all": str(form.get("all") or defaults["all"]),
+        "each": {key: str(every.get(key) or value) for key, value in defaults["each"].items()},
+    }
+    if mode == "keep":
+        return time_res.clean_choice(None, rows), kept
+    if mode == "all":
+        if kept["all"] not in _TIME_RES_VALUES:
+            raise ValueError("Choose how to match them.")
+        choice = {"default": _TIME_RES_VALUES[kept["all"]]}
+    else:
+        if any(value not in _TIME_RES_VALUES for value in kept["each"].values()):
+            raise ValueError("Choose how to match each of them.")
+        choice = {
+            "datasets": {
+                row["key"]: _TIME_RES_VALUES[kept["each"][row["key"]]]
+                for row in rows
+                # only what is changed
+                if _TIME_RES_VALUES[kept["each"][row["key"]]] != row["point_time_res"]
+            }
+        }
+    return time_res.clean_choice(choice, rows), kept
 
 
 def _form(form, defaults):
@@ -888,6 +938,15 @@ class Question:
         """Whether it is matchup's, of whether the matchups are right."""
         return bool(self.details) and self.details.get("kind") == "matchups"
 
+    @property
+    def time_res_rows(self):
+        """The point datasets matchup asks to check the point_time_res of,
+        once the matchups are right (see oceanval.time_res)."""
+        if not self.matchups:
+            return []
+        rows = (self.details.get("point_time_res") or {}).get("rows")
+        return rows if isinstance(rows, list) else []
+
     def files(self, pattern):
         """The files the details list for one file pattern, or None."""
         files = (self.details or {}).get("files")
@@ -1108,6 +1167,10 @@ class App:
         # matchup and validate run, and what writes the script again with them
         self.report_arguments = None
         self._script_writer = None
+        # what the point_time_res step chose, and its boxes as last left,
+        # once the matchups are checked (see point_time_res)
+        self.point_time_res_choice = None
+        self.point_time_res_form = None
         self.question = None
         # the recipes window, while it is being shown
         self.recipes_page = None
@@ -1272,6 +1335,7 @@ class App:
                 },
                 "register": self._register_state(),
                 "units": {"rows": self.units_rows, "boxes": self._units_boxes_shown()},
+                "point_time_res": self._point_time_res_state(),
                 "leftovers": {
                     "asked": self.leftovers_asked,
                     "count": len(self.leftovers),
@@ -1525,11 +1589,20 @@ class App:
         }
         if self.demo is not None and self.demo["status"] != "downloading":
             earlier["demo"] = "start"
-        if self.view == "report_options" and self._held_matchups():
-            # the matchups again, whose question is still being asked
-            earlier["report_options"] = "running"
+        held = self._held_matchups()
+        if self.view == "report_options" and held:
+            # the point_time_res step, or the matchups again, whose question
+            # is still being asked
+            earlier["report_options"] = "point_time_res" if held.time_res_rows else "running"
             if isinstance(sent.get("form"), dict):
                 self.validate_form = _form(sent["form"], default_validate_form())
+        if self.view == "point_time_res" and held:
+            earlier["point_time_res"] = "running"
+            if isinstance(sent.get("form"), dict):
+                with contextlib.suppress(ValueError):
+                    self.point_time_res_form = point_time_res_choice(
+                        sent["form"], held.time_res_rows
+                    )[1]
         if self.view not in earlier:
             return False
         if self.view in ("register_point", "register_gridded"):
@@ -2420,6 +2493,109 @@ class App:
             return True
         return any(entry.get("vertical") for entry in self.own_data["point"])
 
+    def _point_time_res_state(self):
+        """What the point_time_res step shows. Called with the lock held."""
+        question = self._held_matchups()
+        rows = question.time_res_rows if question is not None else []
+        return {
+            "rows": rows,
+            "form": self.point_time_res_form or default_point_time_res_form(rows),
+            "options": [
+                {"value": ",".join(value), "label": label, "hint": hint}
+                for value, label, hint in time_res.POINT_TIME_RES_OPTIONS
+            ],
+            "suggested": ",".join(time_res.SUGGESTED),
+        }
+
+    def _yes(self, settings):
+        """Yes, the matchups are right, as answered at a terminal, with
+        settings chosen along with it, and the point_time_res step's choice."""
+        if self.point_time_res_choice is not None:
+            settings = dict(settings, point_time_res=self.point_time_res_choice)
+        if not settings:
+            return "y"
+        return ANSWER_MARKER + json.dumps({"answer": "y", "settings": settings})
+
+    def _point_sources(self):
+        """Where the script writes each point dataset matchup names
+        variable/source: ("recipe", (variable, recipe)) for a recipe, or
+        ("own", index) for data of the user's own. Called with the lock held."""
+        found = {}
+        if self._script_writer is None:
+            return found
+        selection = self._script_writer[1][1]
+        for variable, recipe in selection or ():
+            with contextlib.suppress(Exception):
+                info = find_recipe({variable: recipe}, cwd=self.cwd)
+                if info.get("point"):
+                    found[time_res.key(variable, info["source"])] = ("recipe", (variable, recipe))
+        for index, entry in enumerate(self.own_data["point"]):
+            found[time_res.key(entry.get("name"), entry.get("source"))] = ("own", index)
+        return found
+
+    def _keep_point_time_res(self, choice, rows):
+        """Write the point_time_res step's choice into what the script is
+        written from, so that it says what was run. Called with the lock
+        held."""
+        if self._script_writer is None:
+            return
+        default, datasets = time_res.changes(choice, rows)
+        write, result = self._script_writer
+        result = list(result)
+        if default is not None:
+            result[2] = dict(result[2] or {}, point_time_res=list(default))
+        point_options = {key: dict(value) for key, value in (result[3] or {}).items()}
+        sources = self._point_sources()
+        for name, value in datasets.items():
+            where = sources.get(name)
+            if where is None:
+                continue
+            if where[0] == "recipe":
+                point_options[where[1]] = dict(point_options.get(where[1], {}), point_time_res=list(value))
+            else:
+                self.own_data["point"][where[1]] = dict(
+                    self.own_data["point"][where[1]], point_time_res=list(value)
+                )
+        result[3] = point_options
+        self._script_writer = (write, tuple(result))
+
+    def point_time_res(self, form):
+        """Take the point_time_res step's choice, for the point datasets
+        matched by day against output coarser than daily. Then the report
+        options are chosen, in a matchup and validate run, or matchup
+        carries on with it. Returns the HTTP status and the reply."""
+        with self._lock:
+            question = self._held_matchups()
+            if self.view != "point_time_res" or question is None:
+                return 409, {"ok": False, "error": "This step is over."}
+            rows = question.time_res_rows
+            try:
+                choice, kept = point_time_res_choice(form, rows)
+            except ValueError as error:
+                return 400, {"ok": False, "error": str(error)}
+            self.point_time_res_form = kept
+            self.point_time_res_choice = choice
+            self._keep_point_time_res(choice, rows)
+            writer = self._script_writer
+            if self._report_first():
+                self.view = "report_options"
+                self._notify()
+                return 200, {"ok": True}
+            self.view = "running"
+            self.question = None
+            self._notify()
+        if writer is not None:
+            write, choices = writer
+            try:
+                write(*choices)
+            except OSError as error:
+                self.console.write(
+                    f"The script could not be written again with the new point_time_res: {error}\n"
+                )
+        self.console.write("y\n")
+        question.respond(self._yes({}))
+        return 200, {"ok": True}
+
     def report(self, form):
         """Take the report options of a matchup and validate run, from the
         boxes of the step after the matchups are checked. They are written
@@ -2489,15 +2665,12 @@ class App:
             # yes, the matchups are right, as answered at a terminal, with
             # the report's options along with it
             self.console.write("y\n")
-            question.respond(
-                ANSWER_MARKER
-                + json.dumps({"answer": "y", "settings": {"live_validation": options}})
-            )
+            question.respond(self._yes({"live_validation": options}))
         elif question is not None:
             # with jupyter-book 1 there is no interim report: the report is
             # built once the matchups are made
             self.console.write("y\n")
-            question.respond("y")
+            question.respond(self._yes({}))
         else:
             # matchup has run already, without asking about the matchups
             self.start_run(
@@ -2727,6 +2900,9 @@ class App:
             if args[:1] == ["matchup"]:
                 # chosen once the matchups are checked
                 self.report_arguments = None
+            if script:
+                self.point_time_res_choice = None
+                self.point_time_res_form = None
             self.view = "running"
             self._notify()
         # set apart from what create_recipes printed before it
@@ -2839,10 +3015,15 @@ class App:
             if (
                 question is None
                 or question.id != number
-                or self.view == "report_options"
+                or self.view in ("report_options", "point_time_res")
             ):
                 return False
             answer = text.strip().lower()
+            if question.matchups and answer == "y" and question.time_res_rows:
+                # the point datasets to check are asked about first
+                self.view = "point_time_res"
+                self._notify()
+                return True
             if question.matchups and answer == "y" and self._report_first():
                 self.view = "report_options"
                 self._notify()
@@ -3094,6 +3275,9 @@ class _Handler(recipes_gui._Handler):
             return
         if path == "/api/report":
             self._reply_json(*app.report(payload.get("form")))
+            return
+        if path == "/api/point_time_res":
+            self._reply_json(*app.point_time_res(payload.get("form")))
             return
         if path == "/api/units_continue":
             self._reply_json(

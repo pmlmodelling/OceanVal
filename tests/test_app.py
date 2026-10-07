@@ -2394,6 +2394,166 @@ class TestServer:
         assert app.closed_reason is None
 
 
+
+# what matchup sends when point datasets are matched by day against output
+# coarser than daily (see oceanval.time_res)
+TIME_RES_ROWS = [
+    {"key": "temperature/ICES", "variable": "temperature", "title": "Temperature",
+     "source": "ICES", "time_res": "monthly", "point_time_res": ["year", "month", "day"],
+     "own": False},
+    {"key": "nitrate/ICES", "variable": "nitrate", "title": "Nitrate",
+     "source": "ICES", "time_res": "5d", "point_time_res": ["month", "day"], "own": True},
+]
+CHECKED_MATCHUPS = dict(
+    MATCHUPS,
+    point_time_res={"default": ["year", "month", "day"], "rows": TIME_RES_ROWS},
+)
+
+
+def point_time_res_script(tmp_path, details=CHECKED_MATCHUPS):
+    """A stand-in for matchup, asking whether the matchups are right with
+    point datasets to check, and printing the answer's settings."""
+    script = tmp_path / "run.py"
+    script.write_text(
+        textwrap.dedent(
+            f"""
+            import json
+            from oceanval import prompts
+            question = "Are you happy with these matchups? (y/n) "
+            answer = prompts.ask(question, ("y", "n"), details={details!r})
+            print("answer:", answer)
+            print("settings:", json.dumps(getattr(answer, "settings", {{}}), sort_keys=True))
+            """
+        )
+    )
+    return script
+
+
+class TestPointTimeResStep:
+    """Point datasets matched by day against output coarser than daily are
+    asked about once the matchups are right, before anything is matched up."""
+
+    def script(self, tmp_path):
+        return point_time_res_script(tmp_path)
+
+    def test_it_comes_between_the_matchups_and_the_report_options(self, app, tmp_path, monkeypatch):
+        monkeypatch.setattr(live, "available", lambda: False)
+        validated = []
+        start_run = app.start_run
+        monkeypatch.setattr(
+            app, "start_run",
+            lambda args, label: validated.append(args) if args[0] == "validate" else start_run(args, label),
+        )
+        app.action = "matchup_validate"
+        app.start_run(["matchup", str(self.script(tmp_path))], "python run.py")
+        wait_for(lambda: app.question is not None)
+        number = app.question.id
+
+        assert post(app, "/api/answer", {"id": number, "answer": "y"})[0] == 200
+        _, state = get_json(app, "/api/state")
+        assert state["view"] == "point_time_res"
+        assert state["point_time_res"]["rows"] == TIME_RES_ROWS
+        # OceanVal suggests year and month for all of them
+        assert state["point_time_res"]["form"] == {
+            "mode": "all", "all": "year,month",
+            "each": {"temperature/ICES": "year,month,day", "nitrate/ICES": "month,day"},
+        }
+        # matchup still waits, and is not answered twice
+        assert post(app, "/api/answer", {"id": number, "answer": "y"})[0] == 409
+
+        # Back shows the matchups again, keeping the boxes
+        form = {"mode": "each", "all": "year,month",
+                "each": {"temperature/ICES": "month", "nitrate/ICES": "month,day"}}
+        assert post(app, "/api/back", {"form": form})[0] == 200
+        assert (app.view, app.question.id) == ("running", number)
+        assert post(app, "/api/answer", {"id": number, "answer": "y"})[0] == 200
+        assert get_json(app, "/api/state")[1]["point_time_res"]["form"] == form
+
+        status, reply = post(app, "/api/point_time_res", {"form": dict(form, each={"temperature/ICES": "week"})})
+        assert status == 400 and app.view == "point_time_res"
+
+        assert post(app, "/api/point_time_res", {"form": form})[0] == 200
+        assert app.view == "report_options"
+        # Back from the report options comes here again
+        assert post(app, "/api/back", {"form": {}})[0] == 200
+        assert app.view == "point_time_res"
+        assert post(app, "/api/point_time_res", {"form": form})[0] == 200
+
+        assert post(app, "/api/report", {"form": {}})[0] == 200
+        wait_for(lambda: validated)
+        text = app.console.since(0, None)["text"]
+        # only what is changed goes with yes
+        assert (
+            'settings: {"point_time_res": {"datasets": {"temperature/ICES": ["month"]}, "default": null}}'
+            in text
+        )
+
+    def test_a_matchup_only_run_carries_on_with_it(self, app, tmp_path):
+        app.action = "matchup"
+        app.start_run(["script", str(self.script(tmp_path))], "python run.py")
+        wait_for(lambda: app.question is not None)
+        assert post(app, "/api/answer", {"id": app.question.id, "answer": "y"})[0] == 200
+        assert app.view == "point_time_res"
+
+        form = {"mode": "all", "all": "month"}
+        assert post(app, "/api/point_time_res", {"form": form})[0] == 200
+        wait_for(lambda: app.view == "finished")
+        text = app.console.since(0, None)["text"]
+        assert 'settings: {"point_time_res": {"datasets": {}, "default": ["month"]}}' in text
+
+    def test_keeping_them_sends_nothing_new(self, app, tmp_path):
+        app.action = "matchup"
+        app.start_run(["script", str(self.script(tmp_path))], "python run.py")
+        wait_for(lambda: app.question is not None)
+        post(app, "/api/answer", {"id": app.question.id, "answer": "y"})
+        assert post(app, "/api/point_time_res", {"form": {"mode": "keep"}})[0] == 200
+        wait_for(lambda: app.view == "finished")
+        assert 'settings: {"point_time_res": {"datasets": {}, "default": null}}' in (
+            app.console.since(0, None)["text"]
+        )
+
+    def test_without_rows_to_check_yes_is_as_before(self, app, tmp_path):
+        app.action = "matchup"
+        app.start_run(["script", str(TestServer.matchups_script(None, tmp_path))], "python run.py")
+        wait_for(lambda: app.question is not None)
+        post(app, "/api/answer", {"id": app.question.id, "answer": "y"})
+        wait_for(lambda: app.view == "finished")
+        assert post(app, "/api/point_time_res", {"form": {"mode": "keep"}})[0] == 409
+
+    @pytest.mark.parametrize(
+        "form, written",
+        [
+            ({"mode": "each", "each": {"temperature/ICES": "year,month"}}, "point"),
+            ({"mode": "all", "all": "year,month"}, "matchup"),
+        ],
+    )
+    def test_the_choice_is_written_into_the_script(self, app, tmp_path, runs, form, written):
+        write_simulation(tmp_path / "sim")
+        app.choose("matchup")
+        post(app, "/api/setup", {"form": SETUP_FORM})
+        post(app, "/api/own_data", {"answer": False})
+        wait_for(lambda: app.view == "recipes")
+        rows = [{"variable": "temperature", "model_variable": "thetao", "selected": ["ices"]}]
+        assert post(app, "/recipes/write", {"rows": rows, "settings": recipe_settings(app)})[0] == 200
+        units_match(app)
+        wait_for(lambda: runs)
+        answers = []
+        rows = [dict(TIME_RES_ROWS[0])]
+        app._put_question(
+            "Are you happy with these matchups? (y/n) ", ("y", "n"), answers.append,
+            dict(MATCHUPS, point_time_res={"default": ["year", "month", "day"], "rows": rows}),
+        )
+        post(app, "/api/answer", {"id": app.question.id, "answer": "y"})
+
+        assert post(app, "/api/point_time_res", {"form": form})[0] == 200
+        text = open(tmp_path / "matchup.py").read()
+        start = "oceanval.add_point_comparison(" if written == "point" else "oceanval.matchup("
+        call = text[text.index(start) :]
+        call = call[: call.index("\n)")]
+        assert '    point_time_res=["year", "month"],' in call
+        assert answers[0].startswith(ANSWER_MARKER)
+
+
 class TestRecipesRestore:
     """What the recipes window starts with when it is shown again, or made
     afresh after going back before it: app.recipes_choices keeps what it
@@ -3183,6 +3343,43 @@ def test_storing_the_matchup_script_opens_run_instructions(browser, tmp_path):
         assert "matching up" not in page.text_content("#console-text")
         page.click('#actions button:has-text("Start again")')
         page.wait_for_function("document.querySelector('#title').textContent === 'Validate an ocean model'")
+    finally:
+        app.close()
+
+
+def test_the_point_time_res_step_in_a_browser(browser, tmp_path):
+    """The files table shows each variable's time resolution, and yes to it
+    asks about the point datasets matched by day, before matchup carries on."""
+    details = dict(CHECKED_MATCHUPS, rows=[dict(MATCHUPS["rows"][0], time_res="monthly")])
+    app = App(cwd=str(tmp_path))
+    url = app.start()
+    try:
+        app.action = "matchup"
+        app.start_run(["script", str(point_time_res_script(tmp_path, details))], "python run.py")
+        page = browser.new_page()
+        page.goto(url)
+        page.wait_for_selector("#review:not([hidden])")
+        assert page.locator("#review th").last.text_content() == "Time resolution"
+        assert page.locator("#review-body td").last.text_content() == "monthly"
+
+        page.click("text=Yes, carry on")
+        page.wait_for_selector("#view-point-time-res:not([hidden])")
+        # OceanVal's suggestion for all of them, in red and bold
+        assert page.is_checked("#ptr-mode-all")
+        assert page.input_value("#ptr-all") == "year,month"
+        assert "is-oceanval" in page.get_attribute("#ptr-all", "class")
+        assert page.is_disabled('#ptr-body select[data-key="temperature/ICES"]')
+
+        page.check("#ptr-mode-each")
+        select = '#ptr-body select[data-key="temperature/ICES"]'
+        assert page.is_enabled(select)
+        page.select_option(select, "month")
+        page.click("#ptr-continue")
+        wait_for(lambda: app.view == "finished")
+        assert (
+            'settings: {"point_time_res": {"datasets": {"temperature/ICES": ["month"]}, "default": null}}'
+            in app.console.since(0, None)["text"]
+        )
     finally:
         app.close()
 

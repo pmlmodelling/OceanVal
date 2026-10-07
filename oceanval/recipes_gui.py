@@ -39,6 +39,7 @@ from oceanval.create_recipes import (
     recipe_variables,
     validate_defaults,
 )
+from oceanval import time_res
 
 # how each recipe's dataset is named in the window
 DATASET_LABELS = {
@@ -63,13 +64,8 @@ POINT_REGION = "Northwest European Shelf"
 
 
 # what the "Match observations by" dropdowns offer, as (point_time_res, label,
-# hint): the combinations the docs recommend and the report describes
-POINT_TIME_RES_OPTIONS = (
-    (("year", "month", "day"), "Year, month, day", "Exact dates"),
-    (("year", "month"), "Year, month", "For monthly model output"),
-    (("month", "day"), "Month, day", "Climatological: the year is ignored"),
-    (("month",), "Month", "Climatological, by month"),
-)
+# hint)
+POINT_TIME_RES_OPTIONS = time_res.POINT_TIME_RES_OPTIONS
 _TIME_RES = {",".join(value): list(value) for value, _, _ in POINT_TIME_RES_OPTIONS}
 
 _LIMITS = ("lon_min", "lon_max", "lat_min", "lat_max")

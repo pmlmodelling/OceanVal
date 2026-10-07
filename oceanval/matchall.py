@@ -34,6 +34,7 @@ from oceanval.fvcom import fvcom_matchup_files, fvcom_extent, fvcom_times
 from oceanval import ices
 from oceanval import live
 from oceanval import prompts
+from oceanval import time_res
 
 
 def read_point(ff, nrows = None):
@@ -311,7 +312,8 @@ def get_time_res(x, folder=None):
     Returns
     -------------
     res : str
-        The time resolution of the netCDF files
+        The time resolution of the netCDF files: "monthly", or "1d", "2d",
+        ... for output every so many days (see oceanval.time_res.label)
 
     """
 
@@ -326,35 +328,35 @@ def get_time_res(x, folder=None):
     wild_card = wild_card.replace("**", "*")
 
     wild_card = os.path.basename(wild_card)
-    for y in pathlib.Path(folder).glob(wild_card):
-        path = y
-        # convert to string
-        path = str(path)
-        break
+    paths = sorted(str(y) for y in pathlib.Path(folder).glob(wild_card))
 
+    # output with one time in each file says nothing about its resolution
+    # alone, so the times of the next files are added to it
+    df_times = []
+    for path in paths[:3]:
+        df_times.append(_file_times(path))
+        if len(pd.concat(df_times)) > 1:
+            break
+    df_times = pd.concat(df_times).reset_index(drop=True)
+
+    return time_res.label(df_times)
+
+
+def _file_times(path):
+    """The year, month and day of each time in one file."""
     if session_info.get("fvcom", False):
-        df_times = fvcom_times(path)
-    else:
-        ds = nc.open_data(path, checks=False)
-        ds_times = ds.times
-        try:
-            months = [x.month for x in ds_times]
-            days = [x.day for x in ds_times]
-            years = [x.year for x in ds_times]
-        except:
-            years = [int(str(x).split("T")[0].split("-")[0]) for x in ds.times]
-            months = [int(str(x).split("T")[0].split("-")[1]) for x in ds.times]
-            days = [int(str(x).split("T")[0].split("-")[2]) for x in ds.times]
-        df_times = pd.DataFrame({"month": months, "day": days, "year": years})
-
-    n1 = len(
-        df_times.loc[:, ["month", "year"]].drop_duplicates().reset_index(drop=True)
-    )
-    n2 = len(df_times)
-    if n1 == n2:
-        return "m"
-    else:
-        return "d"
+        return fvcom_times(path)
+    ds = nc.open_data(path, checks=False)
+    ds_times = ds.times
+    try:
+        months = [x.month for x in ds_times]
+        days = [x.day for x in ds_times]
+        years = [x.year for x in ds_times]
+    except:
+        years = [int(str(x).split("T")[0].split("-")[0]) for x in ds.times]
+        months = [int(str(x).split("T")[0].split("-")[1]) for x in ds.times]
+        days = [int(str(x).split("T")[0].split("-")[2]) for x in ds.times]
+    return pd.DataFrame({"month": months, "day": days, "year": years})
 
 
 random_files = []
@@ -514,15 +516,18 @@ def extract_variable_mapping(folder, exclude=[], n_check=None):
     resolution_dict = dict()
     for folder in patterns:
         resolution_dict[folder] = get_time_res(folder, new_directory)
-    all_df["resolution"] = [resolution_dict[x] for x in all_df.pattern]
+    all_df["time_res"] = [resolution_dict[x] for x in all_df.pattern]
 
+    # the finest output holding each variable
     all_df = (
-        all_df.sort_values("resolution").groupby("value").head(1).reset_index(drop=True)
+        all_df.sort_values("time_res", key=lambda x: x.map(time_res.sort_key), kind="stable")
+        .groupby("value")
+        .head(1)
+        .reset_index(drop=True)
     )
     all_df = all_df.rename(columns={"variable": "model_variable"})
     all_df = all_df.rename(columns={"value": "variable"})
-    all_df = all_df.drop(columns="resolution")
-    all_df = all_df.loc[:, ["variable", "model_variable", "pattern"]]
+    all_df = all_df.loc[:, ["variable", "model_variable", "pattern", "time_res"]]
 
     # add example file column
     all_df["example_file"] = [
@@ -905,7 +910,7 @@ def matchup(
     # add in anything that is missing
 
     missing_df = pd.DataFrame({"variable": all_vars}).assign(
-        model_variable=None, pattern=None
+        model_variable=None, pattern=None, time_res=None
     )
 
     all_df = (
@@ -1157,7 +1162,7 @@ def matchup(
     all_df_print = all_df_print.reset_index(drop=True)
     # add a new row with --- in it after variables with ** in them
     new_row = pd.DataFrame(
-        {"variable": ["---"], "model_variable": ["---"], "pattern": ["---"]}
+        {"variable": ["---"], "model_variable": ["---"], "pattern": ["---"], "time_res": ["---"]}
     )
     all_df_print = pd.concat([all_df_print, new_row], ignore_index=True)
     all_df_print = all_df_print.sort_values(
@@ -1189,6 +1194,7 @@ def matchup(
                 "pattern": row.pattern,
                 "observations": observations.get(row.variable, []),
                 "files": len(files[row.pattern]),
+                "time_res": row.time_res,
             }
             for row in chosen.itertuples()
         ],
@@ -1197,6 +1203,21 @@ def matchup(
             for pattern, paths in files.items()
         },
     }
+
+    # point datasets matched by day against output coarser than daily, which
+    # the window asks about once the matchups are right (see oceanval.time_res)
+    time_res_rows = time_res.check_rows(
+        point["all"] + point["surface"],
+        dict(zip(chosen.variable, chosen.time_res)),
+        lambda vv, source: definitions[vv].point_comparisons[source],
+        session_info["point_time_res"],
+        {vv: definitions[vv].short_title for vv in var_chosen},
+    )
+    if time_res_rows:
+        details["point_time_res"] = {
+            "default": list(session_info["point_time_res"]),
+            "rows": time_res_rows,
+        }
 
     question = "Are you happy with these matchups? (y/n) "
     if ask:
@@ -1212,6 +1233,22 @@ def matchup(
     if x.lower() == "n":
         print("Please adjust your variable names and try again")
         return None
+
+    if time_res_rows:
+        print(time_res.warning(time_res_rows))
+        choice = getattr(x, "settings", {}).get("point_time_res")
+        if choice is None and ask and not hasattr(x, "settings"):
+            # at a terminal: the window chooses along with yes
+            choice = time_res.ask_at_terminal(time_res_rows, prompts.ask)
+        choice = time_res.clean_choice(choice, time_res_rows)
+        changed = time_res.apply(choice, time_res_rows, session_info, definitions)
+        for line in changed:
+            print(line)
+        if not changed:
+            print("point_time_res is unchanged.")
+        elif not hasattr(x, "settings"):
+            print("Change point_time_res in your matchup script to keep this next time.")
+        print("******************************")
 
     # in the oceanval window, the report's options are chosen along with yes,
     # and the interim report is built with them
@@ -1237,7 +1274,7 @@ def matchup(
     if not os.path.exists(out_folder):
         os.makedirs(out_folder)
 
-    df_out = all_df.dropna().reset_index(drop=True)
+    df_out = all_df.drop(columns="time_res").dropna().reset_index(drop=True)
     final_extension = extension_of_directory(sim_dir)
     df_out["pattern"] = [sim_dir + final_extension + x for x in df_out.pattern]
     df_out.to_csv(out, index=False)
