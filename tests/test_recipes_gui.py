@@ -887,6 +887,50 @@ class TestModelVariablesTable:
         finally:
             recipe_page.close()
 
+    def test_the_selected_variables_and_their_long_names_are_listed_at_the_top(self, browser):
+        recipe_page = self.page({"thetao": "Sea water potential temperature", "so": "Sea water salinity"})
+        url = recipe_page.start()
+        try:
+            page = browser.new_page()
+            page.goto(url)
+            first = page.locator("details.vars").first
+            box = page.locator(".field__input").first
+            box.fill("")
+            first.locator("summary").click()
+            picked = first.locator(".vars__picked")
+            entries = lambda: picked.locator("li").evaluate_all("items => items.map(i => i.firstChild.textContent)")
+            tick = lambda name: first.locator(f'input[aria-label="Use {name}"]')
+
+            # nothing selected, nothing shown
+            assert picked.is_hidden()
+
+            # it sits above the table, and lists the selection in box order
+            tick("so").check()
+            tick("thetao").check()
+            assert picked.is_visible()
+            assert entries() == ["so Sea water salinity", "thetao Sea water potential temperature"]
+            assert picked.bounding_box()["y"] < first.locator(".vars__scroll").bounding_box()["y"]
+
+            # a search that hides their rows does not hide them here
+            first.locator(".vars__search").fill("zzz")
+            assert entries() == ["so Sea water salinity", "thetao Sea water potential temperature"]
+            first.locator(".vars__search").fill("")
+
+            # typing in the box is followed, and a name the model lacks is flagged
+            box.fill("time+missing")
+            assert entries() == ["time", "missing not in the model output"]
+
+            # the x unticks, as the tick box does
+            picked.get_by_role("button", name="Remove time").click()
+            assert box.input_value() == "missing"
+            assert not tick("time").is_checked()
+            assert entries() == ["missing not in the model output"]
+            picked.get_by_role("button", name="Remove missing").click()
+            assert box.input_value() == ""
+            assert picked.is_hidden()
+        finally:
+            recipe_page.close()
+
 
 class TestChooseRecipes:
     def test_it_waits_for_the_page_to_be_written(self, monkeypatch, capsys):

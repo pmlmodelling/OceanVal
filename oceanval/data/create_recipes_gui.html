@@ -185,6 +185,17 @@
   .vars__search { flex: 1; min-width: 0; padding: 5px 10px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg); color: var(--ink); font: 400 12.5px/18px var(--font-body); }
   .vars__search:focus { outline: none; border-color: var(--teal-500); box-shadow: var(--focus); }
   .vars__count { color: var(--muted); font-size: 11.5px; white-space: nowrap; }
+  .vars__picked { flex: none; max-height: 112px; overflow: auto; padding: 6px 12px 8px; border-bottom: 1px solid var(--line); background: var(--bg); }
+  .vars__picked[hidden] { display: none; }
+  .vars__picked-title { margin: 0 0 2px; color: var(--muted); font-size: 11px; font-weight: 600; }
+  .vars__picked ul { margin: 0; padding: 0; list-style: none; }
+  .vars__picked li { display: flex; gap: 8px; align-items: flex-start; padding: 2px 0; }
+  .vars__picked-text { flex: 1; min-width: 0; overflow-wrap: anywhere; color: var(--ink-soft); }
+  .vars__picked-name { font-family: var(--font-mono, monospace); color: var(--ink); }
+  .vars__picked-note { color: var(--muted); font-style: italic; }
+  .vars__picked-remove { flex: none; padding: 0 6px; border: 0; border-radius: 4px; background: none; color: var(--muted); font: inherit; line-height: 1.4; cursor: pointer; }
+  .vars__picked-remove:hover { color: var(--ink); background: var(--line); }
+  .vars__picked-remove:focus-visible { outline: none; box-shadow: var(--focus); }
   .vars__scroll { flex: 1; min-height: 0; overflow: auto; padding: 0 12px 8px; }
   .vars__none { margin: 10px 0 2px; color: var(--muted); }
   /* the narrow-screen layout makes the page's tables blocks; this one stays a table */
@@ -1056,8 +1067,12 @@
     const ticked = el("span", { class: "vars__count vars__ticked" });
     const none = el("p", { class: "vars__none", text: "No variables match.", hidden: "" });
     const scroll = el("div", { class: "vars__scroll" });
+    // what the box holds, with long_names, pinned above the table
+    const pickedList = el("ul");
+    const picked = el("div", { class: "vars__picked", hidden: "" },
+      el("p", { class: "vars__picked-title", text: "Selected" }), pickedList);
     const body = el("div", { class: "vars__popover" },
-      el("div", { class: "vars__bar" }, search, count, ticked), scroll);
+      el("div", { class: "vars__bar" }, search, count, ticked), picked, scroll);
     const details = el("details", { class: "vars" },
       el("summary", { text: "Select from the model's variables" }), body);
     let rows = [];
@@ -1068,6 +1083,25 @@
       const names = new Set(named());
       for (const item of rows) item.box.checked = names.has(item.name);
       ticked.textContent = names.size > 1 ? `${names.size} ticked, summed` : "";
+      const used = named();
+      picked.hidden = !used.length;
+      pickedList.replaceChildren(...used.map((name) => {
+        const longName = longNames[name] || "";
+        const known = state.available.includes(name);
+        const remove = el("button", {
+          type: "button",
+          class: "vars__picked-remove",
+          title: `Remove ${name}`,
+          "aria-label": `Remove ${name}`,
+          text: "×",
+        });
+        remove.addEventListener("click", () => setValue(row, named().filter((other) => other !== name).join("+")));
+        return el("li", {},
+          el("span", { class: "vars__picked-text" },
+            el("span", { class: "vars__picked-name", text: name }),
+            known ? (longName ? ` ${longName}` : "") : el("span", { class: "vars__picked-note", text: " not in the model output" })),
+          remove);
+      }));
     };
     row.syncTicks = syncTicks;
     // every word typed must be in the variable's name or its long_name
