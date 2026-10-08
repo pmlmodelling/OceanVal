@@ -198,8 +198,8 @@ for chlorophyll, is ``recipe={"chlorophyll": "mysat"}``, with
 :func:`oceanval.add_gridded_comparison` or :func:`oceanval.add_point_comparison`
 as for any other recipe. The variable can be one of OceanVal's, or a new one.
 
-Register them in the ``oceanval`` window: **Register user-defined data
-recipes** on its first page. Choose point or gridded data and describe it:
+Register them in the ``oceanval`` window: **Add your own validation
+data for future use** on its first page. Choose point or gridded data and describe it:
 
 - **Gridded data** is netCDF data, on this machine (a file, a directory of
   files, or a pattern ending in ``.nc`` such as ``obs/chl_*.nc``), on a THREDDS

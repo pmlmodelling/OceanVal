@@ -69,7 +69,7 @@ class TestSteps:
     def test_registering_is_a_choice_on_the_first_page(self, app):
         body = get(app, "/")[1]
         assert 'data-action="register"' in body
-        assert "Register user-defined data recipes" in body
+        assert "Add your own validation data for future use" in body
 
     def test_the_way_through_and_back(self, app):
         assert post(app, "/api/choose", {"action": "register"})[0] == 200

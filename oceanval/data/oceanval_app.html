@@ -624,7 +624,7 @@
       <button type="button" class="choice is-register" data-action="register">
         <span class="choice__icon" data-icon="recipe"></span>
         <span class="choice__body">
-          <span class="choice__title">Register user-defined data recipes</span>
+          <span class="choice__title">Add your own validation data for future use</span>
           <span class="choice__text">Add observations of your own, point or gridded, as recipes in a <code>.oceanvalrc</code> file, to use in matchups like OceanVal's built-in ones.</span>
         </span>
       </button>
@@ -1984,7 +1984,7 @@
     const whereRadios = ["local", "global"].map((value) => el("input", { type: "radio", name: `r-${kind}-where`, value,
       id: `r-${kind}-where-${value}` }));
     const whereLabels = whereRadios.map((box, index) => el("label", { for: box.id },
-      box, el("strong", { id: `r-${kind}-where-${box.value}-title`, text: index === 0 ? "This directory only" : "Everywhere" }),
+      box, el("strong", { id: `r-${kind}-where-${box.value}-title`, text: index === 0 ? "I only want this data to be available when I run OceanVal here" : "I want this data to be available when I run OceanVal anywhere" }),
       el("small", { id: `r-${kind}-where-${box.value}-path` })));
     const where = regField(kind, "where", { label: "Where should the recipe be saved?", required: true, wide: true,
       input: el("div", { class: "reg-where", role: "radiogroup", id: `r-${kind}-where` }, ...whereLabels),
@@ -2410,7 +2410,8 @@
       $(`r-${kind}-where-${where}-path`).textContent = files[where];
     }
     $(`r-${kind}-where-global-title`).textContent = state.register.same_file
-      ? "Everywhere (the same file, as OceanVal is running in your home directory)" : "Everywhere";
+      ? "I want this data to be available when I run OceanVal anywhere (the same file, as OceanVal is running in your home directory)"
+      : "I want this data to be available when I run OceanVal anywhere";
     renderRegisterList(kind);
     applyJob(kind);
     for (const [where, reason] of Object.entries(state.register.problems || {})) {
