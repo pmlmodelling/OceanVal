@@ -2,6 +2,7 @@ import glob
 import copy
 import datetime
 import os
+import re
 import traceback
 import warnings
 import pickle
@@ -36,6 +37,39 @@ def _open_obs(path, thredds):
         # a plain file served over http, e.g. GLODAP: downloaded to a temp file
         return nc.open_url(path)
     return nc.open_data(path, checks=False)
+
+
+def _occci_year_month(path):
+    """(year, month) of an OCCCI file, read from its path rather than its contents.
+
+    The file name carries both, e.g. ...-201807-fv6.0.nc. If only the year
+    directory is found the month is None, and if there is no year at all
+    the result is (None, None).
+    """
+    found = re.search(r"-(\d{4})(\d{2})-fv", path)
+    if found:
+        return int(found.group(1)), int(found.group(2))
+    found = re.search(r"/(\d{4})/", path)
+    if found:
+        return int(found.group(1)), None
+    return None, None
+
+
+def _filter_occci_paths(paths, years, months):
+    """The OCCCI paths that are for one of the years and months wanted.
+
+    Opening every monthly file over thredds only to subset it afterwards is
+    slow, so the years and months are taken from the paths instead. A path
+    whose year cannot be read is kept, so it is left to be subset once opened.
+    """
+    keep = []
+    for path in paths:
+        year, month = _occci_year_month(path)
+        if year is None:
+            keep.append(path)
+        elif year in years and (month is None or month in months):
+            keep.append(path)
+    return keep
 
 
 def remote_gridded_source(vv, source):
@@ -463,24 +497,18 @@ def gridded_matchup(
                             vv_file = nc.create_ensemble(dir_var)
                     else:
                         vv_file = dir_var  # thredds URL
-                
-                    # some special handling for occci files
-                    occci = False
-                    extracted = False
 
-                    if not extracted:
-                        if obs_download is not None:
-                            ds_obs = obs_download.copy()
-                        else:
-                            ds_obs = _open_obs(vv_file, thredds)
+                    # OCCCI is a file per month: pick the files from their paths
+                    if vv_source == "OCCCI" and isinstance(vv_file, (list, tuple)):
+                        vv_file = _filter_occci_paths(vv_file, sim_years, month_sel)
+                        if len(vv_file) == 0:
+                            raise ValueError("There do not appear to be any years in common between model and observation!  ")
+
+                    if obs_download is not None:
+                        ds_obs = obs_download.copy()
+                    else:
+                        ds_obs = _open_obs(vv_file, thredds)
                     bad_clim = False
-
-                    # use ncks to spatially subset to lon_lim and lat_lim
-                    if occci:
-                        variable = comparison["obs_variable"]
-                        ds_obs.subset(variables=variable)
-                        if lon_lim is not None:
-                            ds_obs.crop(lon=lon_lim, lat=lat_lim)
 
                     if vertical_gridded is False:
                         if thredds:
