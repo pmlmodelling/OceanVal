@@ -11,7 +11,14 @@ from oceanval.session import session_info
 
 class TestMatchup:
     """Test suite for matchup function"""
-    
+
+    @pytest.fixture(autouse=True)
+    def clean_matchups(self):
+        # in a fixture, so that it is only removed when the tests run, not
+        # whenever this file is imported
+        yield
+        shutil.rmtree("oceanval_matchups", ignore_errors=True)
+
     def test_missing_sim_dir(self):
         """Test that ValueError is raised when sim_dir is not provided"""
         oceanval.reset()
@@ -191,26 +198,6 @@ class TestMatchup:
         with pytest.raises(ValueError, match="You do not appear to have asked for any variables to be validated"):
             oceanval.matchup(sim_dir="data/example", start=2000, end=2001, ask=False, lon_lim=[-10,10], lat_lim=[40,50])
     
-    def test_invalid_kwargs(self):
-        """Test that ValueError is raised for invalid keyword arguments"""
-        oceanval.reset()
-        
-        # Add a variable so we don't hit the "no variables" error first
-        temp_gridded_file = "data/evaldata/gridded/nws/nitrate/model_2000.nc"
-        try:
-            oceanval.add_gridded_comparison(
-                name="testvar",
-                source="TestSource",
-                model_variable="temp",
-                climatology=True,
-                obs_path=temp_gridded_file,
-                obs_variable="N3_n"
-            )
-        except:
-            pass
-        
-    
-    
     def test_cores_parameter(self):
         """Test that cores parameter is handled correctly"""
         oceanval.reset()
@@ -317,12 +304,6 @@ class TestMatchup:
                 oceanval.matchup(sim_dir="data/example", start=2000, end=2001, strict_names="yes",
                 lon_lim=[-10,10], lat_lim=[40,50]
                                 )
-
-                        
-
-                            
-        
-    shutil.rmtree("oceanval_matchups", ignore_errors=True)
 
 
 class TestMatchupsQuestion:

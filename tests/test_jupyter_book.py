@@ -308,7 +308,7 @@ def test_offline_report_pages_group_navigation_and_hide_code(tmp_path):
     assert report_page.index('class="oceanval-nav-sections"') < report_page.index('class="oceanval-viewpdf-btn"')
 
 
-def test_offline_report_pages_pdf_off_by_default(tmp_path):
+def test_offline_report_exports_are_off_by_default(tmp_path):
     output_dir = tmp_path / "_build" / "html"
     notebook_dir = output_dir / "notebooks"
     notebook_dir.mkdir(parents=True)
@@ -333,6 +333,10 @@ def test_offline_report_pages_pdf_off_by_default(tmp_path):
     assert 'class="oceanval-viewpdf-btn"' not in report_page
     assert 'class="oceanval-download-btn"' not in report_page
     assert list(output_dir.rglob("*.pdf")) == []
+    # nor is there a Word file
+    assert 'class="oceanval-word-btn"' not in report_page
+    assert "Download page as Word" not in report_page
+    assert list(output_dir.rglob("*.docx")) == []
 
 
 def test_offline_report_word_keeps_latex_for_pandoc(tmp_path):
@@ -578,30 +582,6 @@ def test_combined_word_report_starts_each_chapter_on_a_new_page(tmp_path):
         paragraph.paragraph_format.page_break_before is None
         for paragraph in per_page.paragraphs
     )
-
-
-def test_offline_report_word_button_absent_by_default(tmp_path):
-    output_dir = tmp_path / "_build" / "html"
-    notebook_dir = output_dir / "notebooks"
-    notebook_dir.mkdir(parents=True)
-    source_notebook_dir = tmp_path / "notebooks"
-    source_notebook_dir.mkdir()
-
-    page = notebook_dir / "001_methods.html"
-    page.write_text(
-        '<html><head></head><body class="jp-Notebook"><main>Report</main></body></html>'
-    )
-    notebook = nbformat.v4.new_notebook(
-        cells=[nbformat.v4.new_markdown_cell("# Validation metrics summary")]
-    )
-    notebook_path = source_notebook_dir / "001_methods.ipynb"
-    nbformat.write(notebook, notebook_path)
-
-    oceanval._write_offline_report_pages(str(output_dir), [str(notebook_path)])
-
-    assert 'class="oceanval-word-btn"' not in page.read_text()
-    assert "Download page as Word" not in page.read_text()
-    assert list(output_dir.rglob("*.docx")) == []
 
 
 def test_per_page_word_file_is_not_chapter_numbered(tmp_path):

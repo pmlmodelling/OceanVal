@@ -17,8 +17,8 @@ DOCS = os.path.join(os.path.dirname(os.path.dirname(__file__)), "docs-site", "re
 
 
 class TestCatalogue:
-    def test_every_gridded_recipe_has_units(self):
-        assert all(entry["units"] for entry in RECIPE_CATALOGUE)
+    # that every recipe has units OceanVal can read is checked in
+    # test_unit_conversion.py
 
     def test_the_website_lists_the_same_units(self):
         """https://pmlmodelling.github.io/OceanVal/recipes.html has a Units
@@ -38,10 +38,6 @@ class TestCatalogue:
             (entry["variable"], entry["recipe"]): entry["units"]
             for entry in RECIPE_CATALOGUE
         }
-
-
-    def test_every_point_recipe_has_units(self):
-        assert all(entry["units"] for entry in POINT_RECIPE_CATALOGUE)
 
     def test_the_website_lists_the_same_point_units(self):
         if not os.path.exists(DOCS):
@@ -83,6 +79,15 @@ class TestModelUnits:
         write_fvcom(str(tmp_path))
 
         assert units.model_units(str(tmp_path), 2, ["temp"]) == {"temp": "degree_C"}
+
+    def test_nothing_is_read_when_no_variable_is_asked_for(self, tmp_path, monkeypatch):
+        # as when no dataset is ticked in the recipes window
+        write_simulation(tmp_path)
+        monkeypatch.setattr(
+            units.xr, "open_dataset", lambda *args, **kwargs: pytest.fail("a file was read")
+        )
+
+        assert units.model_units(str(tmp_path), 2, []) == {}
 
     def test_a_variable_without_units(self, tmp_path):
         folder = tmp_path / "2011" / "01"

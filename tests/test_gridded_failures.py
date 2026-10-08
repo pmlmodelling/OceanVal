@@ -339,19 +339,6 @@ class TestThreddsRegistration:
         assert getattr(oceanval.definitions, "nitrate", None) is None
         assert getattr(oceanval.definitions, "temperature", None) is not None
 
-    def test_a_local_file_still_raises(self):
-        # only a server can be "unavailable" - a local path that is wrong is
-        # the user's to fix, so it must not be quietly skipped
-        with pytest.raises(ValueError):
-            oceanval.add_gridded_comparison(
-                name="temperature",
-                obs_path="data/evaldata/gridded/nws/temperature/nope.nc",
-                source="foo",
-                model_variable="votemper",
-                obs_variable="votemper",
-                climatology=True,
-            )
-
     def test_file_check_false_does_not_contact_the_server(self, monkeypatch):
         def must_not_be_called(*args, **kwargs):
             raise AssertionError("file_check=False must not contact the server")

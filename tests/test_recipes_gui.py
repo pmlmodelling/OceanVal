@@ -705,26 +705,9 @@ class TestHosting:
         # FVCOM output is regridded onto z-levels
         assert self.app_page(own_vertical=True, fvcom=True).submit({"rows": []})[0] == 200
 
-    @pytest.mark.parametrize("action", ["matchup", "matchup_validate"])
-    def test_the_report_options_are_asked_for_elsewhere(self, browser, action):
-        """In the app they come once the matchups are checked, or when the
-        report is built later; matchup's own subset stays."""
-        recipe_page = RecipePage(
-            recipe_rows({"temperature": "thetao"}, "global"),
-            {"thetao"},
-            dict(CONTEXT, app={"action": action, "own_vertical": False}),
-            lambda *chosen: "/out/matchup.py",
-        )
-        url = recipe_page.start()
-        try:
-            page = browser.new_page()
-            page.goto(url)
-
-            for group in ("group-report", "group-detail", "group-regional"):
-                assert page.is_hidden(f"#{group}")
-            assert page.is_visible("#group-subset")
-        finally:
-            recipe_page.close()
+    # that the report options are asked for elsewhere in the app, and
+    # matchup's own subset stays, is checked in test_app.py's
+    # test_the_window_in_a_browser
 
 
 class TestModelVariablesTable:

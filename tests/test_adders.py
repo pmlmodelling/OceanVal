@@ -739,28 +739,6 @@ class TestPointRecipes:
         assert comparison["obs_path"] is None
         assert comparison["vertical"] is True
 
-    @pytest.mark.parametrize(
-        "name, parameter, dataset",
-        [
-            ("nitrate", "NTRAZZXX", "ICE"),
-            ("salinity", "PSALPR01", "CTD"),
-            ("ph", "PHXXZZXX", "ICE"),
-        ],
-    )
-    def test_ices_recipes_register_for_other_variables(self, name, parameter, dataset):
-        oceanval.reset()
-        oceanval.add_point_comparison(
-            recipe={name: "ices"},
-            model_variable="model_var",
-        )
-
-        variable = oceanval.definitions[name]
-        assert variable.model_variable == "model_var"
-        assert "ICES Oceanographic database" in variable.sources["ICES"]
-        comparison = variable.point_comparisons["ICES"]
-        assert comparison["recipe"] == {"parameter": parameter, "dataset": dataset}
-        assert comparison["obs_path"] is None
-
     def test_on_disk_comparisons_have_no_recipe(self, tmp_path):
         oceanval.reset()
         pd.DataFrame({"lon": [1.0], "lat": [50.0], "observation": [10.0]}).to_csv(

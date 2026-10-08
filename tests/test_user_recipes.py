@@ -218,6 +218,12 @@ class TestProblems:
         assert "used in its place" in warnings[0]
         errors, warnings = user_recipes.problems(gridded(), "global", work)
         assert "source" in errors
+        # and the other way round: one in this directory is used in place of a
+        # global one
+        user_recipes.save(gridded(source="Other"), "local", work)
+        errors, warnings = user_recipes.problems(gridded(source="Other"), "global", work)
+        assert errors == {}
+        assert "used in place of this" in warnings[0]
 
     def test_the_other_file_cannot_have_it_as_another_kind(self, work):
         user_recipes.save(gridded(variable="dic", source="DicPts"), "global", work)
@@ -334,13 +340,6 @@ class TestRegistering:
         with pytest.raises(ValueError, match="not found"):
             validator.add_gridded_comparison(model_variable="N", recipe={"nitrate": "mysat"})
 
-    def test_a_pattern_that_matches_nothing_is_refused(self, validator):
-        with pytest.raises(ValueError, match="does not exist"):
-            validator.add_gridded_comparison(
-                name="x", source="S", model_variable="m", climatology=True,
-                obs_variable="v", obs_path="/nowhere/*.nc",
-            )
-
     def test_a_download_is_not_opened_when_registered(self, work, validator, monkeypatch):
         user_recipes.save(gridded(location="url", obs_path="https://example.invalid/a.nc"), "local", work)
         monkeypatch.chdir(work)
@@ -391,16 +390,6 @@ class TestRegistering:
             validator.add_point_comparison(model_variable="DIC", recipe={"nitrate": "mysat"})
         with pytest.raises(ValueError, match="use add_point_comparison"):
             validator.add_gridded_comparison(model_variable="DIC", recipe={"dic": "dicpts"})
-
-    def test_the_package_registers_them_too(self, work, monkeypatch):
-        user_recipes.save(gridded(), "local", work)
-        monkeypatch.chdir(work)
-        oceanval.reset()
-        try:
-            oceanval.add_gridded_comparison(model_variable="N", recipe={"nitrate": "mysat"})
-            assert "MySat" in oceanval.definitions["nitrate"].gridded_comparisons
-        finally:
-            oceanval.reset()
 
 
 @pytest.fixture

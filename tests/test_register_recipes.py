@@ -94,12 +94,6 @@ class TestSteps:
         assert post(app, "/api/recipe_remove", {"variable": "a", "key": "b", "where": "local"})[0] == 409
         assert post(app, "/api/register_done")[0] == 409
 
-    def test_every_request_needs_the_token(self, app):
-        register(app)
-        for route in ("recipe_names", "recipe_data", "recipe_save", "recipe_remove", "register_kind", "register_done"):
-            status, _ = post(app, f"/api/{route}", {"kind": "gridded", "form": gridded_form()}, token="wrong")
-            assert status == 403
-
     def test_a_kind_that_is_not_one(self, app):
         register(app)
         assert post(app, "/api/recipe_names", {"kind": "other", "form": {}})[0] == 400

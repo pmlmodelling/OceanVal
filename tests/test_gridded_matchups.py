@@ -14,51 +14,9 @@ class TestFinal:
 
     def test_gridded(self):
 
-        oceanval.definitions.reset()
-
-        oceanval.add_gridded_comparison(
-            name = "temperature",
-            obs_path="data/evaldata/gridded/nws/temperature",
-            source = "foo",
-            model_variable = "votemper",
-            obs_variable = "votemper",
-            climatology = True,
-            start = 2000, 
-            end = 2010,
-            obs_adder = 273.15
-        )
-
-        oceanval.matchup(
-            sim_dir = "data/example",
-            start = 2000,
-            end = 2000,
-            ask = False,
-            cores = 1)
-        
-        assert os.path.exists("oceanval_matchups/gridded/temperature/foo_temperature_surface.nc")
-        assert os.path.exists("oceanval_matchups/gridded/temperature/foo_temperature_surface_definitions.pkl")
-        assert os.path.exists("oceanval_matchups/gridded/temperature/foo_matchup_dict.pkl")
-        assert os.path.exists("oceanval_matchups/gridded/temperature/foo_temperature_summary.pkl")
-        assert os.path.exists("oceanval_matchups/mapping.csv")
-        assert os.path.exists("oceanval_matchups/short_titles.pkl")
-        assert os.path.exists("oceanval_matchups/variables_matched.pkl")
-
-        ff = "oceanval_matchups/gridded/temperature/foo_matchup_dict.pkl"
-        with open(ff, 'rb') as f:
-            matchup_dict = pickle.load(f)
-            start = matchup_dict['start']
-            end = matchup_dict['end']
-            assert start == 2000
-            assert end == 2000
-        
-        ds = nc.open_data("oceanval_matchups/gridded/temperature/foo_temperature_surface.nc")
-        df = ds.to_dataframe().assign(diff = lambda x: x.model - x.observation)
-        # get absolute max difference
-        max_diff = np.abs(df['diff']).max()
-        assert max_diff < 1e-4
-#        shutil.rmtree("oceanval_matchups/gridded/temperature", ignore_errors=True)
+        # the surface climatology of data/evaldata against data/example is
+        # matched up and checked in TestMultipleSources
         shutil.rmtree("oceanval_matchups", ignore_errors=True)
-
         oceanval.reset()
 
         oceanval.add_gridded_comparison(

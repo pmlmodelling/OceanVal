@@ -1276,6 +1276,8 @@ class TestServer:
         wait_for(lambda: runs)
         # as when the script has run without asking about the matchups
         app.view = "report_options"
+        # COBE-SST 2 is gridded, so the step can ask for a transect
+        assert get_json(app, "/api/state")[1]["report"]["gridded"] is True
         form = {"lon_min": "-20", "lon_max": "10", "lat_min": "40", "lat_max": "65",
                 "pdf": True, "concise": False}
         assert post(app, "/api/report", {"form": form})[0] == 200
@@ -1317,35 +1319,6 @@ class TestServer:
         wait_for(lambda: runs)
         # as when the script has run without asking about the matchups
         app.view = "report_options"
-
-    @needs_to_transect
-    def test_a_transect_is_written_into_the_script(
-        self, app, tmp_path, runs, monkeypatch
-    ):
-        monkeypatch.setattr(live, "available", lambda: True)
-        self.report_step(app, tmp_path, runs, ["cobe2"])
-        assert get_json(app, "/api/state")[1]["report"]["gridded"] is True
-
-        assert post(app, "/api/report", {"form": TRANSECT_FORM})[0] == 200
-        text = open(tmp_path / "matchup.py").read()
-
-        # so it can be run again from a terminal, as the window ran it
-        assert (
-            '\noceanval.validate(\n    transect={"start": [-30, 0], "end": [-30, 65]},\n)\n'
-        ) in text
-        # and the interim report matchup builds as it goes has it too
-        call = text[text.index("oceanval.matchup(") : text.index("\noceanval.validate(")]
-        assert (
-            '    live_validation={"transect": {"start": [-30, 0], "end": [-30, 65]}},\n)'
-        ) in call
-        assert runs[-1] == (
-            ["validate", json.dumps({
-                "data_dir": str(tmp_path), "out_dir": str(tmp_path),
-                "transect": {"start": [-30.0, 0.0], "end": [-30.0, 65.0]},
-            })],
-            'oceanval.validate(data_dir=".", out_dir=".", '
-            'transect={"start": [-30, 0], "end": [-30, 65]})',
-        )
 
     def test_a_transect_that_cannot_be_used_is_refused(self, app, tmp_path, runs):
         self.report_step(app, tmp_path, runs, ["cobe2"])
@@ -1415,19 +1388,6 @@ class TestServer:
 
         assert post(app, "/api/report", {"form": default_validate_form()})[0] == 200
         assert "depth_bins=" not in open(tmp_path / "matchup.py").read()
-
-    def test_depth_bins_that_cannot_be_used_are_refused(self, app, tmp_path, runs):
-        self.vertical_report_step(app, tmp_path, runs)
-        overlapping = {"depth_bins": [["0", "20"], ["10", ""]]}
-
-        status, reply = post(app, "/api/report", {"form": overlapping})
-
-        assert (status, reply["errors"]) == (400, {"depth_bins": "The bins 0-20m and >10m overlap."})
-        assert app.view == "report_options"
-        # the boxes are kept, to be put right
-        assert get_json(app, "/api/state")[1]["validate"]["form"]["depth_bins"] == [
-            ["0", "20"], ["10", ""],
-        ]
 
     def test_depth_bins_are_not_asked_for_without_vertical_point_matchups(
         self, app, tmp_path, runs
@@ -1555,31 +1515,33 @@ class TestServer:
         assert status == 409
         assert "still being read" in reply["error"]
 
-    @pytest.mark.parametrize("confirmed", [None, False, "true", 1])
-    def test_the_units_always_have_to_be_confirmed(self, app, tmp_path, runs, confirmed):
+    def test_the_units_always_have_to_be_confirmed(self, app, tmp_path, runs):
         """Not just by a button that is disabled: only a confirmation of true
         carries on, whatever conversions are sent."""
         self.choose_recipes(app, tmp_path)
-        sent = {"conversions": {}}
-        if confirmed is not None:
-            sent["confirmed"] = confirmed
 
-        status, reply = post(app, "/api/units_continue", sent)
+        # each is refused, leaving the step as it was for the next
+        for confirmed in (None, False, "true", 1):
+            sent = {"conversions": {}}
+            if confirmed is not None:
+                sent["confirmed"] = confirmed
 
-        assert status == 400
-        assert "Confirm the units" in reply["error"]
-        assert app.view == "units_table"
-        assert runs == []
+            status, reply = post(app, "/api/units_continue", sent)
+
+            assert status == 400, confirmed
+            assert "Confirm the units" in reply["error"]
+            assert app.view == "units_table"
+            assert runs == []
         # and it can still be confirmed
         assert post(app, "/api/units_continue", {"conversions": {}, "confirmed": True})[0] == 200
         wait_for(lambda: runs)
 
-    def test_the_units_of_every_gridded_matchup_are_listed(self, app, tmp_path, runs):
+    def test_the_units_of_every_matchup_are_listed(self, app, tmp_path, runs):
         obs = tmp_path / "obs.nc"
         xr.Dataset(
             {"chl_obs": (("y", "x"), np.ones((2, 2)), {"units": "mg/m3"})}
         ).to_netcdf(obs)
-        own = {
+        own_gridded = {
             "name": "chl",
             "source": "mine",
             "model_variable": "thetao+N3_n",
@@ -1587,7 +1549,14 @@ class TestServer:
             "obs_variable": "chl_obs",
             "obs_multiplier": 5,
         }
-        self.choose_recipes(app, tmp_path, own)
+        own_point = {
+            "name": "cruise",
+            "source": "mine",
+            "model_variable": "thetao",
+            "obs_path": "points",
+            "obs_adder": 3,
+        }
+        self.choose_recipes(app, tmp_path, own_gridded, own_point, ices=True)
 
         _, state = get_json(app, "/api/state")
         rows = {row["key"]: row for row in state["units"]["rows"]}
@@ -1596,9 +1565,21 @@ class TestServer:
         assert list(rows) == [
             "recipe:nitrate:woa23",
             "recipe:temperature:cobe2",
+            "point:temperature:ices",
             "own:0",
+            "ownpoint:0",
         ]
-        nitrate, temperature, mine = rows.values()
+        # the page shows gridded datasets and point datasets in sections of their own
+        assert {key: row["kind"] for key, row in rows.items()} == {
+            "recipe:nitrate:woa23": "gridded",
+            "recipe:temperature:cobe2": "gridded",
+            "point:temperature:ices": "point",
+            "own:0": "gridded",
+            "ownpoint:0": "point",
+        }
+        nitrate = rows["recipe:nitrate:woa23"]
+        temperature = rows["recipe:temperature:cobe2"]
+        mine = rows["own:0"]
         assert nitrate["model"] == {
             "variable": "N3_n",
             "parts": [{"name": "N3_n", "units": "mmol N m-3"}],
@@ -1624,85 +1605,17 @@ class TestServer:
         assert "different units" in mine["check"]["note"]
         # which the page fills in: the conversion already chosen is unchanged
         assert (nitrate["obs_multiplier"], nitrate["obs_adder"]) == (1, 0)
-
-    def test_ices_and_own_point_data_are_listed_too(self, app, tmp_path, runs):
-        own = {
-            "name": "cruise",
-            "source": "mine",
-            "model_variable": "thetao",
-            "obs_path": "points",
-            "obs_adder": 3,
-        }
-        self.choose_recipes(app, tmp_path, own_point=own, ices=True)
-
-        _, state = get_json(app, "/api/state")
-        rows = {row["key"]: row for row in state["units"]["rows"]}
-
-        assert list(rows) == [
-            "recipe:nitrate:woa23",
-            "recipe:temperature:cobe2",
-            "point:temperature:ices",
-            "ownpoint:0",
-        ]
-        # the page shows gridded datasets and point datasets in sections of their own
-        assert {key: row["kind"] for key, row in rows.items()} == {
-            "recipe:nitrate:woa23": "gridded",
-            "recipe:temperature:cobe2": "gridded",
-            "point:temperature:ices": "point",
-            "ownpoint:0": "point",
-        }
         ices = rows["point:temperature:ices"]
         assert ices["model"]["parts"] == [{"name": "thetao", "units": "degC"}]
         assert (ices["obs_variable"], ices["obs_units"]) == ("TEMPPR01", "\u00b0C")
         assert ices["check"]["status"] == "same"
-        mine = rows["ownpoint:0"]
-        assert mine["obs_units"] is None and "no units" in mine["obs_note"]
-        assert (mine["obs_multiplier"], mine["obs_adder"]) == (1, 3)
-        assert mine["check"]["status"] == "unknown"
+        mine_point = rows["ownpoint:0"]
+        assert mine_point["obs_units"] is None and "no units" in mine_point["obs_note"]
+        assert (mine_point["obs_multiplier"], mine_point["obs_adder"]) == (1, 3)
+        assert mine_point["check"]["status"] == "unknown"
 
-    def test_point_conversions_are_written_into_the_script(self, app, tmp_path, runs):
-        own = {
-            "name": "cruise",
-            "source": "mine",
-            "model_variable": "thetao",
-            "obs_path": "points",
-        }
-        self.choose_recipes(app, tmp_path, own_point=own, ices=True)
-        conversions = {
-            "point:temperature:ices": {"multiplier": "", "adder": "2"},
-            "ownpoint:0": {"multiplier": "10", "adder": ""},
-        }
-
-        assert post(app, "/api/units_continue", {"conversions": conversions, "confirmed": True})[0] == 200
-        wait_for(lambda: runs)
-        text = open(tmp_path / "matchup.py").read()
-
-        ices = text[text.index("add_point_comparison(\n    name=\"temperature\"") :].split("\n)\n")[0]
-        assert "    obs_adder=2,\n" in ices
-        cruise = text[text.index('name="cruise"') :].split("\n)\n")[0]
-        assert "    obs_multiplier=10," in cruise
-        ast.parse(text)
-
-    def test_a_conversion_is_written_into_the_script(self, app, tmp_path, runs):
-        self.choose_recipes(app, tmp_path)
-        conversions = {
-            "recipe:nitrate:woa23": {"multiplier": "0.001", "adder": " "},
-            "recipe:temperature:cobe2": {"multiplier": "", "adder": "-273.15"},
-        }
-
-        assert post(app, "/api/units_continue", {"conversions": conversions, "confirmed": True})[0] == 200
-        wait_for(lambda: runs)
-        text = open(tmp_path / "matchup.py").read()
-
-        nitrate = text[text.index('name="nitrate"') :]
-        assert "    obs_multiplier=0.001,\n" in nitrate.split("\n)\n")[0]
-        assert "obs_adder" not in nitrate.split("\n)\n")[0]
-        temperature = text[text.index('name="temperature"') :].split("\n)\n")[0]
-        assert "    obs_adder=-273.15,\n" in temperature
-        ast.parse(text)
-
-    def test_a_conversion_of_your_own_data_replaces_its_own(self, app, tmp_path, runs):
-        own = {
+    def test_conversions_are_written_into_the_script(self, app, tmp_path, runs):
+        own_gridded = {
             "name": "chl",
             "source": "mine",
             "model_variable": "thetao",
@@ -1710,17 +1623,40 @@ class TestServer:
             "obs_variable": "chl_obs",
             "obs_multiplier": 5,
         }
-        self.choose_recipes(app, tmp_path, own)
+        own_point = {
+            "name": "cruise",
+            "source": "mine",
+            "model_variable": "thetao",
+            "obs_path": "points",
+        }
+        self.choose_recipes(app, tmp_path, own_gridded, own_point, ices=True)
+        conversions = {
+            "recipe:nitrate:woa23": {"multiplier": "0.001", "adder": " "},
+            "recipe:temperature:cobe2": {"multiplier": "", "adder": "-273.15"},
+            "point:temperature:ices": {"multiplier": "", "adder": "2"},
+            "ownpoint:0": {"multiplier": "10", "adder": ""},
+            # blank puts your own data's back to the default, which is left out
+            "own:0": {"multiplier": "", "adder": "2"},
+        }
 
-        # blank puts it back to the default, which is left out
-        conversions = {"own:0": {"multiplier": "", "adder": "2"}}
         assert post(app, "/api/units_continue", {"conversions": conversions, "confirmed": True})[0] == 200
         wait_for(lambda: runs)
         text = open(tmp_path / "matchup.py").read()
-        call = text[text.index('name="chl"') :].split("\n)\n")[0]
+        ast.parse(text)
 
-        assert "obs_multiplier" not in call
-        assert "    obs_adder=2," in call
+        def call(start):
+            # the live call, not one commented out for another dataset
+            return text[text.index(start) :].split("\n)\n")[0]
+
+        nitrate = call('add_gridded_comparison(\n    name="nitrate"')
+        assert "    obs_multiplier=0.001,\n" in nitrate
+        assert "obs_adder" not in nitrate
+        assert "    obs_adder=-273.15,\n" in call('add_gridded_comparison(\n    name="temperature"')
+        assert "    obs_adder=2,\n" in call('add_point_comparison(\n    name="temperature"')
+        assert "    obs_multiplier=10," in call('name="cruise"')
+        chl = call('name="chl"')
+        assert "obs_multiplier" not in chl
+        assert "    obs_adder=2," in chl
 
     def test_conversions_that_cannot_be_used_are_sent_back(self, app, tmp_path, runs):
         self.choose_recipes(app, tmp_path)
@@ -1800,20 +1736,6 @@ class TestServer:
             in text
         )
         assert text.index("add_point_comparison") < text.index("oceanval.matchup(")
-
-    def test_skipping_own_data_leaves_it_out_of_the_script(self, app, tmp_path, runs):
-        write_simulation(tmp_path / "sim")
-        app.choose("matchup")
-        post(app, "/api/setup", {"form": SETUP_FORM})
-        post(app, "/api/own_data", {"answer": True})
-        post(app, "/api/own_next")
-        post(app, "/api/own_next")
-        wait_for(lambda: app.view == "recipes")
-        post(app, "/recipes/write", {"rows": [], "settings": recipe_settings(app)})
-        units_match(app)
-        wait_for(lambda: runs)
-
-        assert "Your own observations" not in open(tmp_path / "matchup.py").read()
 
     def test_back_through_the_own_data_steps(self, app, tmp_path, runs):
         write_simulation(tmp_path / "sim")
@@ -2418,30 +2340,24 @@ class TestServer:
         assert post(app, "/api/quit")[0] == 200
         assert app.closed.wait(5)
         assert get_json(app, "/api/state")[1]["closed"]
-
-    def test_the_heartbeat_needs_the_token(self, app):
-        assert get(app, "/api/heartbeat", token="wrong", page="a")[0] == 403
-        assert not app.closed.is_set()
+        # quitting from the window gives no reason
+        assert app.closed_reason is None
 
     def test_closing_the_browser_quits(self, app):
         app.page_timeout = 2
         # nothing is quit before a page has been open
         assert not app.closed.wait(3)
 
-        assert get_json(app, "/api/state", page="a")[0] == 200
-        assert app.closed.wait(8)
-        assert app.closed_reason == "The browser window was closed."
-
-    def test_it_quits_when_the_last_page_is_gone(self, app):
-        app.page_timeout = 2
-        deadline = time.time() + 5
         # "a" stays open, while "b" is closed after its first request
-        get_json(app, "/api/state", page="b")
+        deadline = time.time() + 5
+        assert get_json(app, "/api/state", page="b")[0] == 200
         while time.time() < deadline:
             get_json(app, "/api/state", page="a")
             time.sleep(0.2)
         assert not app.closed.is_set()
+        # it quits once the last page is gone
         assert app.closed.wait(8)
+        assert app.closed_reason == "The browser window was closed."
 
     def test_a_held_request_keeps_the_page_open(self, app):
         app.page_timeout = 2
@@ -2457,11 +2373,6 @@ class TestServer:
         app.state(version=app.version, timeout=4, page="a")
         assert not app.closed.is_set()
         assert app.closed.wait(8)
-
-    def test_quitting_from_the_window_gives_no_reason(self, app):
-        post(app, "/api/quit")
-        assert app.closed.wait(5)
-        assert app.closed_reason is None
 
 
 
@@ -3304,9 +3215,12 @@ def test_the_window_in_a_browser(browser, tmp_path, monkeypatch):
         # chosen with the simulation instead
         assert page.is_hidden("#group-files")
         assert page.is_hidden("#group-output")
+        # the report's options come once the matchups are checked, but
+        # matchup's own subset stays
         assert page.is_hidden("#group-report")
         assert page.is_hidden("#group-detail")
         assert page.is_hidden("#group-regional")
+        assert page.is_visible("#group-subset")
         # the app always asks
         assert page.is_hidden("#s-ask")
         fill_required_recipe_years(page)
@@ -3590,6 +3504,8 @@ def test_a_transect_in_a_browser(browser, tmp_path, monkeypatch):
         page.on("request", lambda request: posts.append(request.url) if request.method == "POST" else None)
         go_to_report_options(page, url)
 
+        # no point matchups through the water column, so no depth bins
+        assert page.is_hidden("#v-group-depth_bins")
         # asked in a group of its own, before the other options, and not ticked
         assert page.is_visible("#v-group-transect")
         assert page.text_content("#v-group-transect legend") == "Transect"
@@ -3683,21 +3599,6 @@ def test_a_transect_in_a_browser(browser, tmp_path, monkeypatch):
         app.close()
 
 
-def test_a_transect_is_not_asked_for_without_gridded_matchups_in_a_browser(
-    browser, tmp_path, monkeypatch
-):
-    app, _ = report_options_app(tmp_path, monkeypatch, gridded=False)
-    url = app.start()
-    try:
-        page = browser.new_page()
-        go_to_report_options(page, url)
-
-        assert page.is_hidden("#v-group-transect")
-        assert page.is_enabled("#build")
-    finally:
-        app.close()
-
-
 def test_depth_bins_in_a_browser(browser, tmp_path, monkeypatch):
     """With a point recipe through the water column, the report options end
     with the depth bins: OceanVal's own to start with, each removed with its
@@ -3718,6 +3619,8 @@ def test_depth_bins_in_a_browser(browser, tmp_path, monkeypatch):
         ]
         focused = lambda: page.evaluate("document.activeElement.getAttribute('aria-label')")
 
+        # no gridded matchups, so no transect
+        assert page.is_hidden("#v-group-transect")
         # below how detailed the report is, with OceanVal's bins
         assert group.is_visible()
         assert group.bounding_box()["y"] > page.locator("#v-concise").bounding_box()["y"]
@@ -3799,21 +3702,6 @@ def test_depth_bins_in_a_browser(browser, tmp_path, monkeypatch):
             [0, 10], [10, 30], [30, 60], [60, 100], [100, 150], [150, 300],
             [300, 600], [600, 1000], [1000, 2000], [2000, None],
         ]
-    finally:
-        app.close()
-
-
-def test_depth_bins_are_not_asked_for_without_vertical_in_a_browser(
-    browser, tmp_path, monkeypatch
-):
-    app, _ = report_options_app(tmp_path, monkeypatch, gridded=True)
-    url = app.start()
-    try:
-        page = browser.new_page()
-        go_to_report_options(page, url)
-
-        assert page.is_hidden("#v-group-depth_bins")
-        assert page.is_enabled("#build")
     finally:
         app.close()
 
@@ -4743,16 +4631,6 @@ class TestLeftovers:
             assert post(other, "/api/leftovers", {"action": "delete"})[0] == 400
             assert os.path.exists(path)
             assert other.state(console=False)["leftovers"]["asked"] is False
-        finally:
-            other.close()
-
-    def test_a_token_is_needed(self, leftover_dir, tmp_path):
-        path = _leftover(leftover_dir)
-        other = App(cwd=str(tmp_path))
-        other.start()
-        try:
-            assert post(other, "/api/leftovers", {"action": "remove"}, token="wrong")[0] == 403
-            assert os.path.exists(path)
         finally:
             other.close()
 

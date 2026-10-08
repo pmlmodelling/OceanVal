@@ -12,7 +12,7 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from oceanval import recipe_checks, recipe_forms, user_recipes
+from oceanval import recipe_checks, recipe_forms
 from oceanval.recipe_checks import CheckFailed, RemoteCheck, inspect_gridded, inspect_point
 
 NITRATE_DIR = os.path.abspath("data/evaldata/gridded/nws/nitrate")
@@ -311,16 +311,6 @@ class TestForms:
             "gridded", form(obs_path=path, obs_variable="chl", climatology="no"), str(tmp_path)
         )
         assert errors == {} and recipe["depth_resolved"] is True
-
-    def test_a_recipe_that_is_there_already(self, tmp_path):
-        user_recipes.save(
-            {**recipe_forms.check_save("gridded", form(), str(tmp_path))[0]}, "local", str(tmp_path)
-        )
-        recipe, errors, _, _ = recipe_forms.check_save("gridded", form(), str(tmp_path))
-        assert recipe is None and "already" in errors["source"]
-        # in the other file, it is allowed, and warned about
-        recipe, errors, warnings, _ = recipe_forms.check_save("gridded", form(where="global"), str(tmp_path))
-        assert errors == {} and "used in place" in warnings[0]
 
     def test_a_point_form(self, tmp_path):
         recipe, errors, _, _ = recipe_forms.check_save(

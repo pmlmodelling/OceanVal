@@ -103,15 +103,40 @@ FVCOM_VARIABLES = {
 }
 
 
-@pytest.fixture
-def simulation(tmp_path):
-    """A two year simulation, filed as sim/<year>/<month>/<files>."""
-    root = tmp_path / "sim"
+def write_simulation(root):
+    """A two year simulation, filed as root/<year>/<month>/<files>."""
     for year, month in (("2011", "01"), ("2012", "06")):
         stem = f"nemo_1m_{year}{month}01_{year}{month}28"
         write_netcdf(str(root / year / month / f"{stem}_grid_T.nc"), GRID_VARIABLES)
         write_netcdf(str(root / year / month / f"{stem}_ptrc_T.nc"), TRACER_VARIABLES)
     return str(root)
+
+
+@pytest.fixture
+def simulation(tmp_path):
+    """A two year simulation, filed as sim/<year>/<month>/<files>."""
+    return write_simulation(tmp_path / "sim")
+
+
+@pytest.fixture(scope="module")
+def scripts(tmp_path_factory):
+    """The script create_recipes writes from the two year simulation for
+    2011-2012, for each domain, which the tests that only read it share."""
+    folder = tmp_path_factory.mktemp("scripts")
+    simdir = write_simulation(folder / "sim")
+    written = {}
+    # conftest.py's oceanvalrc fixture is not set up yet for a fixture of the
+    # module, so keep the user's own recipes out of the scripts here
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setenv("OCEANVALRC", str(folder / ".oceanvalrc"))
+        for domain in ("global", "nwes"):
+            out = str(folder / f"{domain}.py")
+            oceanval.create_recipes(
+                simdir=simdir, ndown=2, out=out, domain=domain, start=2011, end=2012,
+                ask=False, gui=False,
+            )
+            written[domain] = open(out).read()
+    return written
 
 
 @pytest.fixture
@@ -442,22 +467,12 @@ class TestVariableIdentification:
 
 
 class TestGeneratedScript:
-    def test_the_script_is_valid_python(self, simulation, tmp_path):
-        out = str(tmp_path / "matchup.py")
-        oceanval.create_recipes(
-            simdir=simulation, ndown=2, out=out, domain="global", start=2011, end=2012,
-            ask=False, gui=False,
-        )
+    def test_the_script_is_valid_python(self, scripts):
+        for script in scripts.values():
+            ast.parse(script)
 
-        ast.parse(open(out).read())
-
-    def test_matched_recipes_carry_the_model_variable(self, simulation, tmp_path):
-        out = str(tmp_path / "matchup.py")
-        oceanval.create_recipes(
-            simdir=simulation, ndown=2, out=out, domain="global", start=2011, end=2012,
-            ask=False, gui=False,
-        )
-        script = open(out).read()
+    def test_matched_recipes_carry_the_model_variable(self, scripts):
+        script = scripts["global"]
 
         assert 'model_variable="thetao"' in script
         assert 'recipe={"temperature": "cobe2"},' in script
@@ -488,15 +503,8 @@ class TestGeneratedScript:
         # the placeholder from the published example is left to be filled in
         assert '#     model_variable="talk",' in script
 
-    def test_one_recipe_stays_live_per_observational_variable(
-        self, simulation, tmp_path
-    ):
-        out = str(tmp_path / "matchup.py")
-        oceanval.create_recipes(
-            simdir=simulation, ndown=2, out=out, domain="global", start=2011, end=2012,
-            ask=False, gui=False,
-        )
-        script = open(out).read()
+    def test_one_recipe_stays_live_per_observational_variable(self, scripts):
+        script = scripts["global"]
 
         # by default only one recipe per variable is left live - the others
         # are written out commented, to be added as further sources
@@ -508,13 +516,8 @@ class TestGeneratedScript:
         assert len(live) == len(set(live))
         assert "# The Global recipe for temperature is registered instead." in script
 
-    def test_domain_prefers_the_matching_regions_recipe(self, simulation, tmp_path):
-        out = str(tmp_path / "matchup.py")
-        oceanval.create_recipes(
-            simdir=simulation, ndown=2, out=out, domain="nwes", start=2011, end=2012,
-            ask=False, gui=False,
-        )
-        script = open(out).read()
+    def test_domain_prefers_the_matching_regions_recipe(self, scripts):
+        script = scripts["nwes"]
 
         # temperature has a recipe in both regions; nwes must win, and the
         # global ones (cobe2 and woa23) become the commented alternatives
@@ -537,17 +540,10 @@ class TestGeneratedScript:
         ]
         assert len(live) == len(set(live))
 
-    def test_domain_falls_back_when_the_region_has_no_recipe(
-        self, simulation, tmp_path
-    ):
-        out = str(tmp_path / "matchup.py")
+    def test_domain_falls_back_when_the_region_has_no_recipe(self, scripts):
         # nitrate is identified (N3_n) but NWES has no nitrate recipe of its
         # own to prefer, so the global woa23 one stays live either way
-        oceanval.create_recipes(
-            simdir=simulation, ndown=2, out=out, domain="nwes", start=2011, end=2012,
-            ask=False, gui=False,
-        )
-        script = open(out).read()
+        script = scripts["nwes"]
 
         assert 'name="nitrate",' in script
         assert 'recipe={"nitrate": "woa23"},' in script
@@ -571,15 +567,8 @@ class TestGeneratedScript:
         assert "end=2013," in script
         assert "oceanval.validate()" in script
 
-    def test_woa23_recipes_get_the_decadal_period_covering_the_given_years(
-        self, simulation, tmp_path
-    ):
-        out = str(tmp_path / "matchup.py")
-        oceanval.create_recipes(
-            simdir=simulation, ndown=2, out=out, domain="global", start=2011, end=2012,
-            ask=False, gui=False,
-        )
-        script = open(out).read()
+    def test_woa23_recipes_get_the_decadal_period_covering_the_given_years(self, scripts):
+        script = scripts["global"]
 
         # WOA23 temperature and salinity are published per decade, and
         # find_recipe rejects a start/end that straddles two of them
@@ -619,13 +608,8 @@ class TestGeneratedScript:
 
 
 class TestPointRecipes:
-    def test_ices_recipes_are_included_when_domain_is_nwes(self, simulation, tmp_path):
-        out = str(tmp_path / "matchup.py")
-        oceanval.create_recipes(
-            simdir=simulation, ndown=2, out=out, domain="nwes", start=2011, end=2012,
-            ask=False, gui=False,
-        )
-        script = open(out).read()
+    def test_ices_recipes_are_included_when_domain_is_nwes(self, scripts):
+        script = scripts["nwes"]
 
         assert script.count("add_point_comparison(") == len(POINT_RECIPE_CATALOGUE)
         assert 'recipe={"temperature": "ices"}' in script
@@ -634,13 +618,8 @@ class TestPointRecipes:
         assert '\noceanval.add_point_comparison(\n    name="temperature",' in script
         assert "No temperature variable was found" not in script
 
-    def test_ices_recipes_are_excluded_when_domain_is_global(self, simulation, tmp_path):
-        out = str(tmp_path / "matchup.py")
-        oceanval.create_recipes(
-            simdir=simulation, ndown=2, out=out, domain="global", start=2011, end=2012,
-            ask=False, gui=False,
-        )
-        script = open(out).read()
+    def test_ices_recipes_are_excluded_when_domain_is_global(self, scripts):
+        script = scripts["global"]
 
         assert "add_point_comparison(" not in script
         assert '"ices"' not in script

@@ -33,6 +33,8 @@ def test_recipe_returns_required_metadata(name, source):
     assert result["source"]
     assert isinstance(result["climatology"], bool)
     assert result["thredds"] is ("glodap" not in source.lower())
+    # every recipe here is gridded
+    assert result["point"] is False
 
 
 @pytest.mark.parametrize(
@@ -206,11 +208,3 @@ def test_ices_recipe_parameter_codes_are_unique():
 def test_ices_has_no_recipe_for_variables_outside_its_10():
     with pytest.raises(ValueError, match="not valid"):
         find_recipe({"kd490": "ices"})
-
-
-@pytest.mark.parametrize("name, source", RECIPE_CASES)
-def test_gridded_recipes_are_not_point_recipes(name, source):
-    start = 2005 if source == "woa23" and name in {"temperature", "salinity"} else None
-    end = 2014 if start is not None else None
-
-    assert find_recipe({name: source}, start=start, end=end)["point"] is False

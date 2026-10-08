@@ -91,22 +91,6 @@ class TestOptions:
         assert options["transect"] == {"start": [-30.0, 0.0], "end": [-30.0, 65.0]}
         assert all(isinstance(x, float) for x in options["transect"]["start"])
 
-    @pytest.mark.parametrize(
-        "transect, error",
-        [
-            ({"start": [-30, 0], "end": [-20, 65]}, "must run north-south"),
-            ({"start": [-30, 0], "end": [-30, 0]}, "the same point"),
-            ({"start": [-30, 0]}, "two keys, start and end"),
-            ({"start": [-30, 0], "end": [-30]}, "end must be \\[lon, lat\\]"),
-            ({"start": [-30, 95], "end": [-30, 0]}, "latitude must be between -90 and 90"),
-        ],
-    )
-    def test_a_transect_that_cannot_be_used_is_refused(self, transect, error):
-        with pytest.raises(ValueError, match=error):
-            check_options({"transect": transect}, "/run")
-        with pytest.raises(TypeError, match="transect must be a dict"):
-            check_options({"transect": "30W"}, "/run")
-
     def test_depth_bins_are_checked_and_kept(self):
         options = check_options({"depth_bins": [[20, None], [0, 20]]}, "/run")
 
@@ -129,14 +113,11 @@ class TestOptions:
         with pytest.raises(TypeError, match="live_validation must be True, or a dict"):
             check_options("yes", "/run")
 
+    # the others are validate's own checks, tested in test_validate.py
     @pytest.mark.parametrize(
         "options, error",
         [
-            ({"lon_lim": "x"}, "lon_lim must be a list"),
-            ({"lat_lim": [40]}, "lat_lim must be a list of length 2"),
-            ({"concise": "no"}, "concise must be a boolean"),
             ({"fixed_scale": 1}, "fixed_scale must be a boolean"),
-            ({"subregions": "atlantis"}, "subregions must be 'nwes', 'global' or a path"),
             ({"test": "yes"}, "test must be a boolean"),
         ],
     )

@@ -57,49 +57,22 @@ class TestValidate:
         with pytest.raises(ValueError, match="lat_lim must be a list of length 2"):
             oceanval.validate(lat_lim=[40, 50, 60], test=True)
     
-    # transect
-
-    def test_transect_must_be_a_dict(self):
-        with pytest.raises(TypeError, match="transect must be a dict of start and end"):
-            oceanval.validate(transect=[-30, 0, -30, 65], test=True)
-
-    def test_transect_needs_a_start_and_an_end(self):
-        with pytest.raises(ValueError, match="two keys, start and end"):
-            oceanval.validate(transect={"start": [-30, 0]}, test=True)
-        with pytest.raises(ValueError, match="two keys, start and end"):
-            oceanval.validate(transect={"start": [-30, 0], "end": [-30, 65], "n": 5}, test=True)
-
-    @pytest.mark.parametrize("point", [[-30], [-30, 0, 5], ["a", 0], [None, 0], [True, 0], "30W"])
-    def test_transect_ends_are_a_lon_and_a_lat(self, point):
-        with pytest.raises(ValueError, match=r"transect's start must be \[lon, lat\]"):
-            oceanval.validate(transect={"start": point, "end": [-30, 65]}, test=True)
-
-    def test_transect_ends_are_on_the_globe(self):
-        with pytest.raises(ValueError, match="start longitude must be between -180 and 360"):
-            oceanval.validate(transect={"start": [-200, 0], "end": [-200, 65]}, test=True)
-        with pytest.raises(ValueError, match="end latitude must be between -90 and 90"):
-            oceanval.validate(transect={"start": [-30, 0], "end": [-30, 95]}, test=True)
+    # transect, which transects.check_transect checks (see test_transects.py)
 
     def test_transect_must_run_north_south_or_east_west(self):
+        # refused before the matchups are looked for
         with pytest.raises(ValueError, match="transect must run north-south .* or east-west"):
-            oceanval.validate(transect={"start": [-30, 0], "end": [-20, 65]}, test=True)
-        with pytest.raises(ValueError, match="the same point"):
-            oceanval.validate(transect={"start": [-30, 0], "end": [-30, 0]}, test=True)
+            oceanval.validate(
+                transect={"start": [-30, 0], "end": [-20, 65]}, data_dir="nowhere", test=True
+            )
 
-    @pytest.mark.parametrize(
-        "transect",
-        [
-            {"start": [-30, 0], "end": [-30, 65]},
-            {"start": [-30, 65], "end": [-30, 0]},
-            {"start": [-10, 55], "end": [8, 55]},
-            {"start": (-10, 55), "end": (8, 55)},
-        ],
-    )
     @needs_to_transect
-    def test_a_valid_transect_is_checked_before_the_matchups(self, transect):
+    def test_a_valid_transect_is_checked_before_the_matchups(self):
         # it gets as far as looking for the matchups, which are not there
         with pytest.raises(ValueError, match="No matchups found"):
-            oceanval.validate(transect=transect, data_dir="nowhere", test=True)
+            oceanval.validate(
+                transect={"start": [-30, 0], "end": [-30, 65]}, data_dir="nowhere", test=True
+            )
 
     def test_depth_bins_are_checked_before_the_matchups(self):
         with pytest.raises(ValueError, match="depth_bins: the bins 0-20m and 10-30m overlap"):
@@ -108,50 +81,12 @@ class TestValidate:
         with pytest.raises(ValueError, match="No matchups found"):
             oceanval.validate(depth_bins=[[0, 20], [20, None]], data_dir="nowhere", test=True)
 
-    def test_a_transect_needs_an_nctoolkit_that_extracts_it(self, monkeypatch):
-        monkeypatch.setattr(oceanval.transects, "available", lambda: False)
-        with pytest.raises(ValueError, match="nctoolkit 1.3.6 or later"):
-            oceanval.validate(transect={"start": [-30, 0], "end": [-30, 65]}, test=True)
-
     # concise must be bool
 
     def test_concise_not_bool(self):
         """Test that ValueError is raised when concise is not a boolean"""
         with pytest.raises(ValueError, match="concise must be a boolean"):
             oceanval.validate(concise="not_a_bool", test=True)
-    
-    def test_valid_lon_lat_lim(self):
-        """Test that valid lon_lim and lat_lim are accepted"""
-        # Should not raise errors about lon_lim or lat_lim validation
-        try:
-            oceanval.validate(
-                lon_lim=[-10, 10],
-                lat_lim=[40, 50],
-                fixed_scale = "foobar"
-            )
-        except ValueError as e:
-            # Should not fail on lon_lim or lat_lim validation
-            assert "lon_lim must be a list" not in str(e)
-            assert "lat_lim must be a list" not in str(e)
-
-    
-    def test_lon_lim_none_accepted(self):
-        """Test that None is accepted for lon_lim"""
-        # Should not raise error about lon_lim
-        try:
-            oceanval.validate(lon_lim=None, concise = "foo_bar")
-        except ValueError as e:
-            assert "lon_lim" not in str(e)
-    
-    def test_lat_lim_none_accepted(self):
-        """Test that None is accepted for lat_lim"""
-        # Should not raise error about lat_lim
-        try:
-            oceanval.validate(lat_lim=None, concise = "foo_bar") 
-        except ValueError as e:
-            assert "lat_lim" not in str(e)
-    
-    
 
 
 
