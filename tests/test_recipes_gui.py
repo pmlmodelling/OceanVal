@@ -897,9 +897,11 @@ class TestChooseRecipes:
             return "/out/matchup.py"
 
         def open_browser(url):
-            # the user ticks WOA23 and clicks Write script
+            # the user ticks WOA23 and clicks Write script. Posted here rather
+            # than from a thread of its own, whose failure would leave the
+            # page waiting for ever
             rows = [{"variable": "temperature", "model_variable": "thetao", "selected": ["woa23"]}]
-            threading.Thread(target=_post, args=(url, "/write", {"rows": rows})).start()
+            assert _post(url, "/write", {"rows": rows})[0] == 200
             return True
 
         monkeypatch.setattr(recipes_gui, "_can_open_browser", lambda: True)
@@ -921,7 +923,7 @@ class TestChooseRecipes:
 
         def cancel_then_wait(page):
             # the user follows the printed link, and cancels
-            threading.Thread(target=_post, args=(page.url, "/cancel", {})).start()
+            assert _post(page.url, "/cancel", {})[0] == 200
             return wait(page)
 
         monkeypatch.setattr(recipes_gui, "_can_open_browser", lambda: False)

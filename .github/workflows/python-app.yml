@@ -17,6 +17,9 @@ jobs:
   build:
 
     runs-on: "ubuntu-latest" 
+    # a run normally takes about 10 minutes, so a stalled one is stopped long
+    # before GitHub's own six hour limit
+    timeout-minutes: 45
 
     # The suite is split over two jobs that run side by side. Each job has its own
     # checkout, which matters: the matchup tests share cwd-relative output folders.
@@ -34,7 +37,7 @@ jobs:
         with:
           micromamba-version: '1.4.5-0'
           environment-name: foo
-          create-args: nctoolkit cmocean cartopy pandoc python=3.13 rpy2 r-base r-tidyverse r-ggtext jupyter-book r-mapdata texlive-core nodejs=22.23.2
+          create-args: nctoolkit cmocean cartopy pandoc python=3.13 rpy2 r-base r-tidyverse r-ggtext jupyter-book>=2 r-mapdata texlive-core nodejs=22.23.2
           init-shell: >-
             bash
           cache-environment: true
@@ -48,7 +51,14 @@ jobs:
           python -m pip install .
           pip install pyarrow
           pip install rioxarray
-          pip install pytest
+          pip install pytest pytest-timeout
+
+      # with jupyter-book 1 the reports are built the old way and the interim
+      # report cannot be built at all, so make sure the solver gave us 2
+      - name: Check jupyter-book is version 2
+        shell: bash -l {0}
+        run: |
+          python -c "from importlib.metadata import version; v = version('jupyter-book'); print('jupyter-book', v); assert int(v.split('.')[0]) >= 2, f'jupyter-book {v} is installed, the tests need 2'"
 
       - name: Test with pytest (group ${{ matrix.group }} of 2)
         shell: bash -l {0}
@@ -56,9 +66,13 @@ jobs:
           # Group 1 is the slow matchup tests; group 2 is every other test file, so a
           # new test file is always picked up by one of the two groups.
           GROUP1="tests/test_gridded_matchups.py tests/test_point_matchups.py tests/test_matchup_formula.py tests/test_transect_report.py"
+          # -v names each test as it starts, and a test still running after
+          # 15 minutes ends the run with every thread's stack, so a stall shows
+          # which test it is and where it is stuck
+          OPTIONS="-v --timeout=900 --timeout-method=thread"
           if [ "${{ matrix.group }}" = "1" ]; then
-            pytest $GROUP1
+            python -m pytest $OPTIONS $GROUP1
           else
-            pytest tests $(for f in $GROUP1; do echo --ignore=$f; done)
+            python -m pytest $OPTIONS tests $(for f in $GROUP1; do echo --ignore=$f; done)
           fi
       

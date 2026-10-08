@@ -34,7 +34,7 @@ jobs:
         with:
           micromamba-version: '1.4.5-0'
           environment-name: foo
-          create-args: nctoolkit cmocean cartopy pandoc python=3.12 rpy2 r-base r-tidyverse r-ggtext jupyter-book r-mapdata texlive-core nodejs=22.23.2
+          create-args: nctoolkit cmocean cartopy pandoc python=3.12 rpy2 r-base r-tidyverse r-ggtext jupyter-book>=2 r-mapdata texlive-core nodejs=22.23.2
           init-shell: >-
             bash
           cache-environment: true
@@ -51,6 +51,13 @@ jobs:
           pip install pytest
           pip install pytest-cov
           pip install coverage 
+
+      # with jupyter-book 1 the reports are built the old way and the interim
+      # report cannot be built at all, so make sure the solver gave us 2
+      - name: Check jupyter-book is version 2
+        shell: bash -l {0}
+        run: |
+          python -c "from importlib.metadata import version; v = version('jupyter-book'); print('jupyter-book', v); assert int(v.split('.')[0]) >= 2, f'jupyter-book {v} is installed, the tests need 2'"
 
       - name: Test with pytest (group ${{ matrix.group }} of 2)
         shell: bash -l {0}
