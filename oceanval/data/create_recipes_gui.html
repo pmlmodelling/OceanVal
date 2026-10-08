@@ -1195,6 +1195,19 @@
     update(row);
   }
 
+  // ---- pop-outs close when you click outside them, or press Escape ----
+  const POPOVERS = "details.vars[open], details.opts__help[open]";
+  document.addEventListener("click", (event) => {
+    const path = event.composedPath();
+    for (const details of document.querySelectorAll(POPOVERS)) {
+      if (!path.includes(details)) details.open = false;
+    }
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape" || event.defaultPrevented) return;
+    for (const details of document.querySelectorAll(POPOVERS)) details.open = false;
+  });
+
   // ---- summary and actions ----
   const writeButton = $("write");
   const cancelButton = $("cancel");

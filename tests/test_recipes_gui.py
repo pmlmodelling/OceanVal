@@ -793,6 +793,61 @@ class TestModelVariablesTable:
         finally:
             recipe_page.close()
 
+    def test_the_pop_out_closes_on_a_click_outside_it_but_not_inside(self, browser):
+        recipe_page = self.page({"thetao": "Sea water temperature", "so": "Sea water salinity"})
+        url = recipe_page.start()
+        try:
+            page = browser.new_page()
+            page.goto(url)
+            first = page.locator("details.vars").first
+            first.locator("summary").click()
+            first.locator(".vars__search").click()
+            first.locator('input[aria-label="Use so"]').check()
+            assert first.evaluate("node => node.open") is True
+
+            page.locator("h1").first.click()
+            assert first.evaluate("node => node.open") is False
+            assert first.locator(".vars__popover").is_hidden()
+        finally:
+            recipe_page.close()
+
+    def test_opening_one_pop_out_closes_the_others(self, browser):
+        recipe_page = self.page({"thetao": "Sea water temperature"})
+        url = recipe_page.start()
+        try:
+            page = browser.new_page()
+            page.goto(url)
+            pop_outs = page.locator("details.vars")
+            pop_outs.nth(0).locator("summary").click()
+            # the first pop-out covers the rows just below it, so use the last
+            pop_outs.last.locator("summary").click()
+            assert page.locator("details.vars[open]").count() == 1
+            assert pop_outs.last.evaluate("node => node.open") is True
+        finally:
+            recipe_page.close()
+
+    def test_escape_closes_a_pop_out_wherever_the_focus_is(self, browser):
+        recipe_page = self.page({"thetao": "Sea water temperature"})
+        url = recipe_page.start()
+        try:
+            page = browser.new_page()
+            page.goto(url)
+            first = page.locator("details.vars").first
+            first.locator("summary").click()
+            page.wait_for_function("document.activeElement.classList.contains('vars__search')")
+            first.locator(".vars__search").fill("theta")
+            # Escape in the search box clears it first, then closes
+            first.locator(".vars__search").press("Escape")
+            assert first.evaluate("node => node.open") is True
+            first.locator(".vars__search").press("Escape")
+            assert first.evaluate("node => node.open") is False
+
+            first.locator("summary").click()
+            page.locator("body").press("Escape")
+            assert first.evaluate("node => node.open") is False
+        finally:
+            recipe_page.close()
+
 
     def test_ticking_variables_in_the_pop_out_sums_them_in_the_box(self, browser):
         recipe_page = self.page({"thetao": "Sea water potential temperature", "so": "Sea water salinity"})
