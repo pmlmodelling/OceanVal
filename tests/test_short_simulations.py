@@ -20,6 +20,8 @@ class TestMatchup:
             )
         oceanval.matchup("data/monthly",
             ask = False,
+            # one core, as nctoolkit's pools for more can hang
+            cores = 1,
             start = 2000, end = 2000)
 
         import nctoolkit as nc

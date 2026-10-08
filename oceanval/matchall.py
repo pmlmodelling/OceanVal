@@ -555,7 +555,28 @@ def _stops_live_validation(function):
     return wrapper
 
 
+def _restores_nctoolkit_options(function):
+    """matchup, putting nctoolkit's cores and parallel options back as they
+    were when it ends, however it ends. matchup sets them for its own work,
+    and nctoolkit would otherwise go on using them for anything else in the
+    session: with more than one core, it runs NCO, and CDO on multi-file
+    datasets, in pools of its own."""
+
+    @functools.wraps(function)
+    def wrapper(*args, **kwargs):
+        before = {name: nc.session_info[name] for name in ("cores", "parallel")}
+        try:
+            return function(*args, **kwargs)
+        finally:
+            for name, value in before.items():
+                if nc.session_info[name] != value:
+                    nc.options(**{name: value})
+
+    return wrapper
+
+
 @_stops_live_validation
+@_restores_nctoolkit_options
 def matchup(
     sim_dir=None,
     start=None,
@@ -600,6 +621,7 @@ def matchup(
         Number of cores to use for parallel extraction and matchups of data.
         Default is 6, or the system cores if less than 6.
         If you use a large number of cores you may run into RAM issues, so keep an eye on things.
+        nctoolkit's own cores option is put back as it was once matchup finishes.
     thickness : str
         Path to a thickness file, i.e. cell vertical thickness or the name of the thickness variable. This only needs to be supplied if the variable is missing from the raw data.
         If the cell_thickness variable is in the raw data, it will be used, and thickness does not need to be supplied.
@@ -1633,38 +1655,46 @@ def matchup(
                             except:
                                 pass
 
-                        if cores > 1:
-                            nc.options(parallel = True)
                         df_all = manager.list()
 
                         grid_setup = False
-                        pool = mp.Pool(cores)
 
                         pbar = tqdm(total=len(paths), position=0, leave=True)
                         results = dict()
 
                         if cores > 1:
-                            for ff in paths:
+                            nc.options(parallel = True)
+                            pool = mp.Pool(cores)
+                            try:
+                                for ff in paths:
 
-                                temp = pool.apply_async(
-                                    mm_match,
-                                    [
-                                        ff,
-                                        model_variable,
-                                        df,
-                                        df_times_new,
-                                        ds_depths,
-                                        point_variable,
-                                        df_all,
-                                        layer,
-                                    ],
-                                )
+                                    temp = pool.apply_async(
+                                        mm_match,
+                                        [
+                                            ff,
+                                            model_variable,
+                                            df,
+                                            df_times_new,
+                                            ds_depths,
+                                            point_variable,
+                                            df_all,
+                                            layer,
+                                        ],
+                                    )
 
-                                results[ff] = temp
+                                    results[ff] = temp
 
-                            for k, v in results.items():
-                                value = v.get()
-                                pbar.update(1)
+                                for k, v in results.items():
+                                    value = v.get()
+                                    pbar.update(1)
+                            finally:
+                                # closed and joined, never terminated: the
+                                # workers inherit nctoolkit's SIGTERM handler,
+                                # which cleans up rather than stopping them,
+                                # so terminating them would wait for ever
+                                pool.close()
+                                pool.join()
+                                nc.options(parallel = False)
                         else:
                             for ff in paths:
                                 value = mm_match(
@@ -1688,7 +1718,6 @@ def matchup(
                             return False
 
                         df_all = pd.concat(df_all)
-                        nc.options(parallel = False)
 
                         change_this = [
                             x

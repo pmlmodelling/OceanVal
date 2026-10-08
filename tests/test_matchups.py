@@ -1,12 +1,18 @@
-import oceanval 
+import oceanval
 import glob
 import os
 import pytest
 import tempfile
 import shutil
 
+import nctoolkit as nc
+
 from oceanval import matchall, prompts
 from oceanval.session import session_info
+
+needs_two_cores = pytest.mark.skipif(
+    (os.cpu_count() or 1) < 2, reason="needs a machine with two cores"
+)
 
 
 class TestMatchup:
@@ -304,6 +310,42 @@ class TestMatchup:
                 oceanval.matchup(sim_dir="data/example", start=2000, end=2001, strict_names="yes",
                 lon_lim=[-10,10], lat_lim=[40,50]
                                 )
+
+
+class TestCores:
+    """matchup's cores are for its own work. Once it ends, nctoolkit's own
+    options are as they were, as nctoolkit would otherwise go on running NCO,
+    and CDO on multi-file datasets, in pools of its own, which can hang."""
+
+    @needs_two_cores
+    def test_nctoolkits_options_are_put_back_after_an_error(self):
+        oceanval.reset()
+        nc.options(cores=1)
+
+        # fvcom is checked once the cores are set
+        with pytest.raises(TypeError, match="fvcom must be a boolean"):
+            oceanval.matchup(
+                sim_dir="data/example", start=2000, end=2000, cores=2, fvcom="yes"
+            )
+
+        assert nc.session_info["cores"] == 1
+
+    @needs_two_cores
+    def test_whether_it_returns_or_raises(self):
+        @matchall._restores_nctoolkit_options
+        def uses_them(fail):
+            nc.options(cores=2, parallel=True)
+            if fail:
+                raise RuntimeError("failed")
+            return "done"
+
+        nc.options(cores=1, parallel=False)
+        assert uses_them(False) == "done"
+        assert (nc.session_info["cores"], nc.session_info["parallel"]) == (1, False)
+
+        with pytest.raises(RuntimeError, match="failed"):
+            uses_them(True)
+        assert (nc.session_info["cores"], nc.session_info["parallel"]) == (1, False)
 
 
 class TestMatchupsQuestion:

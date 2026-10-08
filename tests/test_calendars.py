@@ -22,6 +22,8 @@ class TestMatchup:
         oceanval.matchup("data/ukesm",
             ask = False,
             n_dirs_down = 1,
+            # one core, as nctoolkit's pools for more can hang
+            cores = 1,
             start = 1950, end = 1950)
 
         import nctoolkit as nc
