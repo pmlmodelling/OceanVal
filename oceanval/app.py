@@ -3379,15 +3379,26 @@ def main(argv=None):
     parser.add_argument(
         "--port",
         type=int,
-        default=0,
+        default=None,
         help="the port to serve the window on, e.g. to forward it from a "
-        "remote machine (default: any free port)",
+        f"remote machine (default: {recipes_gui.SSH_PORT} in an SSH session, "
+        "if it is free, otherwise any free port)",
     )
     arguments = parser.parse_args(argv)
 
     app = App()
     try:
-        url = app.start(arguments.port)
+        try:
+            url = app.start(
+                recipes_gui.SSH_PORT
+                if arguments.port is None and recipes_gui.over_ssh()
+                else arguments.port or 0
+            )
+        except OSError:
+            if arguments.port is not None:
+                raise
+            # the usual port is taken, by another run perhaps
+            url = app.start(0)
     except OSError as error:
         parser.exit(
             1,
@@ -3403,8 +3414,8 @@ def main(argv=None):
     else:
         print(
             f"Open this link in a web browser to use OceanVal:\n  {url}\n"
-            f"On a remote machine, forward port {app.port} to reach it (VS Code "
-            "does this for you). Press Ctrl+C here to quit, or close the window.",
+            f"{recipes_gui.remote_hint(app.port)}\n"
+            "Press Ctrl+C here to quit, or close the window.",
             flush=True,
         )
     try:

@@ -8,6 +8,7 @@ import json
 import os
 import pickle
 import re
+import socket
 import subprocess
 import sys
 import textwrap
@@ -420,6 +421,75 @@ class TestChildProcess:
         app_child.main(["validate", "{}"])
 
         assert "file:///run/report.html" in capsys.readouterr().out
+
+
+class TestRemoteAccess:
+    SSH = ("SSH_CONNECTION", "SSH_CLIENT", "SSH_TTY")
+
+    def _remote(self, monkeypatch, over_ssh):
+        for name in self.SSH:
+            monkeypatch.delenv(name, raising=False)
+        if over_ssh:
+            monkeypatch.setenv("SSH_CONNECTION", "10.0.0.2 51234 10.0.0.9 22")
+
+    def _run(self, monkeypatch, capsys, arguments):
+        """Run oceanval's main, with no browser to open, and quit at once."""
+        monkeypatch.setattr(app_module.recipes_gui, "_can_open_browser", lambda: False)
+        monkeypatch.setattr(app_module.App, "_watch", lambda self: self.closed.set())
+        app_module.main(arguments)
+        return capsys.readouterr().out
+
+    def test_the_ssh_command_is_printed_in_an_ssh_session(self, monkeypatch):
+        self._remote(monkeypatch, True)
+        monkeypatch.setattr(app_module.recipes_gui.socket, "gethostname", lambda: "server")
+        monkeypatch.setattr(app_module.recipes_gui.getpass, "getuser", lambda: "me")
+
+        assert "ssh -L 33007:127.0.0.1:33007 me@server" in app_module.recipes_gui.remote_hint(33007)
+
+    def test_the_generic_hint_is_printed_otherwise(self, monkeypatch):
+        self._remote(monkeypatch, False)
+        hint = app_module.recipes_gui.remote_hint(33007)
+
+        assert "forward port 33007" in hint
+        assert "ssh -L" not in hint
+
+    def test_over_ssh_the_usual_port_is_used_if_it_is_free(self, monkeypatch, capsys):
+        self._remote(monkeypatch, True)
+        sock = socket.socket()
+        sock.bind(("127.0.0.1", 0))
+        free = sock.getsockname()[1]
+        sock.close()
+        monkeypatch.setattr(app_module.recipes_gui, "SSH_PORT", free)
+        printed = self._run(monkeypatch, capsys, [])
+
+        assert f"127.0.0.1:{free}/?token=" in printed
+        assert f"ssh -L {free}:127.0.0.1:{free}" in printed
+
+    def test_over_ssh_another_port_is_used_if_the_usual_one_is_taken(self, monkeypatch, capsys):
+        self._remote(monkeypatch, True)
+        taken = socket.socket()
+        taken.bind(("127.0.0.1", 0))
+        taken.listen()
+        busy = taken.getsockname()[1]
+        monkeypatch.setattr(app_module.recipes_gui, "SSH_PORT", busy)
+        try:
+            printed = self._run(monkeypatch, capsys, [])
+        finally:
+            taken.close()
+
+        assert f"127.0.0.1:{busy}/" not in printed
+        assert re.search(r"ssh -L (\d+):127\.0\.0\.1:\1 ", printed)
+
+    def test_a_port_that_was_asked_for_must_be_free(self, monkeypatch, capsys):
+        self._remote(monkeypatch, True)
+        taken = socket.socket()
+        taken.bind(("127.0.0.1", 0))
+        taken.listen()
+        try:
+            with pytest.raises(SystemExit):
+                self._run(monkeypatch, capsys, ["--port", str(taken.getsockname()[1])])
+        finally:
+            taken.close()
 
 
 class TestSetupChecks:

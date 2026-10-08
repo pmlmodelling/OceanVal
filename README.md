@@ -134,7 +134,10 @@ have finished.
 The script it runs is written first, to `matchup.py` unless you choose
 another name, so you can run it again later with `python matchup.py`. On a
 remote machine, open the link `oceanval` prints: VS Code forwards its port
-for you, and over plain SSH, `oceanval --port 8765` picks a port to forward.
+for you. Over plain SSH (from a Windows terminal, say), `oceanval` prints the
+`ssh -L` command to run in a new terminal on your own computer, then you open
+the link in your browser. It uses port 8765 if that is free, so the command is
+the same each time; `--port` chooses another.
 
 ## Your own recipes
 

@@ -14,6 +14,7 @@ pages instead (see hosted_by).
 
 import contextlib
 import copy
+import getpass
 import http.server
 import importlib.resources
 import json
@@ -21,6 +22,7 @@ import math
 import os
 import re
 import secrets
+import socket
 import sys
 import threading
 import urllib.parse
@@ -853,6 +855,30 @@ class RecipePage:
             self._server = None
 
 
+SSH_PORT = 8765
+
+
+def over_ssh():
+    """Whether this process is running in an SSH session."""
+    return any(os.environ.get(name) for name in ("SSH_CONNECTION", "SSH_CLIENT", "SSH_TTY"))
+
+
+def remote_hint(port):
+    """What to tell someone who has to reach the window on port from another
+    machine: the command to forward it, ready to paste, if they are in an
+    SSH session."""
+    if not over_ssh():
+        return f"On a remote machine, forward port {port} to reach it (VS Code does this for you)."
+    login = f"{getpass.getuser()}@{socket.gethostname()}"
+    return (
+        f"You are connected over SSH, so forward port {port} first. In a new "
+        "terminal on your own computer (not this one), run:\n"
+        f"  ssh -L {port}:127.0.0.1:{port} {login}\n"
+        "and leave it open while you use OceanVal (use your usual ssh login if "
+        "it differs). VS Code does this for you."
+    )
+
+
 def _can_open_browser():
     """Whether a graphical web browser can be opened from here.
 
@@ -905,8 +931,7 @@ def choose_recipes(mapping, domain, available, context, write, open_browser=True
             print(
                 "Open this link in a web browser to choose the recipes:\n"
                 f"  {url}\n"
-                f"On a remote machine, forward port {port} to reach it (VS Code "
-                "does this for you). Press Ctrl+C (or interrupt the notebook) "
+                f"{remote_hint(port)} Press Ctrl+C (or interrupt the notebook) "
                 "to cancel.",
                 flush=True,
             )
