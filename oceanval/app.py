@@ -254,9 +254,15 @@ def demo_setup_form(model):
     )
 
 
-def demo_report_form():
-    """The report options step's boxes, as the demo fills them in."""
-    return dict(default_validate_form(), subregions="global", concise=False)
+def demo_report_form(concise=True):
+    """The report options step's boxes, as the demo fills them in: concise
+    or detailed, as chosen on the instructions. The concise report has no
+    subregions, and the detailed one has the global ones."""
+    return dict(
+        default_validate_form(),
+        subregions="" if concise else "global",
+        concise=concise,
+    )
 
 
 # the boxes the demo fills in, which the page marks as OceanVal's
@@ -1663,6 +1669,10 @@ class App:
                     "variables": [],
                     # the model whose files the boxes were filled in for
                     "filled": None,
+                    # the report is concise (and fast), or detailed (and slower)
+                    "concise": True,
+                    # the detail the report's boxes were filled in with
+                    "report_filled": None,
                 }
                 self.view = "demo"
                 self._notify()
@@ -1908,7 +1918,8 @@ class App:
             if demo["filled"] is None:
                 # only the first time, so that what was changed after Back is kept
                 self.setup_form = demo_setup_form(demo["model"])
-                self.validate_form = demo_report_form()
+                self.validate_form = demo_report_form(demo["concise"])
+                demo["report_filled"] = demo["concise"]
             elif demo["filled"] != demo["model"]:
                 # another model is chosen: the files to use are now its, unless
                 # the box was changed by hand
@@ -1920,11 +1931,34 @@ class App:
             self.view = "demo_instructions"
             self._notify()
 
-    def demo_continue(self):
-        """Go on from the demo's instructions to the simulation step."""
+    def demo_detail(self, concise):
+        """Choose, on the demo's instructions, whether the report is concise
+        (and fast) or detailed (and slower)."""
+        if not isinstance(concise, bool):
+            return False
         with self._lock:
             if self.view != "demo_instructions" or self.demo is None:
                 return False
+            self.demo["concise"] = concise
+            self._notify()
+            return True
+
+    def demo_continue(self):
+        """Go on from the demo's instructions to the simulation step. The
+        report options are filled in with the detail chosen there, unless
+        they were changed by hand since."""
+        with self._lock:
+            if self.view != "demo_instructions" or self.demo is None:
+                return False
+            demo = self.demo
+            if demo["report_filled"] is not None:
+                # the boxes it filled in, unless they were changed by hand since
+                earlier = demo_report_form(demo["report_filled"])
+                later = demo_report_form(demo["concise"])
+                for name in DEMO_PREFILLED["report"]:
+                    if self.validate_form[name] == earlier[name]:
+                        self.validate_form[name] = later[name]
+                demo["report_filled"] = demo["concise"]
             self.view = "setup"
             self._notify()
             return True
@@ -1945,7 +1979,10 @@ class App:
         which the page marks as OceanVal's, for each step."""
         if self.demo["filled"] is None:
             return {step: [] for step in DEMO_PREFILLED}
-        filled = {"setup": demo_setup_form(self.demo["filled"]), "report": demo_report_form()}
+        filled = {
+            "setup": demo_setup_form(self.demo["filled"]),
+            "report": demo_report_form(self.demo["report_filled"]),
+        }
         forms = {"setup": self.setup_form, "report": self.validate_form}
         return {
             step: [name for name in names if forms[step].get(name) == filled[step][name]]
@@ -3795,6 +3832,7 @@ class _Handler(recipes_gui._Handler):
             "/api/own_remove": lambda: app.remove_own_data(
                 payload.get("kind"), payload.get("index")
             ),
+            "/api/demo_detail": lambda: app.demo_detail(payload.get("concise")),
             "/api/demo_continue": app.demo_continue,
             "/api/own_next": app.next_own_data,
             "/api/own_future_check": app.own_future_check,

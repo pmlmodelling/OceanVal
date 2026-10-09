@@ -66,8 +66,9 @@ salinity, in a grid. Only those files are downloaded (up to 50 MB, 26 MB and
 460 MB for the three models) and it takes you through the same steps with the
 options filled in, including the model's name as the only file names to use.
 A short page of instructions comes first (press Continue on each page, and tick
-the agreement when asked to run the validation), and the step for your own data
-is left out, as only OceanVal's own datasets are used.
+the agreement when asked to run the validation), and asks whether you want the
+validation concise and fast (the default, with results in a couple of minutes) or
+detailed but slower (4 or 5 minutes). The step for your own data is left out, as only OceanVal's own datasets are used.
 Temperature is matched up with COBE-SST 2, and nitrate and salinity with the
 World Ocean Atlas 2023. The units step suggests
 converting the observed nitrate, which you check as you would for your own

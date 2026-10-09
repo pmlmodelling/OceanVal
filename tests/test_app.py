@@ -3019,6 +3019,53 @@ class TestDemo:
         assert app.view == "setup"
         assert post(app, "/api/demo_continue")[0] == 409
 
+    def test_the_report_is_concise_unless_detailed_is_chosen(self, app, fetched):
+        app.choose("demo")
+        assert app.demo["concise"] is True
+        post(app, "/api/demo_download", NORESM)
+        wait_for(lambda: app.view == "demo_instructions")
+        assert get_json(app, "/api/state")[1]["demo"]["concise"] is True
+        # only true or false, and only on the instructions
+        assert post(app, "/api/demo_detail", {"concise": "no"})[0] == 409
+        assert post(app, "/api/demo_detail", {})[0] == 409
+        assert post(app, "/api/demo_detail", {"concise": False})[0] == 200
+        assert get_json(app, "/api/state")[1]["demo"]["concise"] is False
+        assert post(app, "/api/demo_continue")[0] == 200
+        _, state = get_json(app, "/api/state")
+        assert state["validate"]["form"]["concise"] is False
+        assert state["validate"]["form"]["subregions"] == "global"
+        # filled in by OceanVal, so marked as its own
+        assert "concise" in state["demo"]["prefilled"]["report"]
+        assert post(app, "/api/demo_detail", {"concise": True})[0] == 409
+
+        # back to the instructions, the choice is still there, and can be changed
+        assert post(app, "/api/back")[0] == 200
+        assert get_json(app, "/api/state")[1]["demo"]["concise"] is False
+        assert post(app, "/api/demo_detail", {"concise": True})[0] == 200
+        assert post(app, "/api/demo_continue")[0] == 200
+        assert app.validate_form["concise"] is True
+        assert app.validate_form["subregions"] == ""
+
+    def test_a_report_detail_changed_by_hand_is_kept(self, app, fetched):
+        app.choose("demo")
+        post(app, "/api/demo_download", NORESM)
+        wait_for(lambda: app.view == "demo_instructions")
+        assert post(app, "/api/demo_continue")[0] == 200
+        app.validate_form["concise"] = False
+        assert get_json(app, "/api/state")[1]["demo"]["prefilled"]["report"] == ["subregions"]
+        assert post(app, "/api/back")[0] == 200
+        assert post(app, "/api/demo_detail", {"concise": False})[0] == 200
+        assert post(app, "/api/demo_continue")[0] == 200
+        # the subregions follow the choice, and the box changed by hand is kept
+        assert app.validate_form["subregions"] == "global"
+        assert app.validate_form["concise"] is False
+        app.validate_form["subregions"] = "nwes"
+        assert post(app, "/api/back")[0] == 200
+        assert post(app, "/api/demo_detail", {"concise": True})[0] == 200
+        assert post(app, "/api/demo_continue")[0] == 200
+        assert app.validate_form["subregions"] == "nwes"
+        assert app.validate_form["concise"] is True
+
     def test_the_download_fills_in_the_simulation_step(self, app, fetched, tmp_path):
         app.choose("demo")
         assert post(app, "/api/demo_download", NORESM)[0] == 200
@@ -3036,8 +3083,10 @@ class TestDemo:
         assert (form["start"], form["end"]) == ("2010", "2010")
         assert (form["out_dir"], form["out"]) == (
             "oceanval_demo", os.path.join("oceanval_demo", "matchup.py"))
-        assert state["validate"]["form"]["subregions"] == "global"
-        assert state["validate"]["form"]["concise"] is False
+        # concise and fast, with no subregions, unless detailed is chosen on the instructions
+        assert state["validate"]["form"]["subregions"] == ""
+        assert state["validate"]["form"]["concise"] is True
+        assert state["demo"]["prefilled"]["report"] == ["subregions", "concise"]
         # only the chosen model's files are used: those with its name in
         assert form["require"] == "NorESM2-LM"
         assert state["demo"]["prefilled"]["setup"] == ["simdir", "ndown", "require", "out_dir", "out"]
@@ -3932,8 +3981,23 @@ def test_the_demo_in_a_browser(browser, tmp_path, fetched):
         text = page.text_content("#view-demo-instructions")
         assert "Just press Continue on each page, and tick agreement when asked, to run the validation." in text
         assert "Feel free to customize the validation by tweaking the options and settings." in text
-        # in the middle of the space between the masthead and the bar, in type 1.5 times the demo's
-        box = page.locator("#view-demo-instructions .demo-about").bounding_box()
+        assert "You should start seeing validation results in a couple of minutes." in text
+        assert "How do you want your validation sample?" in text
+        # each sentence in a box of its own, and then the question
+        boxes = page.locator("#view-demo-instructions .demo-about")
+        assert boxes.count() == 4
+        assert [boxes.nth(i).locator("p").count() for i in range(4)] == [1, 1, 1, 1]
+        options = page.locator("#demo-detail label")
+        assert options.all_text_contents() == ["Concise and fast", "Detailed, but slower"]
+        assert page.is_checked('input[name="demo-detail"][value="true"]')
+        # the wait follows the choice
+        page.check('input[name="demo-detail"][value="false"]')
+        page.wait_for_function("document.getElementById('demo-wait').textContent.includes('4 or 5 minutes')")
+        assert page.text_content("#demo-wait") == "You should start seeing validation results in 4 or 5 minutes."
+        page.check('input[name="demo-detail"][value="true"]')
+        page.wait_for_function("document.getElementById('demo-wait').textContent.includes('a couple of minutes')")
+        # the boxes together are in the middle of the space between the masthead and the bar, in type 1.5 times the demo's
+        box = page.locator("#view-demo-instructions .demo").bounding_box()
         width = page.evaluate("innerWidth")
         assert abs((box["x"] + box["width"] / 2) - width / 2) <= 20
         masthead = page.locator(".masthead").bounding_box()

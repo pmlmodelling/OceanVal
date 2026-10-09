@@ -68,6 +68,9 @@
   #view-demo-instructions .demo { width: 100%; max-width: 760px; }
   #view-demo-instructions .demo-about { padding: 34px 40px; }
   #view-demo-instructions .demo-about p { font-size: 21.75px; line-height: 1.5; }
+  #view-demo-instructions .demo-detail { display: grid; gap: 12px; margin-top: 14px; }
+  #view-demo-instructions .demo-detail__option { display: flex; align-items: center; gap: 12px; color: var(--ink); font-size: 21.75px; cursor: pointer; }
+  #view-demo-instructions .demo-detail__option input { width: 20px; height: 20px; margin: 0; accent-color: var(--teal-600); cursor: pointer; }
   .demo-grid { width: 100%; min-width: 520px; border-collapse: collapse; font-size: 14px; }
   .demo-grid th { padding: 0 10px 8px 0; color: var(--ink-soft); font-size: 12.5px; font-weight: 600; text-align: left; vertical-align: bottom; }
   .demo-grid td, .demo-grid tbody th { padding: 10px 10px 10px 0; border-top: 1px solid var(--line-soft); vertical-align: middle; }
@@ -705,7 +708,19 @@
     <div class="demo">
       <div class="card demo-about">
         <p>Just press <strong>Continue</strong> on each page, and tick agreement when asked, to run the validation.</p>
+      </div>
+      <div class="card demo-about">
         <p>Feel free to customize the validation by tweaking the options and settings.</p>
+      </div>
+      <div class="card demo-about">
+        <p id="demo-wait">You should start seeing validation results in a couple of minutes.</p>
+      </div>
+      <div class="card demo-about" id="demo-detail">
+        <p id="demo-detail-label">How do you want your validation sample?</p>
+        <div class="demo-detail" role="radiogroup" aria-labelledby="demo-detail-label">
+          <label class="demo-detail__option"><input type="radio" name="demo-detail" value="true" checked>Concise and fast</label>
+          <label class="demo-detail__option"><input type="radio" name="demo-detail" value="false">Detailed, but slower</label>
+        </div>
       </div>
     </div>
   </section>
@@ -1549,7 +1564,25 @@
       demoPick.seeded = false;
     }
     if (state.view === "demo") renderDemo();
+    if (state.view === "demo_instructions") renderDemoDetail();
   }
+
+  // ---- the demo's instructions: how detailed the report is ----
+  function renderDemoDetail(concise = state.demo.concise !== false) {
+    document.querySelectorAll('input[name="demo-detail"]').forEach((radio) => {
+      radio.checked = (radio.value === "true") === concise;
+    });
+    $("demo-wait").textContent = "You should start seeing validation results in " +
+      (concise ? "a couple of minutes." : "4 or 5 minutes.");
+  }
+
+  document.querySelectorAll('input[name="demo-detail"]').forEach((radio) => {
+    radio.addEventListener("change", () => {
+      const concise = radio.value === "true";
+      renderDemoDetail(concise);
+      post("api/demo_detail", { concise });
+    });
+  });
 
   // ---- 1: choosing what to do ----
   document.querySelectorAll("#view-start .choice").forEach((choice) => {

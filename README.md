@@ -132,7 +132,7 @@ different ESGF server (NorESM2-LM, MPI-ESM1-2-LR and UKESM1-0-LL), and one to
 three of its variables (sea surface temperature, surface nitrate and sea
 surface salinity) in a grid; only those files are downloaded (up to 50 MB,
 26 MB and 460 MB for the three models). It then takes you through the same
-steps, after a short page of instructions and without the step for your own
+steps, after a short page of instructions (which asks whether you want the validation concise and fast, the default, or detailed but slower) and without the step for your own
 data (only OceanVal's own datasets are used), with the options filled in, in
 red and bold, including the model's name as the only file names to use, matching 2010 up with COBE-SST 2 (temperature)
 and the World Ocean Atlas 2023 (nitrate and salinity). The units step suggests converting the observed nitrate, which
