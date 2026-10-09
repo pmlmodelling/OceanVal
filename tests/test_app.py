@@ -2956,7 +2956,42 @@ def fetched(monkeypatch):
     return downloads
 
 
+# a choice in the demo's grid: a model, and the variables ticked for it
+NORESM = {"model": "NorESM2-LM", "variables": ["tos", "no3os", "sos"]}
+
+
+def demo_files(model, variables):
+    """The names and urls of the files the demo downloads for a choice."""
+    files = app_module.DEMO_MODELS[model]["files"]
+    return [files[variable]["name"] for variable in variables], [files[variable]["url"] for variable in variables]
+
+
+def to_setup(app):
+    """The demo, once downloaded, says what to do, and goes on from there."""
+    wait_for(lambda: app.view == "demo_instructions")
+    assert post(app, "/api/demo_continue")[0] == 200
+    assert app.view == "setup"
+
+
+def back_to_demo(app):
+    """Back from the simulation step: the instructions, then the model and variables."""
+    for _ in range(2):
+        assert post(app, "/api/back")[0] == 200
+    assert app.view == "demo"
+
+
 class TestDemo:
+    def test_the_models_are_from_three_servers(self):
+        models = app_module.DEMO_MODELS
+        assert list(models) == ["NorESM2-LM", "MPI-ESM1-2-LR", "UKESM1-0-LL"]
+        assert len({model["server"] for model in models.values()}) == 3
+        for label, model in models.items():
+            assert list(model["files"]) == list(app_module.DEMO_VARIABLES) == ["tos", "no3os", "sos"]
+            for variable, file in model["files"].items():
+                assert file["name"].startswith(f"{variable}_Omon_{label}_historical_{model['member']}_gn_")
+                assert file["url"].startswith(f"https://{model['server']}/")
+                assert file["url"].endswith("/" + file["name"])
+
     def test_choosing_the_demo(self, app):
         assert post(app, "/api/choose", {"action": "demo"})[0] == 200
         _, state = get_json(app, "/api/state")
@@ -2964,21 +2999,34 @@ class TestDemo:
         assert (state["view"], state["action"]) == ("demo", "matchup_validate")
         demo = state["demo"]
         assert (demo["status"], demo["downloaded"], demo["year"]) == ("idle", False, 2010)
-        assert demo["files"] == list(app_module.DEMO_FILES)
-        assert [name.split("_")[0] for name in demo["files"]] == ["tos", "sos", "no3os"]
+        # nothing is asked for until a model and its variables are ticked
+        assert (demo["model"], demo["variables"], demo["files"]) == (None, [], [])
+        assert [model["label"] for model in demo["models"]] == list(app_module.DEMO_MODELS)
+        assert demo["prefilled"] == {"setup": [], "report": []}
         assert demo["folder"] == os.path.join(app.cwd, "oceanval_demo")
         # nothing is downloaded until asked for
         assert not os.path.exists(demo["folder"])
         assert post(app, "/api/back")[0] == 200
         assert (app.view, app.demo) == ("start", None)
 
+    def test_the_instructions_come_after_the_download(self, app, fetched):
+        app.choose("demo")
+        post(app, "/api/demo_download", NORESM)
+        wait_for(lambda: app.view == "demo_instructions")
+        # nothing is filled in until they have been read, and they can only be left once
+        assert post(app, "/api/setup", {"form": app.setup_form})[0] == 409
+        assert post(app, "/api/demo_continue")[0] == 200
+        assert app.view == "setup"
+        assert post(app, "/api/demo_continue")[0] == 409
+
     def test_the_download_fills_in_the_simulation_step(self, app, fetched, tmp_path):
         app.choose("demo")
-        assert post(app, "/api/demo_download")[0] == 200
-        wait_for(lambda: app.view == "setup")
+        assert post(app, "/api/demo_download", NORESM)[0] == 200
+        to_setup(app)
 
-        assert fetched == list(app_module.DEMO_URLS)
-        for name in app_module.DEMO_FILES:
+        names, urls = demo_files(**NORESM)
+        assert fetched == urls
+        for name in names:
             assert (tmp_path / "oceanval_demo" / "simulation" / name).is_file()
         _, state = get_json(app, "/api/state")
         form = state["setup"]["form"]
@@ -2990,29 +3038,101 @@ class TestDemo:
             "oceanval_demo", os.path.join("oceanval_demo", "matchup.py"))
         assert state["validate"]["form"]["subregions"] == "global"
         assert state["validate"]["form"]["concise"] is False
-        assert state["demo"]["prefilled"]["setup"] == ["simdir", "ndown", "out_dir", "out"]
+        # only the chosen model's files are used: those with its name in
+        assert form["require"] == "NorESM2-LM"
+        assert state["demo"]["prefilled"]["setup"] == ["simdir", "ndown", "require", "out_dir", "out"]
         # the filled-in boxes pass the simulation step's checks
         assert check_setup(form, app.cwd)[1] == {}
-        # back to the demo's page, from which the file is not downloaded again
+        # back to the instructions, and the demo's page, from which the file is not downloaded again
+        assert post(app, "/api/back")[0] == 200
+        assert app.view == "demo_instructions"
         assert post(app, "/api/back")[0] == 200
         assert app.view == "demo"
-        assert post(app, "/api/demo_download")[0] == 200
-        wait_for(lambda: app.view == "setup")
+        # with what was ticked still there for the page to tick again
+        assert get_json(app, "/api/state")[1]["demo"]["variables"] == ["tos", "no3os", "sos"]
+        assert post(app, "/api/demo_download", NORESM)[0] == 200
+        to_setup(app)
         assert len(fetched) == 3
+
+    @pytest.mark.parametrize("body", [
+        {},
+        {"model": "NorESM2-LM"},
+        {"model": "NorESM2-LM", "variables": []},
+        {"model": "NorESM2-LM", "variables": ["thetao"]},
+        {"model": "NorESM2-LM", "variables": "tos"},
+        {"model": "GFDL-ESM4", "variables": ["tos"]},
+    ])
+    def test_a_choice_has_to_be_a_model_and_some_of_its_variables(self, app, fetched, body):
+        app.choose("demo")
+        assert post(app, "/api/demo_download", body)[0] == 400
+        assert fetched == []
+        assert app.demo["status"] == "idle"
+
+    def test_only_the_ticked_variables_are_downloaded(self, app, fetched, tmp_path):
+        app.choose("demo")
+        # in any order, and once each
+        assert post(app, "/api/demo_download", {"model": "MPI-ESM1-2-LR", "variables": ["sos", "tos", "sos"]})[0] == 200
+        to_setup(app)
+
+        names, urls = demo_files("MPI-ESM1-2-LR", ["tos", "sos"])
+        assert fetched == urls
+        folder = tmp_path / "oceanval_demo" / "simulation"
+        assert sorted(path.name for path in folder.iterdir()) == sorted(names)
+        state = get_json(app, "/api/state")[1]
+        assert state["demo"]["files"] == names
+        assert state["setup"]["form"]["require"] == "MPI-ESM1-2-LR"
+
+    def test_another_model_uses_its_own_files(self, app, fetched, tmp_path):
+        folder = tmp_path / "oceanval_demo" / "simulation"
+        app.choose("demo")
+        post(app, "/api/demo_download", NORESM)
+        to_setup(app)
+        back_to_demo(app)
+
+        # the files of the model before stay, and are left out by the box
+        post(app, "/api/demo_download", {"model": "UKESM1-0-LL", "variables": ["no3os"]})
+        to_setup(app)
+        assert app.setup_form["require"] == "UKESM1-0-LL"
+        assert len(list(folder.iterdir())) == 4
+        _, state = get_json(app, "/api/state")
+        assert state["demo"]["prefilled"]["setup"] == ["simdir", "ndown", "require", "out_dir", "out"]
+
+        # a box that was changed by hand is not filled in again
+        app.setup_form["require"] = "mine"
+        back_to_demo(app)
+        post(app, "/api/demo_download", {"model": "MPI-ESM1-2-LR", "variables": ["tos"]})
+        to_setup(app)
+        assert app.setup_form["require"] == "mine"
+        assert "require" not in get_json(app, "/api/state")[1]["demo"]["prefilled"]["setup"]
+
+    def test_variables_not_ticked_this_time_are_removed(self, app, fetched, tmp_path):
+        folder = tmp_path / "oceanval_demo" / "simulation"
+        app.choose("demo")
+        post(app, "/api/demo_download", NORESM)
+        to_setup(app)
+        (folder / "mine.nc").write_text("not the demo's")
+        back_to_demo(app)
+
+        post(app, "/api/demo_download", {"model": "NorESM2-LM", "variables": ["sos"]})
+        to_setup(app)
+        # downloaded before, so not fetched again, and the others would be matched up too
+        assert len(fetched) == 3
+        assert sorted(path.name for path in folder.iterdir()) == sorted(
+            [demo_files("NorESM2-LM", ["sos"])[0][0], "mine.nc"])
 
     def test_a_failed_download_can_be_tried_again(self, app, fetched, tmp_path):
         fetched.error = OSError("no network")
         app.choose("demo")
-        post(app, "/api/demo_download")
+        post(app, "/api/demo_download", NORESM)
         wait_for(lambda: app.demo["status"] == "failed")
         _, state = get_json(app, "/api/state")
 
         assert state["view"] == "demo"
         assert "no network" in state["demo"]["error"]
-        assert not (tmp_path / "oceanval_demo" / "simulation" / app_module.DEMO_FILES[0]).exists()
+        assert not (tmp_path / "oceanval_demo" / "simulation" / demo_files(**NORESM)[0][0]).exists()
         fetched.error = None
-        assert post(app, "/api/demo_download")[0] == 200
-        wait_for(lambda: app.view == "setup")
+        assert post(app, "/api/demo_download", NORESM)[0] == 200
+        to_setup(app)
 
     def test_a_retry_only_downloads_what_is_missing(self, app, fetched, tmp_path, monkeypatch):
         folder = tmp_path / "oceanval_demo" / "simulation"
@@ -3020,24 +3140,24 @@ class TestDemo:
 
         def flaky(url, path, progress, cancelled):
             # the connection is lost during the third file
-            if dropped and url == app_module.DEMO_URLS[2]:
+            if dropped and url == demo_files(**NORESM)[1][2]:
                 raise OSError("dropped")
             fetch(url, path, progress, cancelled)
 
         monkeypatch.setattr(app_module, "_fetch", flaky)
         app.choose("demo")
-        post(app, "/api/demo_download")
+        post(app, "/api/demo_download", NORESM)
         wait_for(lambda: app.demo["status"] == "failed")
 
-        assert sorted(path.name for path in folder.iterdir()) == sorted(app_module.DEMO_FILES[:2])
+        assert sorted(path.name for path in folder.iterdir()) == sorted(demo_files(**NORESM)[0][:2])
         assert app.demo["file"] == 3
         assert get_json(app, "/api/state")[1]["demo"]["downloaded"] is False
 
         dropped.clear()
         del fetched[:]
-        assert post(app, "/api/demo_download")[0] == 200
-        wait_for(lambda: app.view == "setup")
-        assert fetched == [app_module.DEMO_URLS[2]]
+        assert post(app, "/api/demo_download", NORESM)[0] == 200
+        to_setup(app)
+        assert fetched == [demo_files(**NORESM)[1][2]]
         assert get_json(app, "/api/state")[1]["demo"]["downloaded"] is True
 
     def test_only_one_download_at_a_time(self, app, monkeypatch):
@@ -3046,8 +3166,8 @@ class TestDemo:
             app_module, "_fetch", lambda url, path, progress, cancelled: release.wait(30)
         )
         app.choose("demo")
-        assert post(app, "/api/demo_download")[0] == 200
-        assert post(app, "/api/demo_download")[0] == 409
+        assert post(app, "/api/demo_download", NORESM)[0] == 200
+        assert post(app, "/api/demo_download", NORESM)[0] == 409
         # nor going back while it downloads
         assert post(app, "/api/back")[0] == 409
         release.set()
@@ -3055,31 +3175,33 @@ class TestDemo:
     def test_the_demo_is_only_offered_at_the_start(self, app):
         app.choose("validate")
         assert post(app, "/api/choose", {"action": "demo"})[0] == 409
-        assert post(app, "/api/demo_download")[0] == 409
+        assert post(app, "/api/demo_download", NORESM)[0] == 409
 
     def test_what_was_changed_is_kept_and_not_marked_as_the_demos(self, app, fetched):
         app.choose("demo")
-        post(app, "/api/demo_download")
-        wait_for(lambda: app.view == "setup")
-        form = dict(app.setup_form, out=os.path.join("oceanval_demo", "mine.py"))
-        assert post(app, "/api/setup", {"form": form})[0] == 200
+        post(app, "/api/demo_download", NORESM)
+        to_setup(app)
+        # the user changed a box, and went back
+        with app._lock:
+            app.setup_form = dict(app.setup_form, out=os.path.join("oceanval_demo", "mine.py"))
+        assert post(app, "/api/back")[0] == 200
+        assert app.view == "demo_instructions"
 
         # the page only marks what still holds what the demo filled in
         assert get_json(app, "/api/state")[1]["demo"]["prefilled"]["setup"] == [
-            "simdir", "ndown", "out_dir",
+            "simdir", "ndown", "require", "out_dir",
         ]
         # and Continue on the demo's page, after Back, does not fill it in again
         post(app, "/api/back")
-        post(app, "/api/back")
         assert app.view == "demo"
-        assert post(app, "/api/demo_download")[0] == 200
-        wait_for(lambda: app.view == "setup")
+        assert post(app, "/api/demo_download", NORESM)[0] == 200
+        to_setup(app)
         assert app.setup_form["out"] == os.path.join("oceanval_demo", "mine.py")
 
     def test_starting_again_forgets_the_demo(self, app, fetched):
         app.choose("demo")
-        post(app, "/api/demo_download")
-        wait_for(lambda: app.view == "setup")
+        post(app, "/api/demo_download", NORESM)
+        to_setup(app)
         with app._lock:
             app.view = "finished"
 
@@ -3092,10 +3214,10 @@ class TestDemo:
 
     def test_the_demo_fills_in_the_recipes_window(self, app, fetched, runs):
         app.choose("demo")
-        post(app, "/api/demo_download")
-        wait_for(lambda: app.view == "setup")
+        post(app, "/api/demo_download", NORESM)
+        to_setup(app)
+        # only OceanVal's own datasets, so there is no step for the user's own
         assert post(app, "/api/setup", {"form": app.setup_form})[0] == 200
-        post(app, "/api/own_data", {"answer": False})
         wait_for(lambda: app.view == "recipes")
         page = app.recipes_page
 
@@ -3256,21 +3378,35 @@ def test_the_window_in_a_browser(browser, tmp_path, monkeypatch):
         page.click("#units-continue")
 
         # until matchup asks, the page says it is finding the files
-        page.wait_for_selector("#identify:not([hidden])", timeout=90000)
-        assert "Identifying files that meet criteria. Please wait!" in page.text_content("#identify")
+        page.wait_for_selector("#progress:not([hidden])", timeout=90000)
+        assert "Identifying files that meet criteria. Please wait!" in page.text_content("#progress")
+        # the output is not shown while the run goes well
+        assert page.is_hidden("#run")
         # and then shows what it found as a table, in place of the question below the output
         page.wait_for_selector("#review:not([hidden])", timeout=90000)
-        assert page.is_hidden("#identify")
+        assert page.is_hidden("#progress")
         assert page.is_hidden("#ask")
-        # the mapping is introduced first, and the question comes after the table
+        assert page.locator("#review th").all_text_contents()[2:] == [
+            "Observation source", "File pattern to be used", "Time resolution",
+        ]
+        # the answers are in the bar, with Back, and none are in the card
+        assert page.locator("#review button:not(.btn--text)").count() == 0
+        assert [button.text_content() for button in page.locator("#actions button").all()] == [
+            "Yes, continue", "Back",
+        ]
+        assert page.locator("text=No, stop the run").count() == 0
+        # the mapping is introduced first, and the question is in the bar, just left of its buttons
         assert page.text_content("#review-title") == (
             "The following mapping will be assumed between variables and simulation files"
         )
-        assert page.text_content("#review-question") == "Are you happy with these matchups?"
+        assert page.text_content("#review-question") == "Are you happy with these file selections?"
         table_bottom = page.locator("#review table").evaluate("node => node.getBoundingClientRect().bottom")
         question_box = page.locator("#review-question").bounding_box()
         assert question_box["y"] >= table_bottom
-        assert question_box["y"] < page.locator("#review-actions").bounding_box()["y"]
+        assert page.locator("#bar #review-question").count() == 1
+        yes_box = page.locator("#actions button:has-text('Yes, continue')").bounding_box()
+        assert question_box["x"] + question_box["width"] <= yes_box["x"]
+        assert abs(question_box["y"] - yes_box["y"]) < yes_box["height"]
         assert page.text_content("#review-time-note") == (
             "Temporal subsetting will be applied to the files listed below, based on the time criteria you provided on the previous pages. "
             "Any year limits set for an individual dataset will also apply."
@@ -3291,7 +3427,7 @@ def test_the_window_in_a_browser(browser, tmp_path, monkeypatch):
         ]
         page.keyboard.press("Escape")
         assert page.is_hidden("#files")
-        page.click("#review-actions button:has-text('Yes')")
+        page.click("#actions button:has-text('Yes')")
 
         # any other question is asked under the output
         page.wait_for_selector("#ask:not([hidden])", timeout=60000)
@@ -3307,7 +3443,42 @@ def test_the_window_in_a_browser(browser, tmp_path, monkeypatch):
         app.close()
 
 
-def test_storing_the_matchup_script_opens_run_instructions(browser, tmp_path):
+def test_the_title_is_identify_while_the_files_are_found(browser, tmp_path):
+    """A matchup and validate run is titled for the matchups from the start,
+    not "Matching up and validating" until the question arrives."""
+    go = tmp_path / "go"
+    script = tmp_path / "matchup.py"
+    script.write_text(
+        textwrap.dedent(
+            f"""
+            import os, time
+            from oceanval import prompts
+            while not os.path.exists({str(go)!r}):
+                time.sleep(0.1)
+            prompts.ask("Are you happy with these matchups? (y/n) ", ("y", "n"), details={MATCHUPS!r})
+            """
+        )
+    )
+    app = App(cwd=str(tmp_path))
+    app.action = "matchup_validate"
+    app.start_run(["script", str(script)], f"python {script}")
+    url = app.start()
+    try:
+        page = browser.new_page()
+        page.goto(url)
+        page.wait_for_selector("#progress:not([hidden])", timeout=60000)
+        assert page.text_content("#title") == "Identify simulations files for validating variables"
+        # no output while the files are found, nor while they are checked
+        assert page.is_hidden("#run")
+        go.write_text("")
+        page.wait_for_selector("#review:not([hidden])", timeout=60000)
+        assert page.text_content("#title") == "Identify simulations files for validating variables"
+        assert page.is_hidden("#run")
+    finally:
+        app.close()
+
+
+def test_a_saved_matchup_script_opens_run_instructions(browser, tmp_path):
     script = tmp_path / "matchup.py"
     script.write_text(
         textwrap.dedent(
@@ -3327,7 +3498,11 @@ def test_storing_the_matchup_script_opens_run_instructions(browser, tmp_path):
         page = browser.new_page()
         page.goto(url)
         page.wait_for_selector("#review:not([hidden])")
-        page.click('#review-actions button:has-text("No, store the matchup Python script. I will run it later.")')
+        assert page.text_content("#title") == "Identify simulations files for validating variables"
+        # the window does not offer to store the script, but an answer of "save" still does
+        assert page.locator("#actions button:has-text('store')").count() == 0
+        question = get_json(app, "/api/state")[1]["question"]
+        assert post(app, "/api/answer", {"id": question["id"], "answer": "save"})[0] == 200
         page.wait_for_selector("#view-script-saved:not([hidden])")
 
         assert page.text_content("#title") == "Your matchup script is saved"
@@ -3356,7 +3531,7 @@ def test_the_point_time_res_step_in_a_browser(browser, tmp_path):
         assert page.locator("#review th").last.text_content() == "Time resolution"
         assert page.locator("#review-body td").last.text_content() == "monthly"
 
-        page.click("text=Yes, carry on")
+        page.click("text=Yes, continue")
         page.wait_for_selector("#view-point-time-res:not([hidden])")
         # OceanVal's suggestion for all of them, in red and bold
         assert page.is_checked("#ptr-mode-all")
@@ -3409,7 +3584,7 @@ def test_the_report_options_in_a_browser(browser, tmp_path, monkeypatch):
         page.wait_for_selector("#review:not([hidden])")
         current = page.locator("#steps .is-current .steps__label")
         assert current.text_content() == "Files"
-        page.click("#review-actions button:has-text('Yes')")
+        page.click("#actions button:has-text('Yes')")
         page.wait_for_selector("#view-validate:not([hidden])")
 
         assert page.text_content("#title") == "One last thing... How would you like your validation report?"
@@ -3431,8 +3606,8 @@ def test_the_report_options_in_a_browser(browser, tmp_path, monkeypatch):
         page.click("#actions button:has-text('Back')")
         page.wait_for_selector("#review:not([hidden])")
         assert current.text_content() == "Files"
-        assert page.is_enabled("#review-actions button:has-text('Yes')")
-        page.click("#review-actions button:has-text('Yes')")
+        assert page.is_enabled("#actions button:has-text('Yes')")
+        page.click("#actions button:has-text('Yes')")
         page.wait_for_selector("#view-validate:not([hidden])")
 
         page.check("#v-pdf")
@@ -3496,7 +3671,7 @@ def report_options_app(tmp_path, monkeypatch, gridded=None, vertical=False):
 def go_to_report_options(page, url):
     page.goto(url)
     page.wait_for_selector("#review:not([hidden])")
-    page.click("#review-actions button:has-text('Yes')")
+    page.click("#actions button:has-text('Yes')")
     page.wait_for_selector("#view-validate:not([hidden])")
 
 
@@ -3701,7 +3876,7 @@ def test_depth_bins_in_a_browser(browser, tmp_path, monkeypatch):
         # Back keeps them
         page.click("#actions button:has-text('Back')")
         page.wait_for_selector("#review:not([hidden])")
-        page.click("#review-actions button:has-text('Yes')")
+        page.click("#actions button:has-text('Yes')")
         page.wait_for_selector("#view-validate:not([hidden])")
         assert values()[-3:] == [("600", "1000"), ("1000", "2000"), ("2000", "")]
 
@@ -3747,9 +3922,27 @@ def test_the_demo_in_a_browser(browser, tmp_path, fetched):
         caveat = page.text_content(".demo-caveat")
         assert "not how to validate a climate model" in caveat
         assert "2010" in caveat
-        assert "NorESM2-LM" in page.text_content(".demo-about")
+        assert "NorESM2-LM" in page.text_content("#demo-grid")
 
+        page.locator('input[aria-label="Sea surface temperature from NorESM2-LM"]').check()
         page.click("#demo-start")
+        # told what to do, then the steps
+        page.wait_for_selector("#view-demo-instructions:not([hidden])")
+        assert page.text_content("#title") == "Instructions"
+        text = page.text_content("#view-demo-instructions")
+        assert "Just press Continue on each page, and tick agreement when asked, to run the validation." in text
+        assert "Feel free to customize the validation by tweaking the options and settings." in text
+        # in the middle of the space between the masthead and the bar, in type 1.5 times the demo's
+        box = page.locator("#view-demo-instructions .demo-about").bounding_box()
+        width = page.evaluate("innerWidth")
+        assert abs((box["x"] + box["width"] / 2) - width / 2) <= 20
+        masthead = page.locator(".masthead").bounding_box()
+        bar = page.locator("#bar").bounding_box()
+        free_top, free_bottom = masthead["y"] + masthead["height"], bar["y"]
+        assert abs((box["y"] + box["height"] / 2) - (free_top + free_bottom) / 2) <= 40
+        size = page.locator("#view-demo-instructions p").first.evaluate("node => parseFloat(getComputedStyle(node).fontSize)")
+        assert size == 14.5 * 1.5
+        page.click("#demo-continue")
         page.wait_for_selector("#view-setup:not([hidden])")
         red = "rgb(192, 57, 43)"
         simdir = page.locator("#f-simdir")
@@ -3836,6 +4029,30 @@ def test_comparing_validations_in_a_browser(browser, tmp_path, monkeypatch):
         app.close()
 
 
+def test_the_output_is_shown_while_matching_up_and_when_a_run_fails(browser, tmp_path):
+    app = App(cwd=str(tmp_path))
+    with app._lock:
+        app.action, app.view, app.status = "matchup_validate", "running", "running"
+    app.console.write("matching up\n")
+    url = app.start()
+    try:
+        page = browser.new_page()
+        page.goto(url)
+        page.wait_for_selector("#progress:not([hidden])")
+        # the output is shown, as the matchups are made
+        page.wait_for_selector("#run:not([hidden])")
+        assert "matching up" in page.text_content("#console-text")
+        with app._lock:
+            app.view, app.status, app.returncode = "finished", "failed", 1
+            app._notify()
+        # the output stays, and the panel no longer says what it is doing
+        page.wait_for_selector("#progress", state="hidden")
+        assert page.is_visible("#run")
+        assert "matching up" in page.text_content("#console-text")
+    finally:
+        app.close()
+
+
 def test_the_interim_report_in_a_browser(browser, tmp_path):
     """While matchup builds the interim report, the page says so, then links
     to it once its first page is made; and once the full report is built,
@@ -3856,11 +4073,11 @@ def test_the_interim_report_in_a_browser(browser, tmp_path):
     try:
         page = browser.new_page()
         page.goto(url)
-        page.wait_for_selector("#interim:not([hidden])")
-        assert page.text_content("#interim h2") == (
-            "Interim validation report is being generated. Please wait..."
-        )
-        assert page.locator("#interim a").count() == 0
+        page.wait_for_selector("#progress:not([hidden])")
+        assert page.text_content("#progress-title") == "Matching the model to the observations"
+        assert page.is_hidden("#interim")
+        # the output is shown, as the matchups are made
+        assert page.is_visible("#run")
 
         status.write_text(
             json.dumps(
@@ -3870,6 +4087,8 @@ def test_the_interim_report_in_a_browser(browser, tmp_path):
         page.wait_for_selector("#interim a")
         assert page.text_content("#interim h2") == "Interim validation report"
         assert page.text_content("#interim p").startswith("1 of 3 matchups is in it so far.")
+        assert page.text_content("#progress-title") == "Matching up: 1 of 3 matchups made"
+        assert page.get_attribute("#progress-bar", "aria-valuenow") == "1"
         link = page.locator("#interim a")
         assert link.text_content() == "Open the interim validation report"
         assert link.get_attribute("target") == "_blank"
@@ -4026,6 +4245,71 @@ def test_the_recipes_window_keeps_the_app_open(browser, tmp_path, monkeypatch):
         app.close()
 
 
+def test_the_demo_grid_in_a_browser(browser, tmp_path, fetched):
+    """One model at a time, of three, with one to three of its variables;
+    what is ticked is downloaded, and the model's name fills the box that
+    picks its files out."""
+    app = App(cwd=str(tmp_path))
+    url = app.start()
+    try:
+        page = browser.new_page()
+        page.goto(url)
+        page.click('button.choice[data-action="demo"]')
+        page.wait_for_selector("#demo-grid")
+
+        assert page.locator("#demo-grid thead th").all_text_contents() == [
+            "Model", "Sea surface temperature", "Surface nitrate", "Sea surface salinity"]
+        assert page.locator("#demo-grid-body tr").count() == 3
+        assert page.locator("#demo-grid-body th .demo-grid__name").all_text_contents() == list(
+            app_module.DEMO_MODELS)
+        servers = page.locator("#demo-grid-body th .demo-grid__where").all_text_contents()
+        assert [text.split(" · ")[0] for text in servers] == [
+            model["server"] for model in app_module.DEMO_MODELS.values()]
+        # nothing ticked, so nothing to download
+        assert page.is_disabled("#demo-start")
+        assert page.is_hidden("#demo-chosen")
+
+        def box(model, title):
+            return page.locator(f'input[aria-label="{title} from {model}"]')
+
+        box("NorESM2-LM", "Sea surface salinity").check()
+        box("NorESM2-LM", "Surface nitrate").check()
+        assert page.is_enabled("#demo-start")
+        assert page.is_visible("#demo-chosen")
+        # in the order of the columns, whatever the order they were ticked in
+        assert page.text_content("#demo-chosen-variables").startswith("Surface nitrate")
+        assert "NorESM2-LM" in page.text_content("#demo-chosen-model")
+
+        # ticking another model's clears the first's
+        box("UKESM1-0-LL", "Sea surface temperature").check()
+        assert page.locator("#demo-grid input:checked").count() == 1
+        assert box("UKESM1-0-LL", "Sea surface temperature").is_checked()
+        assert "MB" in page.text_content("#demo-chosen-files")
+        # and unticking the last one leaves nothing chosen
+        box("UKESM1-0-LL", "Sea surface temperature").uncheck()
+        assert page.is_disabled("#demo-start")
+        assert page.is_hidden("#demo-chosen")
+
+        box("MPI-ESM1-2-LR", "Surface nitrate").check()
+        box("MPI-ESM1-2-LR", "Sea surface temperature").check()
+        page.click("#demo-start")
+        page.click("#demo-continue")
+        page.wait_for_selector("#f-simdir")
+        assert page.input_value("#f-require") == "MPI-ESM1-2-LR"
+        assert "is-oceanval" in page.get_attribute("#f-require", "class")
+        names, urls = demo_files("MPI-ESM1-2-LR", ["tos", "no3os"])
+        assert fetched == urls
+
+        # back, the same boxes are ticked, and their files are there already
+        page.click("#actions button:has-text('Back')")
+        page.click("#actions button:has-text('Back')")
+        page.wait_for_selector("#demo-grid")
+        assert page.locator("#demo-grid input:checked").count() == 2
+        assert page.text_content("#demo-start") == "Continue"
+    finally:
+        app.close()
+
+
 def test_the_units_step_in_a_browser(browser, tmp_path, monkeypatch):
     """The table lists the units of each matchup with the conversion OceanVal
     fills in where they differ, in red and bold for as long as it is OceanVal's,
@@ -4057,7 +4341,8 @@ def test_the_units_step_in_a_browser(browser, tmp_path, monkeypatch):
 
         page.wait_for_selector("#units-body-gridded tr[data-units-row]")
         # the units start unconfirmed, and nothing carries on until they are
-        assert page.is_visible("#units-title-confirm")
+        assert "Tick if you are happy with the units" in page.text_content("#summary")
+        assert page.is_visible("#units-confirm")
         assert not page.is_checked("#units-confirm")
         assert page.is_disabled("#units-continue")
         assert "Units" in page.text_content("#steps")
@@ -4129,7 +4414,7 @@ def test_the_units_step_in_a_browser(browser, tmp_path, monkeypatch):
         multiplier.fill("2")
         page.check("#units-confirm")
         page.click("#units-continue")
-        page.wait_for_selector("#console-text:has-text('running')", timeout=60000)
+        page.wait_for_selector("#console-text:has-text('running')", state="attached", timeout=60000)
 
         text = open(tmp_path / "matchup.py").read()
         assert "    obs_multiplier=1.025,\n" in text[text.index('name="nitrate"') :].split("\n)\n")[0]
@@ -4191,6 +4476,10 @@ def test_going_back_keeps_what_was_entered_in_a_browser(browser, tmp_path, monke
         page.click("#own-no")
         page.wait_for_url("**/recipes/**", timeout=90000)
         fill_required_recipe_years(page)
+        # carrying on from the fine-tune page, and a model variable box that is text only
+        assert page.text_content("#write") == "Continue"
+        assert page.locator('input[aria-label^="Model variable for"]').first.get_attribute("list") is None
+        assert page.locator("#model-variables").count() == 0
         page.check(nsbc)
         page.fill(nsbc_start, "2012")
         page.click("#write")
@@ -4206,8 +4495,10 @@ def test_going_back_keeps_what_was_entered_in_a_browser(browser, tmp_path, monke
 
         # Back from the matchups stops the run before anything is matched up
         page.wait_for_selector("#review:not([hidden])", timeout=90000)
-        assert bar("Stop").is_visible()
-        # beside Stop, without the page scrolling sideways on a phone
+        assert bar("Back").is_visible()
+        assert bar("Yes, continue").is_visible()
+        assert page.locator("#actions button:has-text('Stop')").count() == 0
+        # beside the answers, without the page scrolling sideways on a phone
         page.set_viewport_size({"width": 390, "height": 844})
         assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
         page.set_viewport_size({"width": 1280, "height": 720})
@@ -4237,13 +4528,13 @@ def test_going_back_keeps_what_was_entered_in_a_browser(browser, tmp_path, monke
 
         # the report options, kept with Back
         page.wait_for_selector("#review:not([hidden])", timeout=90000)
-        page.click("#review-actions button:has-text('Yes')")
+        page.click("#actions button:has-text('Yes')")
         page.wait_for_selector("#view-validate:not([hidden])")
         page.check("#v-pdf")
         page.select_option("#v-subregions", "global")
         bar("Back").click()
         page.wait_for_selector("#review:not([hidden])")
-        page.click("#review-actions button:has-text('Yes')")
+        page.click("#actions button:has-text('Yes')")
         page.wait_for_selector("#view-validate:not([hidden])")
         assert page.is_checked("#v-pdf")
         assert page.input_value("#v-subregions") == "global"
@@ -4338,7 +4629,9 @@ def test_clearing_every_selection_in_a_browser(browser, tmp_path):
         page.click("#clear-selections")
 
         assert page.locator(ticked).count() == 0
-        assert "0 comparisons selected" in page.text_content("#summary")
+        # the counts of variables matched and comparisons selected are not shown
+        assert "matched" not in page.text_content("#summary")
+        assert "selected" not in page.text_content("#summary")
         assert page.is_disabled("#clear-selections")
         # a dataset can be ticked again
         page.locator(".chip input:not(:disabled)").first.check()

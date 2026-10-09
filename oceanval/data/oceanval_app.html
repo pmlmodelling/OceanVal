@@ -60,6 +60,23 @@
   .demo-about h2 { margin: 0 0 10px; font: 600 17px/1.3 var(--font-head); }
   .demo-about p { margin: 0 0 10px; color: var(--ink-soft); font-size: 14.5px; line-height: 1.55; }
   .demo-about p:last-child { margin-bottom: 0; }
+  .demo > * { min-width: 0; }
+  .demo-about code { overflow-wrap: anywhere; }
+  .demo-grid-wrap { overflow-x: auto; }
+  /* the instructions: a box in the middle of the page, between the masthead and the bar, in type half as big again as the demo's other text */
+  #view-demo-instructions:not([hidden]) { display: flex; align-items: center; justify-content: center; min-height: calc(100vh - 340px); }
+  #view-demo-instructions .demo { width: 100%; max-width: 760px; }
+  #view-demo-instructions .demo-about { padding: 34px 40px; }
+  #view-demo-instructions .demo-about p { font-size: 21.75px; line-height: 1.5; }
+  .demo-grid { width: 100%; min-width: 520px; border-collapse: collapse; font-size: 14px; }
+  .demo-grid th { padding: 0 10px 8px 0; color: var(--ink-soft); font-size: 12.5px; font-weight: 600; text-align: left; vertical-align: bottom; }
+  .demo-grid td, .demo-grid tbody th { padding: 10px 10px 10px 0; border-top: 1px solid var(--line-soft); vertical-align: middle; }
+  .demo-grid tbody th { color: var(--ink); font-size: 14px; }
+  .demo-grid__name { display: block; font-weight: 700; }
+  .demo-grid__where { display: block; margin-top: 2px; color: var(--muted); font-size: 12.5px; font-weight: 500; overflow-wrap: anywhere; }
+  .demo-cell { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+  .demo-cell input { width: 18px; height: 18px; margin: 0; accent-color: var(--teal-500); }
+  .demo-cell__size { color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
   .demo-about dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 18px; margin: 0 0 12px; font-size: 14px; }
   .demo-about dt { color: var(--muted); font-weight: 600; }
   .demo-about dd { margin: 0; color: var(--ink); overflow-wrap: anywhere; }
@@ -390,6 +407,7 @@
   }
   @media (prefers-reduced-motion: reduce) {
     .status__dot, .identify__spinner { animation: none !important; }
+    .progress__bar span { transition: none; }
     .choice { transition: none; }
   }
   .console-wrap { position: relative; }
@@ -453,6 +471,14 @@
   @keyframes spin { to { transform: rotate(360deg); } }
   .identify__title { margin: 0 0 4px; color: var(--teal-900); font: 600 26px/1.25 var(--font-head); letter-spacing: -0.3px; }
   .identify__text { margin: 0; color: var(--ink-soft); font-size: 14.5px; }
+  .progress { display: flex; gap: 20px; align-items: center; margin: 0 0 18px; padding: 26px 28px; border: 2px solid var(--teal-200); background: var(--teal-50); }
+  .progress.is-waiting { border-color: #f3d5c8; background: #fff8f4; }
+  .progress.is-waiting .identify__spinner { display: none; }
+  .progress__body { flex: 1; min-width: 0; }
+  .progress__bar { height: 8px; margin: 14px 0 0; overflow: hidden; border-radius: 999px; background: var(--teal-200); }
+  .progress__bar span { display: block; height: 100%; border-radius: 999px; background: var(--teal-600); transition: width 0.4s ease; }
+  .progress__label { display: block; margin: 12px 0 0; overflow: hidden; color: var(--ink-soft); font-size: 12.5px; text-overflow: ellipsis; white-space: nowrap; }
+  .ask.card { margin: 0 0 18px; border: 1px solid #f3d5c8; background: #fff8f4; }
 
   /* ---- the interim report, built as the matchups are made, and the links to the reports ---- */
   a.btn { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
@@ -478,8 +504,7 @@
   .review td small { display: block; color: var(--muted); font-size: 12.5px; }
   .review__files { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-top: 4px; }
   .review__files small { display: inline; }
-  .review__question { margin: 0; padding: 20px 24px 0; font: 600 18px/1.3 var(--font-head); }
-  .review__actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; padding: 12px 24px 22px; }
+  .summary__question { margin-left: auto; color: var(--ink); font: 600 18px/1.3 var(--font-head); }
   .script-saved.card { max-width: 760px; padding: 28px 30px; }
   .script-saved h2 { margin: 0 0 8px; font: 600 22px/1.3 var(--font-head); }
   .script-saved p { margin: 0 0 14px; color: var(--muted); }
@@ -539,8 +564,8 @@
   /* what OceanVal filled in is red and bold, so that none of it is missed */
   .lede .oceanval-change, .units .s-input.is-oceanval, .units .group__line.is-oceanval,
   .form .s-input.is-oceanval, .form .s-select.is-oceanval, .demo-about .oceanval-change { color: var(--red); font-weight: 700; }
-  /* the units always have to be confirmed, after the tables */
-  .units-confirm { padding: 16px 20px; }
+  /* the units always have to be confirmed, beside Back and Continue */
+  .summary__question.summary__confirm { gap: 12px; color: var(--ink); font: 600 18px/1.3 var(--font-head); cursor: pointer; }
   .ptr-choice { margin-bottom: 16px; }
   .ptr-modes { display: grid; gap: 12px; margin: 0; padding: 16px 20px; border: 0; }
   .ptr-mode { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; color: var(--ink); font-size: 14.5px; cursor: pointer; }
@@ -621,8 +646,6 @@
   @media (max-width: 760px) {
     .depth-bin { grid-template-columns: 26px minmax(0, 1fr) 8px minmax(0, 1fr) 30px; gap: 8px; padding-left: 10px; padding-right: 10px; }
   }
-  .units-confirm .tick-label { align-items: flex-start; color: var(--ink); font-size: 14.5px; line-height: 1.5; }
-  .units-confirm .tick { margin-top: 2px; }
 </style>
 </head>
 <body>
@@ -678,6 +701,15 @@
     </div>
   </section>
 
+  <section id="view-demo-instructions" hidden>
+    <div class="demo">
+      <div class="card demo-about">
+        <p>Just press <strong>Continue</strong> on each page, and tick agreement when asked, to run the validation.</p>
+        <p>Feel free to customize the validation by tweaking the options and settings.</p>
+      </div>
+    </div>
+  </section>
+
   <section id="view-demo" hidden>
     <div class="demo">
       <p class="demo-folder" id="demo-folder">This creates a directory called <code>oceanval_demo</code>, with data in it. Remove it when you have finished with the demo.<small id="demo-folder-path"></small></p>
@@ -689,16 +721,25 @@
         </div>
       </div>
       <div class="card demo-about">
+        <h2>Choose a model and its variables</h2>
+        <p>Each model is downloaded from a different ESGF data server. Choose one model, and one to three of its variables: only those files are downloaded.</p>
+        <div class="demo-grid-wrap">
+        <table class="demo-grid" id="demo-grid">
+          <thead><tr><th scope="col">Model</th><th scope="col">Sea surface temperature</th><th scope="col">Surface nitrate</th><th scope="col">Sea surface salinity</th></tr></thead>
+          <tbody id="demo-grid-body"></tbody>
+        </table>
+        </div>
+      </div>
+      <div class="card demo-about" id="demo-chosen" hidden>
         <h2>The model output</h2>
         <dl>
-          <dt>Model</dt><dd>NorESM2-LM, the Norwegian Earth System Model (low-resolution atmosphere)</dd>
-          <dt>Simulation</dt><dd>CMIP6 historical run, member r3i1p1f1</dd>
-          <dt>Variables</dt><dd>Sea surface temperature (<code>tos</code>, in °C), sea surface salinity (<code>sos</code>, dimensionless) and surface nitrate (<code>no3os</code>, in mol m<sup>-3</sup>), all monthly means</dd>
-          <dt>Grid</dt><dd>The model's own tripolar grid, about 1° across</dd>
-          <dt>Covers</dt><dd>January 2010 to December 2014</dd>
-          <dt>Files</dt><dd><span id="demo-files"></span>about 50 MB in all, from the Norwegian ESGF data node</dd>
+          <dt>Model</dt><dd id="demo-chosen-model"></dd>
+          <dt>Simulation</dt><dd id="demo-chosen-simulation"></dd>
+          <dt>Variables</dt><dd id="demo-chosen-variables"></dd>
+          <dt>Covers</dt><dd id="demo-chosen-covers"></dd>
+          <dt>Files</dt><dd id="demo-chosen-files"></dd>
         </dl>
-        <p>OceanVal downloads them, then takes you through the usual steps with the options for the demo filled in, <strong class="oceanval-change">in red and bold</strong>. It matches the sea surface temperature up with COBE-SST 2, and the salinity and nitrate with the World Ocean Atlas 2023, and builds the validation report. The units step will suggest converting the observed nitrate, from micromoles per kilogram to the model's moles per cubic metre: check it, as you would for your own model.</p>
+        <p id="demo-chosen-about"></p>
       </div>
       <div class="card demo-progress" id="demo-progress" hidden>
         <div class="demo-progress__bar"><div class="demo-progress__fill" id="demo-progress-fill"></div></div>
@@ -790,7 +831,7 @@
 
   <section id="view-units-table" hidden>
     <p class="lede">A model and its observations can report the same quantity in different units, for example nutrients in mmol/m3 against µmol/kg, and OceanVal compares the values as they are. So OceanVal has compared the units of each matchup. Where it thinks they are the same, it has left the boxes empty, and where it thinks they differ, it has suggested a conversion: the observations become <strong>observations × multiply by + add</strong> before they are compared with the model.</p>
-    <p class="lede">The model's units are read from its netCDF files, and the observations' from OceanVal's recipes (as on the recipes page of the documentation) or from the netCDF file you supplied. OceanVal can get this wrong, so check every row, not only the conversions it suggests, which are <strong class="oceanval-change">in red and bold</strong>, and fill in any it could not work out. Leave the boxes empty where you agree that no conversion is needed. The units always have to be confirmed, at the bottom of the page, before the matchup starts.</p>
+    <p class="lede">The model's units are read from its netCDF files, and the observations' from OceanVal's recipes (as on the recipes page of the documentation) or from the netCDF file you supplied. OceanVal can get this wrong, so check every row, not only the conversions it suggests, which are <strong class="oceanval-change">in red and bold</strong>, and fill in any it could not work out. Leave the boxes empty where you agree that no conversion is needed. The units always have to be confirmed, with the tick box beside Continue, before the matchup starts.</p>
     <p class="group__msg units-reading" id="units-reading" hidden>Reading the model's units from the simulation…</p>
     <section class="units-section" id="units-section-gridded" aria-labelledby="units-title-gridded">
       <h2 class="section-title" id="units-title-gridded">Gridded datasets</h2>
@@ -819,12 +860,6 @@
         <tbody class="units-body" id="units-body-point"></tbody>
       </table></div>
       <p class="group__msg" id="units-empty-point" hidden>No point datasets are being matched up.</p>
-    </section>
-    <section class="units-section" id="units-section-confirm" aria-labelledby="units-title-confirm">
-      <h2 class="section-title" id="units-title-confirm">Are you happy with the units?</h2>
-      <div class="card units-confirm">
-        <label class="tick-label"><input type="checkbox" class="tick" id="units-confirm">I have checked the units of every matchup above. With these conversions, the observations are in the same units as the model.</label>
-      </div>
     </section>
   </section>
 
@@ -991,11 +1026,13 @@
 
   <section id="view-run" hidden>
     <div class="result card" id="result" hidden></div>
-    <div class="identify card" id="identify" role="status" hidden>
-      <span class="identify__spinner" aria-hidden="true"></span>
-      <div>
-        <h2 class="identify__title">Identifying files that meet criteria. Please wait!</h2>
-        <p class="identify__text">OceanVal is finding the model output files that hold each variable. It then shows you what it found, to check before anything is matched up.</p>
+    <div class="progress card" id="progress" role="status" aria-live="polite" hidden>
+      <span class="identify__spinner" id="progress-spinner" aria-hidden="true"></span>
+      <div class="progress__body">
+        <h2 class="identify__title" id="progress-title"></h2>
+        <p class="identify__text" id="progress-text"></p>
+        <div class="progress__bar" id="progress-bar" role="progressbar" aria-label="Matchups made" hidden><span id="progress-fill"></span></div>
+        <code class="progress__label" id="progress-label"></code>
       </div>
     </div>
     <div class="card" id="interim" role="status" aria-live="polite" hidden></div>
@@ -1008,14 +1045,20 @@
       <div class="review__table"><table>
         <colgroup><col style="width:17%"><col style="width:19%"><col style="width:16%"><col style="width:32%"><col style="width:16%"></colgroup>
         <thead><tr>
-        <th scope="col">Variable</th><th scope="col">Model variable</th><th scope="col">Observations</th><th scope="col">Files</th><th scope="col">Time resolution</th>
+        <th scope="col">Variable</th><th scope="col">Model variable</th><th scope="col">Observation source</th><th scope="col">File pattern to be used</th><th scope="col">Time resolution</th>
         </tr></thead>
         <tbody id="review-body"></tbody>
       </table></div>
-      <p class="review__question" id="review-question">Are you happy with these matchups?</p>
-      <div class="review__actions" id="review-actions" role="group" aria-labelledby="review-question"></div>
     </section>
-    <div class="run card">
+    <div class="ask card" id="ask" hidden>
+      <span class="ask__icon" aria-hidden="true">?</span>
+      <div>
+        <p class="ask__label">A question for you</p>
+        <p class="ask__question" id="ask-question"></p>
+      </div>
+      <div class="ask__answer" id="ask-answer"></div>
+    </div>
+    <div class="run card" id="run" hidden>
       <div class="run__head">
         <span class="status" id="status"><span class="status__dot" aria-hidden="true"></span><span id="status-text"></span></span>
         <code class="run__label" id="run-label"></code>
@@ -1027,14 +1070,6 @@
           <pre class="console__text" id="console-text"></pre>
         </div>
         <button type="button" class="console__jump" id="jump" hidden>↓ Latest output</button>
-      </div>
-      <div class="ask" id="ask" hidden>
-        <span class="ask__icon" aria-hidden="true">?</span>
-        <div>
-          <p class="ask__label">A question for you</p>
-          <p class="ask__question" id="ask-question"></p>
-        </div>
-        <div class="ask__answer" id="ask-answer"></div>
       </div>
     </div>
   </section>
@@ -1217,7 +1252,7 @@
 
   // ---- the header and the bar ----
   function stepIndex(view, action) {
-    if (view === "start" || view === "demo") return 0;
+    if (view === "start" || view === "demo" || view === "demo_instructions") return 0;
     if (view === "setup" || view === "validate" || view === "compare") return 1;
     if (view === "register_kind") return 1;
     if (view === "register_point" || view === "register_gridded") return 2;
@@ -1241,6 +1276,7 @@
     switch (state.view) {
       case "start": return "Validate an ocean model";
       case "demo": return "Try OceanVal with a demo";
+      case "demo_instructions": return "Instructions";
       case "setup": return "What kind of datasets do you want to use for validation?";
       case "own_data": return "Do you have your own data?";
       case "register_kind": return "Which kind of data is your recipe for?";
@@ -1255,7 +1291,13 @@
       case "compare": return "Which validations do you want to compare?";
       case "report_options": return "One last thing... How would you like your validation report?";
       case "point_time_res": return "Some point observations may not match the model's output";
-      case "running": return ACTION_TITLES[state.action];
+      case "running":
+        // while the files are found and then checked, which is what the page is for then
+        if (state.action === "matchup_validate" && (run.identifying || (state.question
+          && state.question.details && state.question.details.kind === "matchups"))) {
+          return "Identify simulations files for validating variables";
+        }
+        return ACTION_TITLES[state.action];
       case "script_saved": return "Your matchup script is saved";
       default:
         return run.status === "finished" ? "Finished"
@@ -1287,8 +1329,8 @@
   function renderBar() {
     const view = state.view;
     // only rebuilt when something in it changes, so a button keeps its focus
-    const key = [view, state.action, state.run.status, Boolean(stopArmed), Boolean(state.question),
-      state.demo && state.demo.status, Boolean(state.run.back),
+    const key = [view, state.action, state.run.status, Boolean(stopArmed), state.question ? state.question.id : null,
+      state.demo && state.demo.status, demoKey(), Boolean(state.run.back),
       state.own.entries.point.length, state.own.entries.gridded.length, Boolean(state.units.rows),
       state.register.saved.length].join("|");
     if (key === barShown) {
@@ -1298,11 +1340,15 @@
     barShown = key;
     const summary = $("summary");
     const actions = [];
+    let asked = null;
     if (view === "demo") {
       const busy = state.demo.status === "downloading";
       actions.push(button("Back", "ghost", () => post("api/back"), { disabled: busy }),
-        button(state.demo.downloaded ? "Continue" : busy ? "Downloading…" : "Download and continue",
-          "primary", startDemo, { id: "demo-start", disabled: busy }));
+        button(demoDownloaded() ? "Continue" : busy ? "Downloading…" : "Download and continue",
+          "primary", startDemo, { id: "demo-start", disabled: busy || !demoPick.variables.length }));
+    } else if (view === "demo_instructions") {
+      actions.push(button("Back", "ghost", () => post("api/back")),
+        button("Continue", "primary", () => post("api/demo_continue"), { id: "demo-continue" }));
     } else if (view === "setup") {
       actions.push(button("Back", "ghost", () => post("api/back")),
         button("Continue", "primary", submitSetup, { id: "continue" }));
@@ -1346,16 +1392,21 @@
         button("Compare", "primary", submitCompare, { id: "compare" }));
     } else if (view === "units_table") {
       // to the recipes window, as it was left, with the boxes, which are shown again as they are
+      // there is nothing to confirm until the units are read
+      if (state.units.rows) {
+        const confirm = el("input", { type: "checkbox", class: "tick", id: "units-confirm" });
+        confirm.addEventListener("change", unitsButton);
+        asked = el("label", { class: "summary__question tick-label summary__confirm" }, "Tick if you are happy with the units", confirm);
+      }
       actions.push(button("Back", "ghost", () => post("api/back", { conversions: unitsBoxes() })),
-        button("Continue", "primary", submitUnits,
-          { id: "units-continue", disabled: !unitsConfirmed() }));
+        button("Continue", "primary", submitUnits, { id: "units-continue", disabled: true }));
     } else if (view === "running") {
       // while the matchup is still finding the files, or asking about them, it
       // has matched nothing up, so can be stopped to go back to the units
-      if (state.run.back) {
-        actions.push(button("Back", "ghost", () => post("api/back"),
-          { title: "Stop before anything is matched up, and go back to the units" }));
-      }
+      const question = state.question;
+      const matchups = Boolean(question && question.details && question.details.kind === "matchups");
+      const back = state.run.back ? button("Back", "ghost", () => post("api/back"),
+        { title: "Stop before anything is matched up, and go back to the units" }) : null;
       const stop = button(stopArmed ? "Stop the run?" : "Stop", stopArmed ? "danger" : "ghost", () => {
         if (!stopArmed) {
           // a second click stops it
@@ -1368,7 +1419,15 @@
         stopArmed = null;
         post("api/stop");
       }, { id: "stop" });
-      actions.push(stop);
+      if (matchups) {
+        // the answer to whether the matchups are right, beside its question, with Back second,
+        // or Stop where there is no Back
+        asked = el("span", { class: "summary__question", id: "review-question", text: "Are you happy with these file selections?" });
+        actions.push(button("Yes, continue", "primary", () => send(question.id, "y")), back || stop);
+      } else {
+        if (back) actions.push(back);
+        actions.push(stop);
+      }
     } else if (view === "finished" || view === "script_saved") {
       actions.push(button("Quit", "ghost", async () => {
         await post("api/quit");
@@ -1381,7 +1440,7 @@
           () => post("api/choose", { action: "validate", data_dir: state.run.results })));
       }
     }
-    summary.replaceChildren();
+    summary.replaceChildren(...(asked ? [asked] : []));
     $("actions").replaceChildren(...actions);
     $("bar").hidden = actions.length === 0;
     if (view === "setup") refreshSetup();
@@ -1393,7 +1452,7 @@
   }
 
   // ---- the views ----
-  const VIEWS = { start: "view-start", demo: "view-demo", setup: "view-setup", validate: "view-validate", compare: "view-compare",
+  const VIEWS = { start: "view-start", demo: "view-demo", demo_instructions: "view-demo-instructions", setup: "view-setup", validate: "view-validate", compare: "view-compare",
     report_options: "view-validate", own_data: "view-own", point_data: "view-point", gridded_data: "view-gridded",
     own_future: "view-own-future",
     register_kind: "view-register-kind", register_point: "view-register-point", register_gridded: "view-register-gridded",
@@ -1419,7 +1478,7 @@
       $("demo-folder").scrollIntoView({ block: "start" });
     } else if (view === "units_table") {
       // the units are confirmed afresh every time this step is reached
-      $("units-confirm").checked = false;
+      unitsUnconfirm();
       fillUnits();
     } else if (view === "register_kind") {
       // the answer given before, as it is reached again
@@ -1483,6 +1542,12 @@
     if (state.view === "units_table" && !unitsFilled && state.units.rows) fillUnits();
     if (VIEWS[state.view] === "view-run") renderRun();
     if (state.view === "script_saved") renderSavedScript();
+    if (!state.demo) {
+      // the next demo starts with nothing ticked
+      demoPick.model = null;
+      demoPick.variables = [];
+      demoPick.seeded = false;
+    }
     if (state.view === "demo") renderDemo();
   }
 
@@ -1492,12 +1557,107 @@
   });
 
   // ---- the demo ----
+  // the columns of the grid, which is also the order the variables are asked for in
+  const DEMO_COLUMNS = [
+    ["tos", "Sea surface temperature", "tos, in °C"],
+    ["no3os", "Surface nitrate", "no3os, in mol m⁻³"],
+    ["sos", "Sea surface salinity", "sos, dimensionless"],
+  ];
+  // what is ticked: one model, and one to three of its variables
+  const demoPick = { model: null, variables: [], seeded: false };
+  let demoGridBuilt = false;
+  const demoBoxes = {};
+
+  const demoKey = () => `${demoPick.model}:${demoPick.variables.join(",")}`;
+  const demoModel = () => (state.demo.models || []).find((model) => model.label === demoPick.model);
+  const demoSize = (megabytes) => `${Math.max(1, Math.round(megabytes))} MB`;
+  // whether the files ticked are in the demo's directory already
+  function demoDownloaded() {
+    const model = state.demo && demoModel();
+    return Boolean(model) && demoPick.variables.length > 0
+      && demoPick.variables.every((variable) => model.files[variable].present);
+  }
+
+  function tickDemo(model, variable, ticked) {
+    if (ticked && demoPick.model !== model) {
+      // another model is chosen: what was ticked for the one before is not kept
+      demoPick.model = model;
+      demoPick.variables = [];
+    }
+    demoPick.variables = demoPick.variables.filter((other) => other !== variable);
+    if (ticked) demoPick.variables.push(variable);
+    if (!demoPick.variables.length) demoPick.model = null;
+    // in the order of the columns
+    demoPick.variables.sort((a, b) =>
+      DEMO_COLUMNS.findIndex(([name]) => name === a) - DEMO_COLUMNS.findIndex(([name]) => name === b));
+    barShown = null;
+    renderDemo();
+    renderBar();
+  }
+
+  function buildDemoGrid() {
+    $("demo-grid-body").replaceChildren(...state.demo.models.map((model) => el("tr", {},
+      el("th", { scope: "row" },
+        el("span", { class: "demo-grid__name", text: model.label }),
+        el("span", { class: "demo-grid__where", text: `${model.server} · ${model.member}` })),
+      ...DEMO_COLUMNS.map(([variable, title]) => {
+        const box = el("input", { type: "checkbox", "aria-label": `${title} from ${model.label}` });
+        box.addEventListener("change", () => tickDemo(model.label, variable, box.checked));
+        demoBoxes[`${model.label}:${variable}`] = box;
+        return el("td", {}, el("label", { class: "demo-cell" }, box,
+          el("span", { class: "demo-cell__size", text: demoSize(model.files[variable].megabytes) })));
+      }))));
+    demoGridBuilt = true;
+  }
+
   function renderDemo() {
     const demo = state.demo;
     $("demo-folder-path").textContent = `It is made in the directory OceanVal is running from: ${demo.folder}`;
     $("demo-year").textContent = String(demo.year);
-    $("demo-files").replaceChildren(...demo.files.flatMap((name) => [Object.assign(document.createElement("code"), { textContent: name }), document.createElement("br")]));
+    if (!demoGridBuilt) buildDemoGrid();
+    // back on this page, what was chosen before is ticked again
+    if (!demoPick.seeded && demo.model) {
+      demoPick.model = demo.model;
+      demoPick.variables = [...demo.variables];
+    }
+    demoPick.seeded = true;
     const busy = demo.status === "downloading";
+    for (const model of demo.models) {
+      for (const [variable] of DEMO_COLUMNS) {
+        const box = demoBoxes[`${model.label}:${variable}`];
+        box.checked = demoPick.model === model.label && demoPick.variables.includes(variable);
+        box.disabled = busy;
+      }
+    }
+    const chosen = demoModel();
+    $("demo-chosen").hidden = !chosen;
+    if (chosen) {
+      const ticked = demoPick.variables.map((variable) => DEMO_COLUMNS.find(([name]) => name === variable));
+      $("demo-chosen-model").textContent = `${chosen.label}, ${chosen.full}`;
+      $("demo-chosen-simulation").textContent = `CMIP6 historical run, member ${chosen.member}`;
+      $("demo-chosen-variables").textContent =
+        ticked.map(([, title, units]) => `${title} (${units})`).join("; ") + ". All are monthly means.";
+      $("demo-chosen-covers").textContent = chosen.covers;
+      const total = demoPick.variables.reduce((sum, variable) => sum + chosen.files[variable].megabytes, 0);
+      $("demo-chosen-files").replaceChildren(
+        ...demoPick.variables.flatMap((variable) => [
+          Object.assign(document.createElement("code"), { textContent: chosen.files[variable].name }),
+          document.createElement("br")]),
+        `about ${demoSize(total)} in all, from ${chosen.server}`);
+      const against = [];
+      if (demoPick.variables.includes("tos")) against.push("sea surface temperature with COBE-SST 2");
+      const world = DEMO_COLUMNS.filter(([name]) => name !== "tos" && demoPick.variables.includes(name))
+        .map(([, title]) => title.toLowerCase());
+      if (world.length) against.push(`${world.join(" and ")} with the World Ocean Atlas 2023`);
+      const about = $("demo-chosen-about");
+      about.replaceChildren(
+        "OceanVal downloads them, then takes you through the usual steps with the options for the demo filled in, ",
+        el("strong", { class: "oceanval-change", text: "in red and bold" }),
+        `. It matches up the ${against.join(", and the ")}, and builds the validation report.`
+        + (demoPick.variables.includes("no3os")
+          ? " The units step will suggest converting the observed nitrate, from micromoles per kilogram to the model's moles per cubic metre: check it, as you would for your own model."
+          : ""));
+    }
     $("demo-progress").hidden = !busy;
     if (busy) {
       const megabytes = (bytes) => (bytes / 1e6).toFixed(1);
@@ -1514,7 +1674,7 @@
   }
 
   async function startDemo() {
-    const reply = await post("api/demo_download");
+    const reply = await post("api/demo_download", { model: demoPick.model, variables: demoPick.variables });
     if (reply && !reply.ok && reply.error) toast(reply.error);
   }
 
@@ -3289,12 +3449,17 @@
   let unitsFilled = false;
 
   // the units have to be confirmed to carry on, and there is nothing to confirm until they are read
-  const unitsConfirmed = () => Boolean(state.units.rows) && $("units-confirm").checked;
+  // (the tick box is in the bar, which only holds it on this step)
+  const unitsConfirmed = () => Boolean(state.units.rows) && Boolean($("units-confirm") && $("units-confirm").checked);
   function unitsButton() {
     const button = $("units-continue");
     if (button) button.disabled = !unitsConfirmed();
   }
-  $("units-confirm").addEventListener("change", unitsButton);
+  function unitsUnconfirm() {
+    const box = $("units-confirm");
+    if (box) box.checked = false;
+    unitsButton();
+  }
 
   function unitsText(units, missing) {
     return units === null || units === undefined || units === ""
@@ -3314,7 +3479,6 @@
       $(`units-body-${kind}`).closest(".card").hidden = rows.length === 0;
       $(`units-body-${kind}`).replaceChildren(...rows.flatMap(unitsRow));
     }
-    $("units-section-confirm").hidden = reading;
     unitsFilled = !reading;
     const first = document.querySelector(".units-body input");
     if (first) first.focus();
@@ -3384,8 +3548,7 @@
         multiplier.classList.remove("is-invalid"); adder.classList.remove("is-invalid"); error.textContent = "";
         markFilled();
         // what was confirmed is not what is in the boxes any more
-        $("units-confirm").checked = false;
-        unitsButton();
+        unitsUnconfirm();
       });
     }
     markFilled();
@@ -3423,7 +3586,7 @@
     const conversions = unitsBoxes();
     const button = $("units-continue");
     if (button) button.disabled = true;
-    const reply = await post("api/units_continue", { conversions, confirmed: $("units-confirm").checked });
+    const reply = await post("api/units_continue", { conversions, confirmed: unitsConfirmed() });
     if (button) button.disabled = !unitsConfirmed();
     if (reply.ok) return;
     const errors = reply.errors || {};
@@ -3813,11 +3976,88 @@
     $("status-text").textContent = text;
     $("run-label").textContent = state.view === "preparing" ? "create_recipes(...)" : run.label || "";
     $("run-label").title = $("run-label").textContent;
-    $("identify").hidden = !(state.view === "running" && run.identifying && !state.question);
+    // the output is shown while a matchup and validate run matches up, once the
+    // matchups are checked, and for a run that failed; elsewhere the panel says
+    // what the run is doing
+    const failed = state.view === "finished" && run.status === "failed";
+    const matching = state.view === "running" && state.action === "matchup_validate"
+      && !run.identifying && !(state.question && state.question.details
+        && state.question.details.kind === "matchups");
+    const showOutput = failed || matching;
+    if (showOutput && $("run").hidden) {
+      $("run").hidden = false;
+      consoleBox.scrollTop = consoleBox.scrollHeight;
+    }
+    $("run").hidden = !showOutput;
+    renderProgress();
     renderQuestion();
     renderResult();
     renderInterim();
     document.title = (state.question ? "Question · " : "") + "OceanVal";
+  }
+
+  // ---- what the run is doing, in place of its output ----
+  function runStage() {
+    const run = state.run;
+    const interim = state.interim;
+    const question = state.question;
+    if (state.view === "preparing") {
+      return { title: "Reading the simulation",
+        text: "OceanVal is reading the model output, to work out which variables it holds and which observations they can be compared with." };
+    }
+    // the table asks its own question, so there is nothing more to say
+    if (question && question.details && question.details.kind === "matchups") return null;
+    if (question) {
+      return { waiting: true, title: "OceanVal has a question for you",
+        text: "The run is paused until you answer it. Nothing more is matched up until then." };
+    }
+    if (run.identifying) {
+      return { title: "Identifying files that meet criteria. Please wait!",
+        text: "OceanVal is finding the model output files that hold each variable. It then shows you what it found, to check before anything is matched up." };
+    }
+    if (!run.status || run.status === "starting") {
+      return { title: "Starting the run", text: "OceanVal is starting the matchup process." };
+    }
+    if (run.kind === "validate" || (interim && interim.state === "complete")) {
+      return { title: "Building the validation report",
+        text: "The matchups are made. OceanVal is now computing the skill statistics and building the report's pages." };
+    }
+    if (interim && interim.expected) {
+      return { title: `Matching up: ${interim.pages} of ${plural(interim.expected, "matchup")} made`,
+        text: "OceanVal is matching the model to each observational dataset in turn. A link to the interim report appears below once the first matchup is in, so you can look at the results while the rest are made.",
+        done: interim.pages, of: interim.expected };
+    }
+    return { title: "Matching the model to the observations",
+      text: "OceanVal is matching the model output to each observational dataset in turn." };
+  }
+
+  function renderProgress() {
+    const box = $("progress");
+    if (state.view !== "preparing" && state.view !== "running") {
+      box.hidden = true;
+      return;
+    }
+    const stage = runStage();
+    if (!stage) {
+      box.hidden = true;
+      return;
+    }
+    box.className = "progress card" + (stage.waiting ? " is-waiting" : "");
+    $("progress-title").textContent = stage.title;
+    $("progress-text").textContent = stage.text;
+    const bar = $("progress-bar");
+    bar.hidden = !stage.of;
+    if (stage.of) {
+      bar.setAttribute("aria-valuemin", "0");
+      bar.setAttribute("aria-valuemax", String(stage.of));
+      bar.setAttribute("aria-valuenow", String(stage.done));
+      $("progress-fill").style.width = `${Math.min(100, 100 * stage.done / stage.of)}%`;
+    }
+    const label = state.view === "preparing" ? "create_recipes(...)" : state.run.label || "";
+    $("progress-label").textContent = label;
+    $("progress-label").title = label;
+    $("progress-label").hidden = !label;
+    box.hidden = false;
   }
 
   function renderResult() {
@@ -3915,8 +4155,6 @@
       key = ["ready", interim.href, interimText(interim)].join("|");
     } else if (interim && interim.state === "complete") {
       key = "empty";
-    } else if (interim && state.view === "running" && !state.question) {
-      key = "waiting";
     }
     // only rebuilt when it changes, so that the link keeps its focus
     if (key === interimShown) return;
@@ -3925,21 +4163,12 @@
       box.hidden = true;
       return;
     }
-    if (key === "waiting") {
-      box.className = "identify card";
-      box.replaceChildren(
-        el("span", { class: "identify__spinner", "aria-hidden": "true" }),
-        el("div", {},
-          el("h2", { class: "identify__title", text: "Interim validation report is being generated. Please wait..." }),
-          el("p", { class: "identify__text", text: "OceanVal adds each matchup's page to it as soon as the matchup is made. A link to it appears here once the first is in, so you can look at the results while the rest are made." })));
-    } else {
-      box.className = "interim card";
-      box.replaceChildren(
-        el("div", { class: "interim__body" },
-          el("h2", { class: "interim__title", text: "Interim validation report" }),
-          el("p", { class: "interim__text", text: key === "empty" ? "No matchups were made, so it is empty." : interimText(interim) })),
-        key === "empty" ? null : openLink(interim.href, "Open the interim validation report"));
-    }
+    box.className = "interim card";
+    box.replaceChildren(
+      el("div", { class: "interim__body" },
+        el("h2", { class: "interim__title", text: "Interim validation report" }),
+        el("p", { class: "interim__text", text: key === "empty" ? "No matchups were made, so it is empty." : interimText(interim) })),
+      key === "empty" ? null : openLink(interim.href, "Open the interim validation report"));
     box.hidden = false;
   }
 
@@ -3993,7 +4222,7 @@
   }
 
   async function send(id, text) {
-    document.querySelectorAll("#ask-answer input, #ask-answer button, #review-actions button")
+    document.querySelectorAll("#ask-answer input, #ask-answer button, #actions button")
       .forEach((control) => { control.disabled = true; });
     const reply = await post("api/answer", { id, answer: text });
     if (!reply.ok) toast("That question has been answered already.");
@@ -4087,10 +4316,6 @@
           button("List all files", "text", () => openFiles(question, row),
             { class: "btn btn--text btn--small", "aria-haspopup": "dialog", "aria-label": `List all files for ${row.title}` }))),
       el("td", {}, el("span", { class: "is-mono", text: row.time_res || "—" })))));
-    $("review-actions").replaceChildren(
-      button("No, stop the run", "ghost", () => send(question.id, "n")),
-      button("No, store the matchup Python script. I will run it later.", "ghost", () => send(question.id, "save")),
-      button("Yes, carry on", "primary", () => send(question.id, "y")));
     $("review").hidden = false;
     $("review").scrollIntoView({ block: "start" });
     $("review-title").focus({ preventScroll: true });

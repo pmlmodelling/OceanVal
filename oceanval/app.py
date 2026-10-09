@@ -32,6 +32,7 @@ file:// link would not, and over a forwarded port.
 """
 
 import argparse
+import calendar
 import codecs
 import contextlib
 import copy
@@ -99,26 +100,82 @@ _MOST_FOLDERS = 2000
 # the sample of a simulation's files lists at most this many, and counts the rest
 _MOST_FILES = 500
 
-# the demo: a CMIP6 model's sea surface temperature, sea surface salinity and
-# surface nitrate, which it downloads into DEMO_FOLDER, in the directory worked
-# in, and matches up for DEMO_YEAR only, the first year in the files
-_DEMO_NODE = (
-    "https://noresg.nird.sigma2.no/thredds/fileServer/esg_dataroot/cmor/CMIP6/CMIP/"
-    "NCC/NorESM2-LM/historical/r3i1p1f1/Omon/"
-)
-_DEMO_PERIOD = "NorESM2-LM_historical_r3i1p1f1_gn_201001-201412.nc"
-DEMO_URLS = (
-    f"{_DEMO_NODE}tos/gn/v20190920/tos_Omon_{_DEMO_PERIOD}",
-    f"{_DEMO_NODE}sos/gn/v20190920/sos_Omon_{_DEMO_PERIOD}",
-    # nitrate was published later than the others, so its version differs
-    f"{_DEMO_NODE}no3os/gn/v20191108/no3os_Omon_{_DEMO_PERIOD}",
-)
-DEMO_FILES = tuple(url.rsplit("/", 1)[1] for url in DEMO_URLS)
+# the demo: one of three CMIP6 models, each from a different ESGF server, of
+# which the user chooses 1-3 of sea surface temperature, surface nitrate and
+# sea surface salinity. They are downloaded into DEMO_FOLDER, in the directory
+# worked in, and matched up for DEMO_YEAR only, a year in all of the files
+def _demo_model(label, full, server, member, folder, period, versions, megabytes):
+    """A model of the demo: where each variable's file is, and its size."""
+    files = {}
+    for variable in DEMO_VARIABLES:
+        name = f"{variable}_Omon_{label}_historical_{member}_gn_{period}.nc"
+        files[variable] = {
+            "name": name,
+            "url": f"{folder}/{variable}/gn/{versions[variable]}/{name}",
+            "megabytes": megabytes[variable],
+        }
+    first, last = period.split("-")
+    covers = " to ".join(
+        f"{calendar.month_name[int(text[4:])]} {text[:4]}" for text in (first, last)
+    )
+    return {
+        "label": label,
+        "full": full,
+        "server": server,
+        "member": member,
+        "covers": covers,
+        "files": files,
+    }
+
+
+# the demo's variables, in the order of the page's columns
+DEMO_VARIABLES = ("tos", "no3os", "sos")
+
+DEMO_MODELS = {
+    model["label"]: model
+    for model in (
+        _demo_model(
+            "NorESM2-LM",
+            "the Norwegian Earth System Model (low-resolution atmosphere)",
+            "noresg.nird.sigma2.no",
+            "r3i1p1f1",
+            "https://noresg.nird.sigma2.no/thredds/fileServer/esg_dataroot/cmor/CMIP6/CMIP/"
+            "NCC/NorESM2-LM/historical/r3i1p1f1/Omon",
+            "201001-201412",
+            # nitrate was published later than the others, so its version differs
+            {"tos": "v20190920", "sos": "v20190920", "no3os": "v20191108"},
+            {"tos": 17.2, "no3os": 18.2, "sos": 14.9},
+        ),
+        _demo_model(
+            "MPI-ESM1-2-LR",
+            "the Max Planck Institute Earth System Model (low resolution)",
+            "esgf3.dkrz.de",
+            "r1i1p1f1",
+            "https://esgf3.dkrz.de/thredds/fileServer/cmip6/CMIP/MPI-M/MPI-ESM1-2-LR/historical/r1i1p1f1/Omon",
+            "201001-201412",
+            {"tos": "v20190710", "sos": "v20190710", "no3os": "v20190710"},
+            {"tos": 9.2, "no3os": 9.6, "sos": 8.3},
+        ),
+        _demo_model(
+            "UKESM1-0-LL",
+            "the UK Earth System Model (low resolution)",
+            "esgf.ceda.ac.uk",
+            "r1i1p1f2",
+            "https://esgf.ceda.ac.uk/thredds/fileServer/esg_cmip6/CMIP6/CMIP/MOHC/UKESM1-0-LL/"
+            "historical/r1i1p1f2/Omon",
+            # its files cover 1950 to 2014, so they are much bigger
+            "195001-201412",
+            {"tos": "v20190627", "sos": "v20190627", "no3os": "v20191105"},
+            {"tos": 159.3, "no3os": 162.0, "sos": 136.2},
+        ),
+    )
+}
+
 DEMO_FOLDER = "oceanval_demo"
 DEMO_YEAR = 2010
 
 # what the demo fills in in the create_recipes window: its year, and the
-# limits the model's tripolar grid is matched up within
+# limits the models' grids are matched up within
 DEMO_RECIPE_SETTINGS = {
     "start": str(DEMO_YEAR),
     "end": str(DEMO_YEAR),
@@ -179,14 +236,16 @@ def default_depth_boxes():
     ]
 
 
-def demo_setup_form():
+def demo_setup_form(model):
     """The simulation step's boxes, as the demo fills them in: the
-    downloaded file, with the matchups, the report and the script beside
-    it in DEMO_FOLDER."""
+    downloaded files, with the matchups, the report and the script beside
+    them in DEMO_FOLDER. The files of every model tried share a directory,
+    so only the chosen model's are used: those with its name in."""
     return dict(
         default_setup_form(),
         simdir=os.path.join(DEMO_FOLDER, "simulation"),
         ndown="0",
+        require=model,
         start=str(DEMO_YEAR),
         end=str(DEMO_YEAR),
         out_dir=DEMO_FOLDER,
@@ -202,7 +261,7 @@ def demo_report_form():
 
 # the boxes the demo fills in, which the page marks as OceanVal's
 DEMO_PREFILLED = {
-    "setup": ["simdir", "ndown", "out_dir", "out"],
+    "setup": ["simdir", "ndown", "require", "out_dir", "out"],
     "report": ["subregions", "concise"],
 }
 
@@ -1418,9 +1477,11 @@ class App:
                     else dict(
                         self.demo,
                         folder=os.path.join(self.cwd, DEMO_FOLDER),
-                        files=list(DEMO_FILES),
+                        models=self._demo_models(),
+                        files=[name for name, _url, _path in self._demo_downloads()],
                         year=DEMO_YEAR,
-                        downloaded=all(os.path.isfile(path) for path in self._demo_paths()),
+                        downloaded=bool(self.demo["variables"])
+                        and all(os.path.isfile(path) for _name, _url, path in self._demo_downloads()),
                         prefilled=self._demo_prefilled(),
                     )
                 ),
@@ -1592,7 +1653,17 @@ class App:
                 return True
             if action == "demo":
                 self.action = "matchup_validate"
-                self.demo = {"status": "idle", "bytes": 0, "total": None, "file": 0, "error": None}
+                self.demo = {
+                    "status": "idle",
+                    "bytes": 0,
+                    "total": None,
+                    "file": 0,
+                    "error": None,
+                    "model": None,
+                    "variables": [],
+                    # the model whose files the boxes were filled in for
+                    "filled": None,
+                }
                 self.view = "demo"
                 self._notify()
                 return True
@@ -1646,7 +1717,8 @@ class App:
         """Back from a step with no thread waiting on it. Called with the
         lock held."""
         earlier = {
-            "setup": "demo" if self.demo is not None else "start",
+            "setup": "demo_instructions" if self.demo is not None else "start",
+            "demo_instructions": "demo",
             "validate": "start",
             "compare": "start",
             "own_data": "setup",
@@ -1710,8 +1782,39 @@ class App:
 
     # ---- the demo ----
 
-    def _demo_paths(self):
-        return [os.path.join(self.cwd, DEMO_FOLDER, "simulation", name) for name in DEMO_FILES]
+    def _demo_folder(self):
+        return os.path.join(self.cwd, DEMO_FOLDER, "simulation")
+
+    def _demo_downloads(self):
+        """The chosen model's files that were asked for: (name, url, path)."""
+        model = DEMO_MODELS.get(self.demo["model"]) if self.demo else None
+        if model is None:
+            return []
+        return [
+            (file["name"], file["url"], os.path.join(self._demo_folder(), file["name"]))
+            for file in (model["files"][variable] for variable in self.demo["variables"])
+        ]
+
+    def _demo_models(self):
+        """The models, for the page's grid, and whether each file is already
+        in the demo's directory."""
+        return [
+            {
+                "label": model["label"],
+                "full": model["full"],
+                "server": model["server"],
+                "member": model["member"],
+                "covers": model["covers"],
+                "files": {
+                    variable: dict(
+                        file,
+                        present=os.path.isfile(os.path.join(self._demo_folder(), file["name"])),
+                    )
+                    for variable, file in model["files"].items()
+                },
+            }
+            for model in DEMO_MODELS.values()
+        ]
 
     def _end_demo(self):
         """Leave the demo, if it is the run, so that what it filled in is
@@ -1723,17 +1826,32 @@ class App:
         self.setup_form = dict(default_setup_form(), out_dir=self.cwd)
         self.validate_form = default_validate_form()
 
-    def demo_download(self):
-        """Download the demo's model output, unless it has been already, and
-        go on to the simulation step with its boxes filled in. Returns the
-        HTTP status and the reply for the page."""
+    def demo_download(self, model=None, variables=None):
+        """Download the chosen model's output for the variables chosen,
+        unless it has been already, and go on to the simulation step with its
+        boxes filled in. Returns the HTTP status and the reply for the page."""
         with self._lock:
             if self.view != "demo" or self.demo is None:
                 return 409, {"ok": False, "error": "This step is over."}
             if self.demo["status"] == "downloading":
                 return 409, {"ok": False, "error": "It is being downloaded already."}
+            if model not in DEMO_MODELS:
+                return 400, {"ok": False, "error": "Choose a model."}
+            if (
+                not isinstance(variables, list)
+                or not variables
+                or not all(variable in DEMO_VARIABLES for variable in variables)
+            ):
+                return 400, {"ok": False, "error": "Choose one to three variables."}
             self.demo.update(
-                status="downloading", bytes=0, total=None, file=0, error=None
+                status="downloading",
+                bytes=0,
+                total=None,
+                file=0,
+                error=None,
+                model=model,
+                # in the page's order, once each
+                variables=[variable for variable in DEMO_VARIABLES if variable in variables],
             )
             # a fresh one, as an earlier download's thread may still hold the last
             self._demo_cancel = threading.Event()
@@ -1760,7 +1878,9 @@ class App:
                     self._notify()
 
         try:
-            for number, (url, path) in enumerate(zip(DEMO_URLS, self._demo_paths()), 1):
+            with self._lock:
+                downloads = self._demo_downloads()
+            for number, (_name, url, path) in enumerate(downloads, 1):
                 if os.path.isfile(path):
                     continue
                 os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -1784,19 +1904,48 @@ class App:
             if self.demo is not demo or self.view != "demo":
                 return
             demo["status"] = "done"
-            if not demo.get("filled"):
+            self._remove_unwanted_demo_files(demo)
+            if demo["filled"] is None:
                 # only the first time, so that what was changed after Back is kept
-                self.setup_form = demo_setup_form()
+                self.setup_form = demo_setup_form(demo["model"])
                 self.validate_form = demo_report_form()
-                demo["filled"] = True
+            elif demo["filled"] != demo["model"]:
+                # another model is chosen: the files to use are now its, unless
+                # the box was changed by hand
+                if self.setup_form["require"] == demo_setup_form(demo["filled"])["require"]:
+                    self.setup_form["require"] = demo["model"]
+            demo["filled"] = demo["model"]
             self.setup_error = None
+            # told what to do, before the steps
+            self.view = "demo_instructions"
+            self._notify()
+
+    def demo_continue(self):
+        """Go on from the demo's instructions to the simulation step."""
+        with self._lock:
+            if self.view != "demo_instructions" or self.demo is None:
+                return False
             self.view = "setup"
             self._notify()
+            return True
+
+    def _remove_unwanted_demo_files(self, demo):
+        """Remove the files of the chosen model, from an earlier download,
+        for variables that were not asked for this time: they would be
+        matched up too. Only the demo's own files are ever removed. Called
+        with the lock held."""
+        wanted = {name for name, _url, _path in self._demo_downloads()}
+        for file in DEMO_MODELS[demo["model"]]["files"].values():
+            if file["name"] not in wanted:
+                with contextlib.suppress(OSError):
+                    os.remove(os.path.join(self._demo_folder(), file["name"]))
 
     def _demo_prefilled(self):
         """The boxes the demo filled in that still hold what it filled in,
         which the page marks as OceanVal's, for each step."""
-        filled = {"setup": demo_setup_form(), "report": demo_report_form()}
+        if self.demo["filled"] is None:
+            return {step: [] for step in DEMO_PREFILLED}
+        filled = {"setup": demo_setup_form(self.demo["filled"]), "report": demo_report_form()}
         forms = {"setup": self.setup_form, "report": self.validate_form}
         return {
             step: [name for name in names if forms[step].get(name) == filled[step][name]]
@@ -1848,6 +1997,10 @@ class App:
             self.setup_arguments = arguments
             self.view = "own_data"
             self._notify()
+            demo = self.demo is not None
+        if demo:
+            # only OceanVal's own datasets, so there is nothing to ask
+            self.has_own_data(False)
         return 200, {"ok": True}
 
     # ---- recipes of the user's own ----
@@ -2348,6 +2501,9 @@ class App:
     def _before_recipes(self):
         """The step Back from the recipes goes to: the last of the steps
         for the user's own observations, if they were used."""
+        if self.demo is not None:
+            # the own data step is not shown
+            return "setup"
         return "gridded_data" if any(self.own_data.values()) else "own_data"
 
     def _begin_prepare(self):
@@ -3620,7 +3776,7 @@ class _Handler(recipes_gui._Handler):
             )
             return
         if path == "/api/demo_download":
-            self._reply_json(*app.demo_download())
+            self._reply_json(*app.demo_download(payload.get("model"), payload.get("variables")))
             return
         if path == "/api/leftovers":
             self._reply_json(*app.answer_leftovers(payload.get("action")))
@@ -3639,6 +3795,7 @@ class _Handler(recipes_gui._Handler):
             "/api/own_remove": lambda: app.remove_own_data(
                 payload.get("kind"), payload.get("index")
             ),
+            "/api/demo_continue": app.demo_continue,
             "/api/own_next": app.next_own_data,
             "/api/own_future_check": app.own_future_check,
             "/api/register_kind": lambda: app.register_kind(payload.get("kind")),

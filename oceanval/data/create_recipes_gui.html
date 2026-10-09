@@ -443,7 +443,6 @@
 </div>
 
 <div class="toast" id="toast" role="status" hidden></div>
-<datalist id="model-variables"></datalist>
 <datalist id="thickness-options"></datalist>
 
 <script type="application/json" id="state">__OCEANVAL_STATE__</script>
@@ -529,8 +528,6 @@
     $("lede").append(" ", el("strong", { class: "oceanval-change",
       text: "As the domain has changed, OceanVal has ticked the datasets afresh for it." }));
   }
-
-  $("model-variables").append(...state.available.map((name) => el("option", { value: name })));
 
   // ---- global settings ----
   const form = { ...state.settings, concise: String(state.settings.concise) };
@@ -1165,7 +1162,6 @@
     const input = el("input", {
       class: "field__input",
       type: "text",
-      list: "model-variables",
       value: row.value,
       placeholder: "Not identified",
       spellcheck: "false",
@@ -1247,7 +1243,7 @@
   const cancelButton = $("cancel");
   const resetButton = $("reset");
   let busy = false;
-  const writeLabel = !app ? "Write script" : app.action === "matchup" ? "Match up" : "Match up and validate";
+  const writeLabel = !app ? "Write script" : app.action === "matchup" ? "Match up" : "Continue";
   writeButton.textContent = writeLabel;
   if (app) cancelButton.textContent = "Back";
 
@@ -1259,8 +1255,7 @@
         (value) => value === true || (typeof value === "string" && value.trim()))));
 
   function summarise() {
-    const matched = rows.filter((row) => row.status === "ok");
-    const comparisons = matched.reduce(
+    const comparisons = rows.filter((row) => row.status === "ok").reduce(
       (count, row) => count + row.datasets.filter((dataset) => dataset.checked).length, 0);
     const invalid = rows.filter((row) => row.status === "invalid").length;
     $("clear-selections").disabled = !rows.some((row) => row.datasets.some((dataset) => dataset.checked));
@@ -1270,10 +1265,7 @@
         if (refreshOptions(row, chip)) settingsToFix += 1;
       }
     }
-    const parts = [
-      el("span", {}, el("b", { text: String(matched.length) }), ` of ${rows.length} variables matched`),
-      el("span", {}, el("b", { text: String(comparisons) }), ` comparison${comparisons === 1 ? "" : "s"} selected`),
-    ];
+    const parts = [];
     if (invalid) {
       parts.push(el("span", { class: "summary__warn", text: `${plural(invalid, "model variable")} to fix` }));
     }

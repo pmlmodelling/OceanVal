@@ -88,13 +88,11 @@ that takes you through these steps:
    the options. The options are written into the matchup script's
    `validate()` call.
 8. **Run**: matchup, then, to validate as well, `validate()` with the
-   report's options. The output appears as it comes, in the page and in the
-   terminal, and anything else OceanVal asks, such as whether to try again
+   report's options. The page says what the run is doing, and shows the output
+   (which appears as it comes in the terminal) as the matchups are made and if the run fails; anything else OceanVal asks, such as whether to try again
    for observations a server could not supply, is asked in the page. With
    jupyter-book 2 or later, the matchup builds an interim validation report
-   as it goes: the page says "Interim validation report is being generated.
-   Please wait..." until the first matchup's page is in it, then links to
-   it. Each matchup's page is added as soon as the matchup is made, and the
+   as it goes: the page links to it once the first matchup's page is in it. Each matchup's page is added as soon as the matchup is made, and the
    full report (with PDF and Word, if asked for) is built once they all are.
    The finished page links to the full report.
 
@@ -129,11 +127,15 @@ oceanval.validate(lon_lim=[-20, 10], lat_lim=[40, 65], pdf=True)
 ```
 
 To see how it works first, choose **Try a demo**, below the four choices on
-the first page. It downloads a CMIP6 climate model's sea surface temperature,
-sea surface salinity and surface nitrate (NorESM2-LM, 50 MB) and takes you
-through the same steps with the options filled in, in red and bold, matching
-2010 up with COBE-SST 2 (temperature) and the World Ocean Atlas 2023 (salinity
-and nitrate). The units step suggests converting the observed nitrate, which
+the first page. You choose one of three CMIP6 climate models, each from a
+different ESGF server (NorESM2-LM, MPI-ESM1-2-LR and UKESM1-0-LL), and one to
+three of its variables (sea surface temperature, surface nitrate and sea
+surface salinity) in a grid; only those files are downloaded (up to 50 MB,
+26 MB and 460 MB for the three models). It then takes you through the same
+steps, after a short page of instructions and without the step for your own
+data (only OceanVal's own datasets are used), with the options filled in, in
+red and bold, including the model's name as the only file names to use, matching 2010 up with COBE-SST 2 (temperature)
+and the World Ocean Atlas 2023 (nitrate and salinity). The units step suggests converting the observed nitrate, which
 you check as you would for your own model. It shows
 how OceanVal works, not how to validate a climate model, which needs many
 years of output rather than one. It creates a directory called

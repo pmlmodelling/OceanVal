@@ -43,7 +43,7 @@ output to a validation report:
    they differ.
 6. **Files** and **Report**: check the matchups, then choose the report's
    options.
-7. **Run**: the matchup and the report, with the output shown as it comes.
+7. **Run**: the matchup and the report, with what it is doing shown, and its output as the matchups are made.
 
 **Back**, on every step after the first, keeps what you have entered, so you
 can go back to fix a mistake without starting again.
@@ -59,10 +59,17 @@ Closing the browser window quits ``oceanval`` in the terminal, within about
 do **Quit** (which is instant) and Ctrl+C.
 
 To see how it works first, choose **Try a demo**, below the four choices. It
-downloads a CMIP6 climate model's sea surface temperature, sea surface
-salinity and surface nitrate (50 MB) and takes you through the same steps with
-the options filled in: temperature is matched up with COBE-SST 2, and salinity
-and nitrate with the World Ocean Atlas 2023. The units step suggests
+asks you to choose one of three CMIP6 climate models, each from a different
+ESGF server (NorESM2-LM, MPI-ESM1-2-LR and UKESM1-0-LL), and one to three of
+its variables, sea surface temperature, surface nitrate and sea surface
+salinity, in a grid. Only those files are downloaded (up to 50 MB, 26 MB and
+460 MB for the three models) and it takes you through the same steps with the
+options filled in, including the model's name as the only file names to use.
+A short page of instructions comes first (press Continue on each page, and tick
+the agreement when asked to run the validation), and the step for your own data
+is left out, as only OceanVal's own datasets are used.
+Temperature is matched up with COBE-SST 2, and nitrate and salinity with the
+World Ocean Atlas 2023. The units step suggests
 converting the observed nitrate, which you check as you would for your own
 model. It shows how OceanVal works, not how to validate a climate model, which needs many years
 of output rather than one. It creates a directory called ``oceanval_demo``,
