@@ -48,6 +48,18 @@ def matchups(tmp_path_factory):
         end=2000,
         vertical=True,
     )
+    # a second source, as an interim report is not built for only one
+    oceanval.add_gridded_comparison(
+        name="temperature",
+        obs_path=str(obs),
+        source="baz",
+        model_variable="votemper",
+        obs_variable="votemper",
+        climatology=True,
+        start=2000,
+        end=2000,
+        vertical=True,
+    )
     oceanval.matchup(
         sim_dir="data/example",
         start=2000,

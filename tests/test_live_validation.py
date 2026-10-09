@@ -352,6 +352,41 @@ def example_matchups():
     oceanval.reset()
 
 
+def test_one_variable_and_source_has_no_interim_report(tmp_path, capfd):
+    # it would be the full report built twice
+    oceanval.reset()
+    oceanval.add_gridded_comparison(
+        name="temperature",
+        obs_path="data/evaldata/gridded/nws/temperature",
+        source="foo",
+        model_variable="votemper",
+        obs_variable="votemper",
+        climatology=True,
+        start=2000,
+        end=2010,
+        obs_adder=273.15,
+    )
+    try:
+        oceanval.matchup(
+            sim_dir="data/example",
+            start=2000,
+            end=2001,
+            ask=False,
+            cores=1,
+            thickness="data/example/e3t.nc",
+            out_dir=str(tmp_path),
+            live_validation={"test": True},
+        )
+    finally:
+        oceanval.reset()
+
+    assert not (tmp_path / live.FOLDER).exists()
+    assert live.current is None
+    assert (tmp_path / "oceanval_matchups").exists()
+    out = capfd.readouterr().out
+    assert "Only one variable and source is matched up, so no interim report is built." in out
+
+
 def test_an_interim_report_is_built_as_the_matchups_are_made(
     tmp_path, example_matchups, capfd
 ):

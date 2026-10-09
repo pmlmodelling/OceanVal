@@ -1283,16 +1283,24 @@ def matchup(
         live_options = live.check_options(chosen, out_dir)
     builder = None
     if live_options is not None:
-        builder = live.LiveValidation(
-            live_options,
-            out_dir,
+        items = (
             [("gridded", vv, source, None) for vv, source in gridded_surface]
             + [("point", vv, source, "surface") for vv, source in point["surface"]]
             + [("gridded", vv, source, None) for vv, source in gridded_vertical]
-            + [("point", vv, source, "all") for vv, source in point["all"]],
-            session_info["short_title"],
+            + [("point", vv, source, "all") for vv, source in point["all"]]
         )
-        builder.start()
+        # with one variable and source, the interim report would be the full
+        # report built twice, so validate() is left to build it
+        if len({(vv, source) for _, vv, source, _ in items}) > 1:
+            builder = live.LiveValidation(
+                live_options,
+                out_dir,
+                items,
+                session_info["short_title"],
+            )
+            builder.start()
+        else:
+            print("Only one variable and source is matched up, so no interim report is built.")
 
     out = session_info["out_dir"] + "/oceanval_matchups/mapping.csv"
     # check directory exists for out
