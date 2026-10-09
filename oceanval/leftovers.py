@@ -15,15 +15,18 @@ TEMP_DIRS = ("/tmp/", "/var/tmp/", "/usr/tmp/")
 # a session still running
 STAMP = f"_oceanval_output_p{os.getpid()}_"
 # the name used before the rename, still in the files older versions left
-MARKERS = ("oceanval_output", "ecoval_output")
 _PROCESS = re.compile(r"_oceanval_output_p(\d+)_")
+# the whole name of a temporary file OceanVal made: nctoolkit's stamp (its
+# name, the user's and a random string), then OceanVal's, the process that made
+# it for newer files, and nctoolkit's own tmp name and .nc
+_TEMP_NAME = re.compile(r"^nctoolkit_.+nctoolkit_(?:oceanval|ecoval)_output_.*tmp.*\.nc$")
 
 
 def is_oceanval_temp(path):
-    """Whether a path is named like a temporary file OceanVal made. Only the
-    file's own name counts, not the directories above it."""
-    name = os.path.basename(path)
-    return "nctoolkit" in name and any(marker in name for marker in MARKERS)
+    """Whether a path is named like a temporary file OceanVal made, in full:
+    a file of someone's own that merely has the words in its name is not.
+    Only the file's own name counts, not the directories above it."""
+    return bool(_TEMP_NAME.match(os.path.basename(path)))
 
 
 def process_alive(pid):

@@ -108,6 +108,19 @@ def test_the_stamp_names_oceanval_and_the_process():
     assert not leftovers.is_oceanval_temp("/tmp/oceanval_output_tmpa1.nc")
 
 
+@pytest.mark.parametrize("name", [
+    "notes_nctoolkit_oceanval_output.txt",
+    "my_nctoolkit_me_abcdnctoolkit_oceanval_output_p1_tmp.nc",
+    "nctoolkit_me_abcdnctoolkit_oceanval_output_p1_tmp.nc.bak",
+    "nctoolkit_me_abcdnctoolkit_oceanval_output_p1_tmp.txt",
+    "nctoolkit_oceanval_output.nc",
+    "nctoolkit_me_abcdnctoolkit_oceanval_output_p1.nc",
+    "oceanval_output.nc",
+])
+def test_a_file_that_only_has_the_words_in_its_name_is_not_one_of_ours(name):
+    assert not leftovers.is_oceanval_temp(f"/tmp/{name}")
+
+
 def test_only_the_files_own_name_counts_not_its_directory():
     assert not leftovers.is_oceanval_temp("/tmp/nctoolkit_oceanval_output_x/data.nc")
     assert leftovers.is_oceanval_temp("/tmp/x/nctoolkit_me_abcdnctoolkit_oceanval_output_p1_tmp.nc")
