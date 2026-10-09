@@ -109,6 +109,11 @@ datasets afresh if you changed the domain, and says in red and bold what it
 could not keep. The units always have to be confirmed again. Once anything
 is matched up, there is no going back.
 
+Simulations you have validated before (remembered as soon as you confirm the
+matchups) are listed by the arrow at the right of the simulation directory box.
+They are remembered in a `.oceanvalcache` JSON file in your home directory (`OCEANVALCACHE` names another file), which OceanVal only
+adds to and a new version keeps.
+
 Closing the browser window quits `oceanval` in the terminal, within about 15
 seconds, stopping anything it is running, whichever browser you use. So do
 **Quit** (which is instant) and Ctrl+C.

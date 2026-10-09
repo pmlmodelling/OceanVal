@@ -1101,6 +1101,16 @@ class TestServer:
         # the shared stylesheet and scripts are inlined
         assert "__OCEANVAL_" not in body
 
+    def test_the_simulations_matched_up_before_are_sent_that_still_exist(self, app, tmp_path):
+        from oceanval import user_cache
+
+        assert page_state(get(app, "/")[1])["state"]["setup"]["recent"] == []
+        (tmp_path / "here").mkdir()
+        user_cache.record_sim_dir(str(tmp_path / "gone"))
+        user_cache.record_sim_dir(str(tmp_path / "here"))
+        state = page_state(get(app, "/")[1])["state"]
+        assert state["setup"]["recent"] == [str(tmp_path / "here")]
+
     def test_choosing(self, app):
         assert post(app, "/api/choose", {"action": "everything"})[0] == 409
         assert post(app, "/api/choose", {"action": "matchup"})[0] == 200
@@ -4703,3 +4713,52 @@ class TestLeftovers:
             assert page.is_hidden("#leftovers")
         finally:
             app.close()
+
+
+def test_choosing_a_simulation_matched_up_before_in_a_browser(browser, tmp_path):
+    """The arrow inside the simulation directory box lists the simulations
+    validated before, and picking one fills the box in. It is not there while
+    nothing has been matched up."""
+    from oceanval import user_cache
+
+    write_simulation(tmp_path / "sim")
+    app = App(cwd=str(tmp_path))
+    url = app.start()
+    try:
+        page = browser.new_page()
+        page.goto(url)
+        page.click('button.choice[data-action="matchup"]')
+        assert page.is_hidden("#f-simdir-recent-toggle")
+
+        user_cache.record_sim_dir(str(tmp_path / "sim"))
+        # the window is still on the setup step, as the server keeps the view
+        page.goto(url)
+        assert page.is_visible("#f-simdir-recent-toggle")
+        # one box: the list is inside the directory's own
+        assert page.locator("#view-setup select").count() == 0
+        assert page.is_hidden("#f-simdir-recent")
+
+        page.click("#f-simdir-recent-toggle")
+        assert page.is_visible("#f-simdir-recent")
+        page.keyboard.press("Escape")
+        assert page.is_hidden("#f-simdir-recent")
+
+        page.click("#f-simdir-recent-toggle")
+        assert page.locator("#f-simdir-recent .combo__option").all_text_contents() == [
+            str(tmp_path / "sim")
+        ]
+        page.click("#f-simdir-recent .combo__option")
+        assert page.is_hidden("#f-simdir-recent")
+        assert page.input_value("#f-simdir") == str(tmp_path / "sim")
+        # as if it had been typed: the live check fills in the rest
+        page.wait_for_function("document.querySelector('#f-end').value === '2012'")
+
+        # and from the keyboard
+        page.fill("#f-simdir", "")
+        page.keyboard.press("Alt+ArrowDown")
+        page.keyboard.press("ArrowDown")
+        page.keyboard.press("Enter")
+        assert page.input_value("#f-simdir") == str(tmp_path / "sim")
+        assert page.is_hidden("#f-simdir-recent")
+    finally:
+        app.close()

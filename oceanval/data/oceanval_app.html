@@ -232,6 +232,27 @@
   .path-field { display: flex; gap: 8px; }
   .path-field .s-input { flex: 1; min-width: 0; }
   .btn--field { flex: none; height: 34px; padding: 0 14px; font-size: 13px; }
+  /* a directory box with a list of earlier choices, opened by the arrow inside it */
+  .combo { position: relative; flex: 1; min-width: 0; display: flex; }
+  .combo.has-recent .s-input { padding-right: 34px; }
+  .combo__toggle {
+    position: absolute; top: 1px; right: 1px; bottom: 1px; width: 30px;
+    border: 0; border-radius: 0 var(--radius-sm) var(--radius-sm) 0; background: transparent; cursor: pointer;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%237c94a0' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat center / 10px 6px;
+  }
+  .combo__toggle:hover, .combo__toggle[aria-expanded="true"] { background-color: var(--bg-alt); }
+  .combo__toggle:focus-visible { outline: none; box-shadow: var(--focus); }
+  .combo__list {
+    position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 30;
+    margin: 0; padding: 4px; list-style: none; max-height: 260px; overflow-y: auto;
+    background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius-sm); box-shadow: var(--shadow-md);
+  }
+  .combo__head { padding: 4px 8px 6px; color: var(--muted); font-size: 12px; font-weight: 600; }
+  .combo__option {
+    padding: 6px 8px; border-radius: var(--radius-sm); cursor: pointer;
+    font: 400 13px/18px var(--font-mono); color: var(--ink); overflow-wrap: anywhere;
+  }
+  .combo__option:hover, .combo__option.is-active { background: var(--teal-50); }
 
   /* ---- the folder browser ---- */
   .picker {
@@ -692,7 +713,7 @@
     <form class="form card" id="setup-form" novalidate autocomplete="off">
       <fieldset class="group form__wide">
         <legend>Tell OceanVal about your simulation files</legend>
-        <div class="g-row"><label class="g-label is-required" for="f-simdir">Which directory stores your simulation data? <span class="own-req">Required</span></label><div class="path-field"><input class="s-input is-mono" id="f-simdir" list="f-simdir-folders" placeholder="/path/to/model/output" spellcheck="false" autocapitalize="off"><button type="button" class="btn btn--ghost btn--field" data-browse="f-simdir">Browse…</button></div><datalist id="f-simdir-folders"></datalist></div>
+        <div class="g-row"><label class="g-label is-required" for="f-simdir">Which directory stores your simulation data? <span class="own-req">Required</span></label><div class="path-field"><div class="combo" id="f-simdir-combo"><input class="s-input is-mono" id="f-simdir" list="f-simdir-folders" placeholder="/path/to/model/output" spellcheck="false" autocapitalize="off"><button type="button" class="combo__toggle" id="f-simdir-recent-toggle" aria-label="Simulations validated before" aria-haspopup="listbox" aria-expanded="false" aria-controls="f-simdir-recent" tabindex="-1" hidden></button><ul class="combo__list" id="f-simdir-recent" role="listbox" aria-label="Simulations validated before" hidden></ul></div><button type="button" class="btn btn--ghost btn--field" data-browse="f-simdir">Browse…</button></div><datalist id="f-simdir-folders"></datalist></div>
         <div class="ndown-row">
           <label class="g-label is-required" for="f-ndown">How many directories below this can you find your files? <span class="own-req">Required</span></label>
           <input class="s-input is-num" id="f-ndown" inputmode="numeric" placeholder="e.g. 2" spellcheck="false" autocapitalize="off" required>
@@ -1533,7 +1554,86 @@
     segmented.append(el("label", {}, input, el("span", { text: label })));
   }
 
+  // simulations validated before, in a list opened by the arrow inside the box
+  const recentBox = $("f-simdir");
+  const recentToggle = $("f-simdir-recent-toggle");
+  const recentList = $("f-simdir-recent");
+  let recentActive = -1;
+
+  function recentOptions() { return [...recentList.querySelectorAll(".combo__option")]; }
+
+  function showRecent(open) {
+    recentList.hidden = !open;
+    recentToggle.setAttribute("aria-expanded", String(open));
+    recentActive = -1;
+    recentOptions().forEach((option) => option.classList.remove("is-active"));
+  }
+
+  function markRecent(index) {
+    const options = recentOptions();
+    recentActive = (index + options.length) % options.length;
+    options.forEach((option, number) => {
+      option.classList.toggle("is-active", number === recentActive);
+      option.setAttribute("aria-selected", String(number === recentActive));
+    });
+    options[recentActive].scrollIntoView({ block: "nearest" });
+  }
+
+  function pickRecent(dir) {
+    showRecent(false);
+    recentBox.value = dir;
+    recentBox.dispatchEvent(new Event("input", { bubbles: true }));
+    recentBox.focus();
+  }
+
+  function fillRecent() {
+    const recent = state.setup.recent || [];
+    recentToggle.hidden = !recent.length;
+    $("f-simdir-combo").classList.toggle("has-recent", recent.length > 0);
+    recentList.replaceChildren(
+      el("li", { class: "combo__head", role: "presentation", text: "Validated before" }),
+      ...recent.map((dir) => el("li", {
+        class: "combo__option", role: "option", "aria-selected": "false", title: dir, text: dir,
+        // mousedown, so the box keeps its focus
+        onmousedown: (event) => { event.preventDefault(); pickRecent(dir); },
+      })),
+    );
+    showRecent(false);
+  }
+
+  recentToggle.addEventListener("mousedown", (event) => event.preventDefault());
+  recentToggle.addEventListener("click", () => {
+    showRecent(recentList.hidden);
+    recentBox.focus();
+  });
+  recentBox.addEventListener("keydown", (event) => {
+    if (recentToggle.hidden) return;
+    if (recentList.hidden) {
+      // a plain arrow is left to the folders suggested as you type
+      if (event.key === "ArrowDown" && event.altKey) {
+        event.preventDefault();
+        showRecent(true);
+      }
+      return;
+    }
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      markRecent(recentActive + (event.key === "ArrowDown" ? 1 : -1));
+    } else if (event.key === "Enter" && recentActive >= 0) {
+      event.preventDefault();
+      pickRecent(recentOptions()[recentActive].textContent);
+    } else if (event.key === "Escape" || event.key === "Tab") {
+      if (event.key === "Escape") event.preventDefault();
+      showRecent(false);
+    }
+  });
+  recentBox.addEventListener("input", () => { if (!recentList.hidden) showRecent(false); });
+  document.addEventListener("mousedown", (event) => {
+    if (!recentList.hidden && !$("f-simdir-combo").contains(event.target)) showRecent(false);
+  });
+
   function fillSetup() {
+    fillRecent();
     Object.assign(setup, state.setup.form);
     for (const name of SETUP_FIELDS) $(`f-${name}`).value = setup[name];
     $("f-overwrite").checked = Boolean(setup.overwrite);

@@ -14,6 +14,15 @@ def oceanvalrc(tmp_path_factory, monkeypatch):
     return path
 
 
+@pytest.fixture(autouse=True)
+def oceanvalcache(tmp_path_factory, monkeypatch):
+    """Keep the user's own ~/.oceanvalcache out of the tests, and the tests out
+    of it, as oceanvalrc does for ~/.oceanvalrc."""
+    path = tmp_path_factory.mktemp("oceanvalcache") / ".oceanvalcache"
+    monkeypatch.setenv("OCEANVALCACHE", str(path))
+    return path
+
+
 @pytest.fixture
 def browser():
     """A Chromium browser, for the tests that drive a page, which are skipped

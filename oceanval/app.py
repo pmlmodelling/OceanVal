@@ -58,7 +58,7 @@ import urllib.parse
 import oceanval
 from oceanval import leftovers, live, prompts, recipes_gui
 from oceanval.app_child import ANSWER_MARKER, QUESTION_MARKER
-from oceanval import depths, own_data, recipe_checks, recipe_forms, time_res, transects, units, user_recipes
+from oceanval import depths, own_data, recipe_checks, recipe_forms, time_res, transects, units, user_cache, user_recipes
 from oceanval.create_recipes import (
     DOMAIN_REGIONS,
     _create_recipes,
@@ -1378,7 +1378,11 @@ class App:
                 "view": self.view,
                 "action": self.action,
                 "cwd": self.cwd,
-                "setup": {"form": self.setup_form, "error": self.setup_error},
+                "setup": {
+                    "form": self.setup_form,
+                    "error": self.setup_error,
+                    "recent": [d for d in user_cache.recent_sim_dirs() if os.path.isdir(d)],
+                },
                 "validate": {
                     "form": self.validate_form,
                     "depth_defaults": default_depth_boxes(),

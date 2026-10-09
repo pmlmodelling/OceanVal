@@ -35,6 +35,7 @@ from oceanval import ices
 from oceanval import live
 from oceanval import prompts
 from oceanval import time_res
+from oceanval import user_cache
 
 
 def read_point(ff, nrows = None):
@@ -1255,6 +1256,9 @@ def matchup(
     if x.lower() == "n":
         print("Please adjust your variable names and try again")
         return None
+
+    # the matchups are confirmed, so the simulation is one to offer again
+    user_cache.record_sim_dir(sim_dir)
 
     if time_res_rows:
         print(time_res.warning(time_res_rows))

@@ -48,6 +48,12 @@ output to a validation report:
 **Back**, on every step after the first, keeps what you have entered, so you
 can go back to fix a mistake without starting again.
 
+Simulations you have validated before (remembered as soon as you confirm the
+matchups) are listed by the arrow at the right of the simulation directory
+box, so you can pick one instead of typing it. They are remembered in a ``.oceanvalcache`` JSON file in your home directory (the
+``OCEANVALCACHE`` environment variable names another file to use in its
+place). OceanVal only adds to it, and a new version keeps it.
+
 Closing the browser window quits ``oceanval`` in the terminal, within about
 15 seconds, stopping anything it is running, whichever browser you use. So
 do **Quit** (which is instant) and Ctrl+C.
