@@ -746,10 +746,10 @@ class TestHosting:
 
 
 class TestModelVariablesTable:
-    def page(self, long_names):
+    def page(self, long_names, available=("thetao", "so", "time")):
         return RecipePage(
             recipe_rows({"temperature": "thetao"}, "global"),
-            {"thetao", "so", "time"},
+            set(available),
             dict(CONTEXT, long_names=long_names),
             lambda *chosen: "/out/matchup.py",
         )
@@ -774,6 +774,19 @@ class TestModelVariablesTable:
                 ["time", ""],
             ]
             assert first.locator(".vars__popover").is_visible()
+        finally:
+            recipe_page.close()
+
+    def test_the_pop_out_is_alphabetical_whatever_the_case(self, browser):
+        recipe_page = self.page({}, available=("thetao", "Chl", "so", "O2"))
+        url = recipe_page.start()
+        try:
+            page = browser.new_page()
+            page.goto(url)
+            first = page.locator("details.vars").first
+            first.locator("summary").click()
+            names = first.locator("tbody tr td:nth-child(2)").all_text_contents()
+            assert names == ["Chl", "O2", "so", "thetao"]
         finally:
             recipe_page.close()
 
