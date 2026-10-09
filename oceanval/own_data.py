@@ -352,6 +352,17 @@ def _try(kind, arguments, existing):
     return None
 
 
+def refusal(kind, arguments, existing=()):
+    """What the call would refuse arguments with (as check_entry gives them,
+    perhaps with more added since), after the entries in existing, or None
+    if it takes them. Their data is not looked at again."""
+    if kind not in KINDS:
+        raise ValueError(f"kind must be one of {KINDS}")
+    if kind == "gridded":
+        arguments = dict(arguments, file_check=False)
+    return _try(kind, arguments, existing)
+
+
 def check_entry(kind, form, existing=(), cwd=None):
     """Turn a form's boxes into the arguments of add_point_comparison or
     add_gridded_comparison.

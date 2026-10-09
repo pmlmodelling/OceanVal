@@ -791,6 +791,61 @@ def recipes_restore(choices, rows, available, domain, same=False):
     }
 
 
+def _for_future(text):
+    """Why one of the user's own datasets cannot be saved as a recipe, for
+    its form, which can still add it for use now only."""
+    if text.startswith("Use "):
+        return "To save this for future use, u" + text[1:]
+    return f"To save this for future use: {text}"
+
+
+def _future_problems(kind, arguments, errors):
+    """What stops one of the user's own datasets (the arguments
+    own_data.check_entry made of its form, with the errors it found) being
+    saved as a recipe, when nothing stops it being used now: a recipe's names
+    are stricter, and it needs the data itself. As {box: reason}."""
+    found = {}
+    names = user_recipes.name_problems(
+        arguments.get("name", ""), arguments.get("source", ""), strict=False
+    )
+    for box, name in (("name", "variable"), ("source", "source")):
+        if name in names and box not in errors:
+            found[box] = _for_future(names[name])
+    if kind == "gridded" and arguments.get("obs_path") == "auto" and "obs_path" not in errors:
+        found["obs_path"] = "To save this for future use, give the observations' path, not auto."
+    return found
+
+
+def _future_identity(kind, arguments):
+    """Which dataset the own_future step is for, so that what was typed in
+    it is only shown again for the same one."""
+    return [
+        kind,
+        arguments.get("name"),
+        arguments.get("source"),
+        str(arguments.get("obs_path")),
+        arguments.get("obs_variable"),
+    ]
+
+
+def _future_errors(errors, boxes):
+    """What recipe_forms.check_save found wrong, for the own_future step:
+    each error of one of its boxes at that box, a recipe of the same name in
+    the chosen file at where it is saved, and the rest, which are about what
+    was given before the step, for the step as a whole."""
+    shown, general = {}, []
+    for name, text in errors.items():
+        if name in boxes:
+            shown[name] = text
+        elif name == "source":
+            shown.setdefault("where", text)
+        else:
+            general.append(text)
+    if general:
+        shown[""] = " ".join(dict.fromkeys(general))
+    return shown
+
+
 def _units_row(row):
     """What a row of the units step converts, which a conversion typed for
     it is kept for: everything but its key, and what OceanVal makes of it."""
@@ -1099,7 +1154,8 @@ class App:
 
     view is the step the page is on: "start", then "setup", "own_data" (whether
     there are observations of your own), "point_data" and "gridded_data" (adding
-    them), "preparing" (while create_recipes reads the simulation) and
+    them, with "own_future" between for one to be saved as a recipe too, see
+    own_future), "preparing" (while create_recipes reads the simulation) and
     "recipes" (its window) to match up, then "units_table" (the model's and
     the observations' units, with the conversions OceanVal suggests, to check,
     change and always confirm), or "validate" for the report options, and then
@@ -1144,12 +1200,19 @@ class App:
         self.out_dir = self.cwd
         self.overwrite = True
         # the user's own observations, as the arguments of the calls to
-        # register them
+        # register them, and the recipes saved from them for future use too
+        # (see own_future_save)
         self.own_data = {"point": [], "gridded": []}
+        self.own_saved = []
+        # the dataset being saved as a recipe too, in the own_future step:
+        # its arguments, the page's boxes for it, what is in its data, and
+        # the boxes typed into, kept for Back (see own_future)
+        self.own_pending = None
         # registering recipes of the user's own: which kind was chosen last,
         # what each kind's boxes held when left, what has been saved since
         # the step was chosen, and the check of data on a server that is
-        # running or was last made (see register_data)
+        # running or was last made (see register_data), which the
+        # own_future step makes too
         self.register_answer = None
         self.register_forms = {
             kind: recipe_forms.default_form(kind) for kind in recipe_forms.KINDS
@@ -1329,9 +1392,11 @@ class App:
                 },
                 "own": {
                     "entries": self.own_data,
+                    "saved": self._own_saved_state(),
                     "fields": own_data.FIELDS,
                     "recipe_variables": sorted(recipe_variables(self.cwd)),
                     "answer": self.own_answer,
+                    "future": self._own_future_state(),
                 },
                 "register": self._register_state(),
                 "units": {"rows": self.units_rows, "boxes": self._units_boxes_shown()},
@@ -1603,6 +1668,14 @@ class App:
                     self.point_time_res_form = point_time_res_choice(
                         sent["form"], held.time_res_rows
                     )[1]
+        future = self.own_pending
+        if self.view == "own_future" and future is not None:
+            # to the dataset's form, which the page still holds
+            earlier["own_future"] = f"{future['kind']}_data"
+            if isinstance(sent.get("boxes"), dict):
+                # shown again, if the same dataset is to be saved
+                future["typed"] = recipe_forms.clean_boxes(sent["boxes"])
+            self._cancel_register_check()
         if self.view not in earlier:
             return False
         if self.view in ("register_point", "register_gridded"):
@@ -1622,6 +1695,7 @@ class App:
         and the recipes window, as another run starts. Called with the lock
         held."""
         self.own_answer = None
+        self.own_pending = None
         self.recipes_choices = None
         self._choices_from = None
         self.units_boxes = {}
@@ -1842,36 +1916,46 @@ class App:
         form = recipe_forms.clean(kind, form)
         if not recipe_forms.is_remote(kind, form):
             return 200, dict(recipe_forms.check_data(kind, form, self.cwd), running=False)
-        location = form["location"]
-        urls = recipe_checks.addresses(form["obs_path"])
         try:
-            recipe_checks.check_addresses(location, urls)
+            recipe_checks.check_addresses(
+                form["location"], recipe_checks.addresses(form["obs_path"])
+            )
         except recipe_checks.CheckFailed as error:
             return 200, {"ok": False, "error": str(error), "running": False}
         with self._lock:
             if self.view != f"register_{kind}":
                 return 409, {"ok": False, "error": "This step is over."}
-            self._cancel_register_check()
-            self._register_jobs += 1
-            number = self._register_jobs
-            self.register_job = {
-                "id": number,
-                "kind": kind,
-                "signature": recipe_forms.signature(kind, form, self.cwd),
-                "status": "running",
-                "error": None,
-                "found": None,
-            }
-            check = recipe_checks.RemoteCheck(
-                location,
-                urls if location == "thredds" else urls[0],
-                lambda reply: self._register_checked(number, reply),
-                cwd=self.cwd,
-            )
-            self._register_check = check
-            self._notify()
+            check = self._check_remote(kind, form)
         check.start()
         return 200, {"ok": True, "running": True}
+
+    def _check_remote(self, kind, form):
+        """Begin looking at the data on a server a form points at, whose
+        addresses have been checked, in a process of its own: the job is in
+        the state until the next is begun. Returns the check, to be started
+        once the lock is let go. Called with the lock held."""
+        location = form["location"]
+        urls = recipe_checks.addresses(form["obs_path"])
+        self._cancel_register_check()
+        self._register_jobs += 1
+        number = self._register_jobs
+        self.register_job = {
+            "id": number,
+            "kind": kind,
+            "signature": recipe_forms.signature(kind, form, self.cwd),
+            "status": "running",
+            "error": None,
+            "found": None,
+        }
+        check = recipe_checks.RemoteCheck(
+            location,
+            urls if location == "thredds" else urls[0],
+            lambda reply: self._register_checked(number, reply),
+            cwd=self.cwd,
+        )
+        self._register_check = check
+        self._notify()
+        return check
 
     def _register_checked(self, number, reply):
         with self._lock:
@@ -1982,6 +2066,7 @@ class App:
                 self._notify()
                 return True
             self.own_data = {"point": [], "gridded": []}
+            self.own_pending = None
             self._forget_own_boxes()
         self._begin_prepare()
         return True
@@ -2019,6 +2104,7 @@ class App:
                 or not 0 <= index < len(self.own_data[kind])
             ):
                 return False
+            # a recipe it was saved as stays saved
             del self.own_data[kind][index]
             self._forget_own_boxes()
             self._notify()
@@ -2036,6 +2122,224 @@ class App:
                 return False
         self._begin_prepare()
         return True
+
+    # ---- the user's own observations, saved for future use too ----
+
+    def own_future(self, kind, form):
+        """Add one entry of point or gridded data for use now and in future:
+        check it as add_own_data does, and as a recipe's names and data are
+        checked, and go on to the own_future step. That asks for what a recipe
+        needs that the entry does not say (see recipe_forms.missing_boxes),
+        and adds the entry once the recipe is saved (see own_future_save).
+        Data on a server is looked at there, in a process of its own. Returns
+        the HTTP status and the reply for the page."""
+        with self._lock:
+            if kind not in own_data.KINDS or self.view != f"{kind}_data":
+                return 409, {"ok": False, "error": "This step is over."}
+            existing = [
+                (other, arguments)
+                for other in own_data.KINDS
+                for arguments in self.own_data[other]
+            ]
+        # outside the lock: it opens the data
+        arguments, errors = own_data.check_entry(kind, form, existing, self.cwd)
+        errors.update(_future_problems(kind, arguments, errors))
+        if errors:
+            return 400, {"ok": False, "errors": errors}
+        recipe_form = recipe_forms.from_own_data(kind, arguments)
+        remote = recipe_forms.is_remote(kind, recipe_form)
+        found = None
+        try:
+            if remote:
+                recipe_checks.check_addresses(
+                    recipe_form["location"], recipe_checks.addresses(recipe_form["obs_path"])
+                )
+            else:
+                reply = recipe_forms.check_data(kind, recipe_form, self.cwd)
+                if not reply["ok"]:
+                    raise recipe_checks.CheckFailed(reply["error"] or "The data could not be read.")
+                found = reply["found"]
+        except recipe_checks.CheckFailed as error:
+            return 400, {"ok": False, "errors": {"obs_path": _for_future(str(error))}}
+        with self._lock:
+            if self.view != f"{kind}_data":
+                return 409, {"ok": False, "error": "This step is over."}
+            identity = _future_identity(kind, arguments)
+            kept = self.own_pending
+            self.own_pending = {
+                "kind": kind,
+                "arguments": arguments,
+                "form": recipe_form,
+                "found": found,
+                "identity": identity,
+                # as Back left them, for the same dataset
+                "typed": dict(kept["typed"]) if kept and kept["identity"] == identity else {},
+            }
+            check = self._check_remote(kind, recipe_form) if remote else None
+            self.view = "own_future"
+            self._notify()
+        if check is not None:
+            check.start()
+        return 200, {"ok": True}
+
+    def own_future_check(self):
+        """Look at the own_future step's data on a server again, as when it
+        could not be checked."""
+        with self._lock:
+            future = self.own_pending
+            if self.view != "own_future" or future is None:
+                return False
+            job = self.register_job
+            if not recipe_forms.is_remote(future["kind"], future["form"]) or (
+                job is not None and job["status"] == "running"
+            ):
+                return False
+            check = self._check_remote(future["kind"], future["form"])
+        check.start()
+        return True
+
+    def _own_saved_state(self):
+        """For each of the user's own datasets, the recipe of the same kind,
+        variable and source saved from the own_future step, or None. Called
+        with the lock held."""
+
+        def saved(kind, entry):
+            name = (kind, str(entry.get("name", "")).lower(), user_recipes.key_of(entry.get("source", "")))
+            for recipe in self.own_saved:
+                if (recipe["kind"], recipe["variable"], recipe["key"]) == name:
+                    return recipe
+            return None
+
+        return {
+            kind: [saved(kind, entry) for entry in self.own_data[kind]]
+            for kind in own_data.KINDS
+        }
+
+    def _own_future_data(self, future):
+        """What is known of the data of the own_future step's dataset, as
+        (status, error, found): status is "ok", "checking" or "failed", and
+        found is what recipe_checks found in it. Called with the lock held."""
+        if future["found"] is not None:
+            return "ok", None, future["found"]
+        job = self.register_job
+        if job is None or job["signature"] != recipe_forms.signature(
+            future["kind"], future["form"], self.cwd
+        ):
+            return "failed", "The data has not been checked.", None
+        if job["status"] == "running":
+            return "checking", None, None
+        if job["status"] == "ok":
+            return "ok", None, job["found"]
+        return "failed", job["error"] or "The data could not be checked.", None
+
+    def _own_future_state(self):
+        """What the own_future step shows, while it is shown: the dataset,
+        the recipe it is to be, the boxes the step asks (see
+        recipe_forms.missing_boxes) with what was typed in them, what stops
+        it being saved in either file, and what is known of the data. Called
+        with the lock held."""
+        future = self.own_pending
+        if future is None or self.view != "own_future":
+            return None
+        kind, arguments, form = future["kind"], future["arguments"], future["form"]
+        status, error, found = self._own_future_data(future)
+        places = {}
+        for where in user_recipes.WHERE:
+            errors, warnings, info = recipe_forms.check_names(
+                kind, dict(form, where=where), self.cwd
+            )
+            places[where] = {
+                "path": user_recipes.path_for(where, self.cwd),
+                "errors": list(dict.fromkeys(errors.values())),
+                "warnings": warnings,
+            }
+        labels = user_recipes.labels(arguments["name"], self.cwd)
+        return {
+            "kind": kind,
+            "entry": arguments,
+            "recipe": info["recipe"],
+            "labels": list(labels) if labels else None,
+            "boxes": [
+                dict(box, value=future["typed"].get(box["name"], ""))
+                for box in recipe_forms.missing_boxes(kind, arguments, found, self.cwd)
+            ],
+            "where": places,
+            "same_file": user_recipes.same_file(self.cwd),
+            "data": {"status": status, "error": error},
+        }
+
+    def own_future_save(self, sent):
+        """Save the own_future step's dataset as a recipe, with what its boxes
+        hold (sent: {box: text}, where a box left blank takes what OceanVal
+        assumes for it), then add it to the run as add_own_data does, with the
+        source information and names typed in, and go back to its own data
+        step. Nothing is saved or added unless both can be. Returns the HTTP
+        status and the reply for the page."""
+        typed = recipe_forms.clean_boxes(sent)
+        with self._lock:
+            future = self.own_pending
+            if self.view != "own_future" or future is None:
+                return 409, {"ok": False, "error": "This step is over."}
+            kind, arguments, form = future["kind"], future["arguments"], future["form"]
+            status, error, found = self._own_future_data(future)
+            if status == "checking":
+                return 400, {"ok": False, "errors": {"": "The data is still being checked."}}
+            remote = None
+            if recipe_forms.is_remote(kind, form):
+                remote = {
+                    "signature": (self.register_job or {}).get("signature"),
+                    "ok": status == "ok",
+                    "error": error,
+                    "found": found,
+                }
+            existing = [
+                (other, entry)
+                for other in own_data.KINDS
+                for entry in self.own_data[other]
+            ]
+        boxes = recipe_forms.missing_boxes(kind, arguments, found, self.cwd)
+        names = {box["name"] for box in boxes}
+        filled = recipe_forms.with_boxes(form, boxes, typed)
+        # outside the lock: it opens the data
+        recipe, errors, warnings, _ = recipe_forms.check_save(kind, filled, self.cwd, remote)
+        if errors:
+            return 400, {"ok": False, "errors": _future_errors(errors, names), "warnings": warnings}
+        # what was typed for the report is used now, as well as in future
+        entry = dict(arguments)
+        for name in ("source_info", "long_name", "short_name", "short_title"):
+            if name in names and name in typed:
+                entry[name] = typed[name]
+        reason = own_data.refusal(kind, entry, existing)
+        if reason is not None:
+            return 400, {"ok": False, "errors": {"": reason}, "warnings": warnings}
+        try:
+            path = user_recipes.save(recipe, filled["where"], self.cwd)
+        except (ValueError, OSError) as error:
+            return 400, {"ok": False, "errors": {"": str(error)}, "warnings": warnings}
+        key = user_recipes.key_of(recipe["source"])
+        saved = {
+            "variable": recipe["variable"],
+            "key": key,
+            "where": filled["where"],
+            "path": path,
+            "recipe": f'recipe={{"{recipe["variable"]}": "{key}"}}',
+        }
+        with self._lock:
+            if self.own_pending is not future:
+                return 409, {
+                    "ok": False,
+                    "error": f"It was saved, as {saved['recipe']}, but this step is over, "
+                    "so it was not added to this run.",
+                }
+            self.own_data[kind].append(entry)
+            self.own_saved.append(dict(saved, kind=kind))
+            self.own_pending = None
+            self._cancel_register_check()
+            self._forget_own_boxes()
+            if self.view == "own_future":
+                self.view = f"{kind}_data"
+            self._notify()
+        return 200, {"ok": True, "saved": saved, "warnings": warnings}
 
     def _before_recipes(self):
         """The step Back from the recipes goes to: the last of the steps
@@ -3289,6 +3593,12 @@ class _Handler(recipes_gui._Handler):
                 *app.add_own_data(payload.get("kind"), payload.get("form"))
             )
             return
+        if path == "/api/own_future":
+            self._reply_json(*app.own_future(payload.get("kind"), payload.get("form")))
+            return
+        if path == "/api/own_future_save":
+            self._reply_json(*app.own_future_save(payload.get("boxes")))
+            return
         if path == "/api/recipe_names":
             self._reply_json(*app.register_names(payload.get("kind"), payload.get("form")))
             return
@@ -3326,6 +3636,7 @@ class _Handler(recipes_gui._Handler):
                 payload.get("kind"), payload.get("index")
             ),
             "/api/own_next": app.next_own_data,
+            "/api/own_future_check": app.own_future_check,
             "/api/register_kind": lambda: app.register_kind(payload.get("kind")),
             "/api/register_done": app.register_done,
             # with what the step's boxes hold

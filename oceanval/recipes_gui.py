@@ -426,7 +426,7 @@ def _description(entry):
     return source, details
 
 
-def recipe_rows(mapping, domain, cwd=None):
+def recipe_rows(mapping, domain, cwd=None, replaced=()):
     """One row of the window per observational variable, alphabetically.
 
     A dataset starts ticked where the script would register it were nothing
@@ -435,11 +435,18 @@ def recipe_rows(mapping, domain, cwd=None):
     variable had been identified, which the page ticks it by when you fill
     in a variable that was not. The recipes the user registered for the
     directory cwd (see oceanval.user_recipes) are in the rows too, and are
-    ticked wherever there is a model variable for them.
+    ticked wherever there is a model variable for them, except those in
+    replaced, (variable, recipe) pairs that the user's own data in the
+    matchup takes the place of (see create_recipes.replaced_recipes), which
+    are left out, as is a row left with no datasets.
     """
     variables = recipe_variables(cwd)
+    replaced = {tuple(pair) for pair in replaced}
     ticked = default_selection(mapping, domain, cwd)
     defaults = default_selection({variable: variable for variable in variables}, domain, cwd)
+
+    def shown(entry):
+        return not (entry.get("user") and (entry["variable"], entry["recipe"]) in replaced)
 
     def dataset(entry, region):
         key = (entry["variable"], entry["recipe"])
@@ -461,7 +468,7 @@ def recipe_rows(mapping, domain, cwd=None):
             "decadal": bool(entry.get("decadal")),
         }
 
-    return [
+    rows = [
         {
             "variable": variable,
             "title": _title(variable, cwd),
@@ -469,16 +476,17 @@ def recipe_rows(mapping, domain, cwd=None):
             "gridded": [
                 dataset(entry, entry["region"])
                 for entry in gridded_catalogue(cwd)
-                if entry["variable"] == variable
+                if entry["variable"] == variable and shown(entry)
             ],
             "point": [
                 dataset(entry, entry.get("region", POINT_REGION))
                 for entry in point_catalogue(cwd)
-                if entry["variable"] == variable
+                if entry["variable"] == variable and shown(entry)
             ],
         }
         for variable in sorted(variables)
     ]
+    return [row for row in rows if row["gridded"] or row["point"]]
 
 
 def render_page(template, state):
@@ -905,14 +913,19 @@ def choose_recipes(mapping, domain, available, context, write, open_browser=True
 
     mapping is what create_recipes identified, available every variable in
     the model output, and context what the page's header shows, along with
-    the start and end the Global settings begin with. When the page is
-    submitted, write(mapping, selection, settings, point_options,
-    gridded_options) writes the script and returns its path. Returns what
-    write was called with, or None if the window was cancelled. Inside
-    hosted_by, the window is one of the host's pages instead.
+    the start and end the Global settings begin with, and the recipes of the
+    user's that their own data takes the place of ("replaced"), which the
+    window leaves out (see recipe_rows). When the page is submitted,
+    write(mapping, selection, settings, point_options, gridded_options)
+    writes the script and returns its path. Returns what write was called
+    with, or None if the window was cancelled. Inside hosted_by, the window
+    is one of the host's pages instead.
     """
     page = RecipePage(
-        recipe_rows(mapping, domain, context.get("cwd")), available, context, write
+        recipe_rows(mapping, domain, context.get("cwd"), context.get("replaced") or ()),
+        available,
+        context,
+        write,
     )
     if _host is not None:
         return _host.show_recipes(page)

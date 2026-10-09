@@ -41,6 +41,10 @@ that takes you through these steps:
    with every argument of `add_point_comparison` or `add_gridded_comparison`;
    the ones that have to be given are marked in red. Skip a page if you have
    none of that kind. The calls are written into the matchup script.
+   **Add this data for use now only** adds a dataset to this run, and **Add
+   this data for use now and in future** also saves it as a recipe (see
+   below), after a page asking for what a recipe needs that the form did not,
+   such as the units, with what OceanVal will assume in amber.
 4. **Recipes**: the recipes window, to check the model
    variables found and choose the observations to validate against. A
    dataset validated through the water column (Vertical) needs a thickness
@@ -146,7 +150,8 @@ Observations you use again can be saved as recipes of your own, in a
 directory, or in your home directory, for everywhere (the one in the directory
 wins). Choose **Add your own validation data for future use** in the `oceanval` window,
 then point (csv files) or gridded data (netCDF on this machine, on a THREDDS
-server or at a web address). OceanVal opens the data to check it, and checks
+server or at a web address), or **Add this data for use now and in future** in
+a matchup's own data step. OceanVal opens the data to check it, and checks
 the recipe against its own and your others, before it is saved. A source called
 `MySat` for chlorophyll is then used like any other recipe, and is offered in
 the recipes window, tagged **Yours**:

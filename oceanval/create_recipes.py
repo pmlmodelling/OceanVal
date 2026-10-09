@@ -1302,6 +1302,24 @@ def default_selection(mapping, domain, cwd=None):
     return selection
 
 
+def replaced_recipes(own_data, cwd=None):
+    """The recipes of the user's (see oceanval.user_recipes) that their own
+    data in a matchup takes the place of, as (variable, recipe) pairs: those
+    for the same variable and source as one of its entries, as when an entry
+    has been saved as a recipe too. Registering both would be the same data
+    twice, or a clash. own_data is as _create_recipes takes it."""
+    own = {
+        (str(arguments.get("name", "")).lower(), user_recipes.key_of(arguments.get("source", "")))
+        for kind in ("point", "gridded")
+        for arguments in (own_data or {}).get(kind) or []
+    }
+    return {
+        (entry["variable"], entry["recipe"])
+        for entry in _user_entries(cwd)
+        if (entry["variable"], entry["recipe"]) in own
+    }
+
+
 def build_recipe_script(
     simdir,
     ndown,
@@ -1559,8 +1577,9 @@ def _create_recipes(
         Your own observations to register in the script, as the arguments
         of add_point_comparison calls under "point" and of
         add_gridded_comparison calls under "gridded", each a list of
-        dictionaries. They are written after the recipes. The oceanval
-        window fills this in. Defaults to None.
+        dictionaries. They are written after the recipes, and a recipe of
+        your own for the same variable and source is left out in its place.
+        The oceanval window fills this in. Defaults to None.
     cwd : str
         The directory your own recipes (a .oceanvalrc file in it, and one in
         your home directory) are read for. Defaults to the directory
@@ -1636,6 +1655,8 @@ def _create_recipes(
             )
 
     mapping = extract_recipe_variable_mapping(simdir, ndown, fvcom, cwd=cwd, **filters)
+    # the user's own data registers these itself
+    replaced = replaced_recipes(own_data, cwd)
 
     def write(
         mapping,
@@ -1645,6 +1666,7 @@ def _create_recipes(
         gridded_options=None,
         report=None,
     ):
+        selection = set(selection) - replaced
         # the window can change the years along with everything else
         years = (settings["start"], settings["end"]) if settings else (start, end)
         if not mapping:
@@ -1696,6 +1718,8 @@ def _create_recipes(
             "require": require,
             # for the table of the model's variables
             "long_names": long_names,
+            # left out, as the user's own data registers them
+            "replaced": sorted(replaced),
         }
         chosen = choose_recipes(mapping, domain, available, context, write)
         if chosen is None:
@@ -1710,7 +1734,7 @@ def _create_recipes(
             mapping = _ask_for_missing_variables(
                 mapping, missing, _available_variables(simdir, ndown, **filters)
             )
-        selection = default_selection(mapping, domain, cwd)
+        selection = default_selection(mapping, domain, cwd) - replaced
         settings = None
         if exclude or require:
             # so the script's matchup() call is given them

@@ -16,7 +16,8 @@ import xarray as xr
 
 import oceanval
 import oceanval.recipes_gui as recipes_gui
-from oceanval.create_recipes import RECIPE_VARIABLES, default_selection
+from oceanval import user_recipes
+from oceanval.create_recipes import RECIPE_VARIABLES, default_selection, replaced_recipes
 from oceanval.recipes_gui import (
     RecipePage,
     check_gridded_options,
@@ -67,6 +68,40 @@ class TestRows:
             if dataset["ticked"]
         }
         assert ticked == default_selection(mapping, domain)
+
+    def test_recipes_the_users_own_data_takes_the_place_of_are_left_out(self, tmp_path):
+        cwd = str(tmp_path)
+        user_recipes.save(
+            {"variable": "nitrate", "kind": "gridded", "source": "MySat", "obs_path": "/obs.nc",
+             "location": "disk", "obs_variable": "N3_n", "climatology": True},
+            "local", cwd,
+        )
+        user_recipes.save(
+            {"variable": "dic", "kind": "point", "source": "DicPts", "obs_path": "/points",
+             "short_title": "DIC"},
+            "local", cwd,
+        )
+        own = {
+            "gridded": [{"name": "Nitrate", "source": "MYSAT"}, {"name": "chlorophyll", "source": "OCCCI"}],
+            "point": [{"name": "dic", "source": "dicpts"}],
+        }
+        # the user's recipes of the same variable and source, whatever their
+        # case, and never one OceanVal comes with
+        replaced = replaced_recipes(own, cwd)
+        assert replaced == {("nitrate", "mysat"), ("dic", "dicpts")}
+
+        def datasets(rows, variable):
+            row = next((row for row in rows if row["variable"] == variable), None)
+            return None if row is None else [d["recipe"] for d in row["gridded"] + row["point"]]
+
+        rows = recipe_rows({}, "global", cwd)
+        assert datasets(rows, "nitrate") == ["woa23", "nsbc", "mysat", "ices"]
+        assert datasets(rows, "dic") == ["dicpts"]
+        rows = recipe_rows({"nitrate": "N3_n"}, "global", cwd, replaced)
+        assert datasets(rows, "nitrate") == ["woa23", "nsbc", "ices"]
+        assert "occci" in datasets(rows, "chlorophyll")
+        # a variable only those recipes were for has no row left
+        assert datasets(rows, "dic") is None
 
 
 class TestErsemDetection:

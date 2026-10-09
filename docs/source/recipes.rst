@@ -219,6 +219,19 @@ or for everywhere, and OceanVal refuses a source name that is one of its own
 recipes, or is already in the file, and warns if the other file has a recipe of
 the same name.
 
+Data you add in the **Own data** step of a matchup can be saved as a recipe
+there too: **Add this data for use now and in future** adds it to the matchup,
+as **Add this data for use now only** does, and saves it as a recipe. A page
+first asks for what a recipe needs that the form did not: the units, where to
+save it and, if you left them out, the source information and the variable's
+names in the report. What OceanVal will use unless you change it is filled in
+**in amber**: the units in the netCDF file, ``Source for`` and the source's
+name, the variable's name, and everywhere (your home directory). The units of
+csv files, which do not say, and of a netCDF variable without them, are marked
+in red, and have to be given. Data on a server is checked first, as above. In
+the matchup it is saved from, it is registered as your own data, so its recipe
+is left out of that matchup's recipes window.
+
 Once saved, a recipe is offered in the recipes window beside OceanVal's own,
 with a **Yours** tag, ticked wherever a model variable is found for it. For a
 variable that OceanVal has no recipes for, it can only identify the model

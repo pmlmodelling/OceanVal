@@ -6,6 +6,11 @@ wrong with the names in them, and where the recipe would be saved, as they
 are typed; check_data looks at the data they point at (oceanval.recipe_checks);
 and check_save does both, as the recipe is saved, and returns the recipe to
 write to the file.
+
+The user's own data in a matchup (see oceanval.own_data) can be saved as a
+recipe too. from_own_data fills in a page's boxes from it, missing_boxes says
+what a recipe needs that it does not, with what OceanVal assumes for each, and
+with_boxes fills those in, as typed or as assumed.
 """
 
 import os
@@ -39,6 +44,13 @@ REQUIRED = {
     "units": "Give the units of the observations, e.g. mg m-3.",
     "where": "Choose where to save it.",
 }
+
+# the boxes a recipe can need that the user's own data does not give, in
+# the order they are asked for (see missing_boxes)
+FUTURE_BOXES = ("units", "source_info", "long_name", "short_name", "short_title", "where")
+
+# where the user's own data is saved as a recipe, unless they choose
+DEFAULT_WHERE = "global"
 
 
 def default_form(kind):
@@ -250,3 +262,95 @@ def check_save(kind, form, cwd=None, remote=None):
         if refused:
             return None, refused, warnings, data
     return recipe, {}, warnings, data
+
+
+# ---- the user's own data, saved as a recipe too ----
+
+
+def from_own_data(kind, arguments):
+    """A page's boxes, filled in from one of the user's own datasets in a
+    matchup: the arguments of its add_point_comparison or
+    add_gridded_comparison call, as oceanval.own_data.check_entry gives
+    them. What the calls have no argument for, the units and where to save
+    it, is left blank."""
+    form = default_form(kind)
+    obs_path = str(arguments.get("obs_path") or "")
+    form.update(
+        variable=str(arguments.get("name") or ""),
+        source=str(arguments.get("source") or ""),
+        obs_path=obs_path,
+    )
+    for name in ("source_info", "long_name", "short_name", "short_title"):
+        form[name] = str(arguments.get(name) or "")
+    if kind == "gridded":
+        if arguments.get("thredds"):
+            location = "thredds"
+        else:
+            location = "url" if "://" in obs_path else "disk"
+        form.update(
+            location=location,
+            obs_variable=str(arguments.get("obs_variable") or ""),
+            climatology={True: "yes", False: "no"}.get(arguments.get("climatology"), ""),
+        )
+    return form
+
+
+def _units_in(kind, arguments, found):
+    """The units of a gridded dataset's variable, as the data says, or None."""
+    if kind != "gridded" or not found:
+        return None
+    chosen = _variable(found, arguments.get("obs_variable"))
+    return chosen["units"] if chosen else None
+
+
+def missing_boxes(kind, arguments, found=None, cwd=None):
+    """What a recipe needs that one of the user's own datasets (its
+    arguments, as from_own_data takes them) does not say, in the order it is
+    asked for: [{"name", "assumed"}], where assumed is what OceanVal uses
+    unless something else is given, or None if it has to be given. found is
+    what is in the data (see check_data), or None while that is not known.
+
+    The units are always asked for, as the calls have no argument for them:
+    a gridded dataset's are assumed from its variable's units attribute, but
+    csv files say nothing, so a point dataset's have to be given. So is where
+    to save it, assumed to be DEFAULT_WHERE. The source information is asked
+    for if it was left out, assumed as the calls assume it, and so is each of
+    the report's names for a variable OceanVal has none for, assumed as
+    check_save names it."""
+    boxes = [{"name": "units", "assumed": _units_in(kind, arguments, found)}]
+    if not arguments.get("source_info"):
+        boxes.append({"name": "source_info", "assumed": f"Source for {arguments['source']}"})
+    name = str(arguments["name"])
+    if user_recipes.labels(name, cwd) is None:
+        for box, assumed in (
+            ("long_name", name),
+            ("short_name", name),
+            ("short_title", name.title()),
+        ):
+            if not arguments.get(box):
+                boxes.append({"name": box, "assumed": assumed})
+    boxes.append({"name": "where", "assumed": DEFAULT_WHERE})
+    return boxes
+
+
+def clean_boxes(sent):
+    """What a page sent for the boxes missing_boxes asks, limited to those
+    boxes and to what was typed in them, as stripped text."""
+    sent = sent if isinstance(sent, dict) else {}
+    typed = {}
+    for name in FUTURE_BOXES:
+        value = sent.get(name)
+        if isinstance(value, (str, int, float)) and not isinstance(value, bool):
+            if str(value).strip():
+                typed[name] = str(value).strip()
+    return typed
+
+
+def with_boxes(form, boxes, typed):
+    """form, with each of boxes (see missing_boxes) as typed (see
+    clean_boxes) or, where nothing was, as OceanVal assumes it."""
+    form = dict(form)
+    typed = clean_boxes(typed)
+    for box in boxes:
+        form[box["name"]] = typed.get(box["name"]) or box["assumed"] or ""
+    return form

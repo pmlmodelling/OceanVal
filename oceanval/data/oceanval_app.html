@@ -145,6 +145,25 @@
   @media (max-width: 720px) { .reg-labels { grid-template-columns: minmax(0, 1fr); } }
   @media (max-width: 720px) { .own-fields, .choices.is-two { grid-template-columns: minmax(0, 1fr); } }
 
+  /* ---- your own data, saved for future use too ---- */
+  .own-actions { flex-wrap: wrap; }
+  .own-actions .btn { white-space: normal; }
+  .own-added li small { display: block; color: var(--teal-700); font-size: 12.5px; font-weight: 600; }
+  .future-summary { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 18px; margin: 2px 0 26px; padding: 14px 18px; border: 1px solid var(--line-soft); border-radius: var(--radius-sm); background: var(--bg-alt); font-size: 14px; }
+  .future-summary dt { color: var(--muted); font-weight: 600; }
+  .future-summary dd { margin: 0; color: var(--ink); overflow-wrap: anywhere; }
+  .future-summary .is-mono { font: 500 13px/1.45 var(--font-mono); }
+  .own-legends { display: flex; flex-wrap: wrap; gap: 4px 22px; }
+  .own-legends .own-legend { margin-bottom: 8px; }
+  /* what OceanVal will assume unless it is changed is amber, until it is typed over */
+  .own-swatch.is-amber { background: var(--amber); }
+  .own-legend b.is-amber { color: var(--amber); }
+  .own-assumed { margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: #fbf1dd; color: var(--amber); font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
+  .future-form .s-input.is-assumed { color: var(--amber); font-weight: 600; }
+  .future-form .reg-where label.is-assumed strong { color: var(--amber); }
+  .future-run { margin: 18px 0 0; }
+  .future-form .reg-labels__note { margin: 14px 0 0; }
+
   /* ---- forms ---- */
   .form {
     display: grid;
@@ -727,6 +746,7 @@
 
   <section id="view-point" hidden data-own="point"></section>
   <section id="view-gridded" hidden data-own="gridded"></section>
+  <section id="view-own-future" hidden></section>
 
   <section id="view-register-kind" hidden>
     <p class="lede">A recipe describes a set of observations once, so that you can use it again in any matchup by name, like <code>recipe={"chlorophyll": "occci"}</code>, which is one of OceanVal's own. Your recipes are kept in <code>.oceanvalrc</code> files: in the directory you run OceanVal from, for that directory only, or in your home directory, for everywhere. Which kind of data is the recipe for?</p>
@@ -1180,7 +1200,7 @@
     if (view === "setup" || view === "validate" || view === "compare") return 1;
     if (view === "register_kind") return 1;
     if (view === "register_point" || view === "register_gridded") return 2;
-    if (view === "own_data" || view === "point_data" || view === "gridded_data") return 2;
+    if (view === "own_data" || view === "point_data" || view === "gridded_data" || view === "own_future") return 2;
     if (view === "recipes" || view === "preparing") return 3;
     if (view === "units_table") return 4;
     if (view === "report_options") return STEPS[action].indexOf("Report");
@@ -1207,6 +1227,7 @@
       case "register_gridded": return "Register a gridded data recipe";
       case "point_data": return "Your point data";
       case "gridded_data": return "Your gridded data";
+      case "own_future": return `Save your ${(state.own.future || {}).kind || "own"} data for future use`;
       case "preparing": return "Reading the simulation";
       case "units_table": return "Do the units match up?";
       case "validate": return "Build a validation report";
@@ -1280,6 +1301,10 @@
       const added = state.own.entries[kind].length;
       actions.push(button("Back", "ghost", () => post("api/back")),
         button(added ? "Continue" : "Skip", "primary", () => post("api/own_next"), { id: "own-next" }));
+    } else if (view === "own_future") {
+      // with what was typed, which is shown again for the same data
+      actions.push(button("Back", "ghost", () => post("api/back", { boxes: readFuture() })),
+        button("Add this data for use now and in future", "primary", submitFuture, { id: "future-save", disabled: true }));
     } else if (view === "validate") {
       actions.push(button("Back", "ghost", () => post("api/back")),
         button("Build the report", "primary", submitValidate, { id: "build" }));
@@ -1349,6 +1374,7 @@
   // ---- the views ----
   const VIEWS = { start: "view-start", demo: "view-demo", setup: "view-setup", validate: "view-validate", compare: "view-compare",
     report_options: "view-validate", own_data: "view-own", point_data: "view-point", gridded_data: "view-gridded",
+    own_future: "view-own-future",
     register_kind: "view-register-kind", register_point: "view-register-point", register_gridded: "view-register-gridded",
     units_table: "view-units-table", point_time_res: "view-point-time-res",
     preparing: "view-run", running: "view-run", finished: "view-run",
@@ -1394,8 +1420,13 @@
       $(answer === false ? "own-no" : "own-yes").focus();
     } else if (view === "point_data" || view === "gridded_data") {
       refreshOwn(view === "point_data" ? "point" : "gridded");
+      // with any variable just saved as a recipe
+      $("own-variable-options").replaceChildren(...state.own.recipe_variables.map(
+        (variable) => el("option", { value: variable })));
       const first = document.querySelector(`#view-${view === "point_data" ? "point" : "gridded"} input:not([type=checkbox]), #view-${view === "point_data" ? "point" : "gridded"} select`);
       if (first) first.focus();
+    } else if (view === "own_future") {
+      fillOwnFuture();
     } else if (view === "script_saved") {
       $("script-saved-title").focus();
     } else if (view === "point_time_res") {
@@ -1409,6 +1440,11 @@
     }
     shownView = view;
     $("toast").hidden = true;
+    // what was said as the step was left, for the step it led to
+    if (pendingToast) {
+      toast(pendingToast);
+      pendingToast = null;
+    }
     window.scrollTo(0, 0);
   }
 
@@ -1418,6 +1454,7 @@
     renderBar();
     if (state.view === "point_data") refreshOwn("point");
     if (state.view === "gridded_data") refreshOwn("gridded");
+    if (state.view === "own_future") refreshOwnFuture();
     if (state.view === "register_kind") renderRegisterList("kind");
     if (state.view === "register_point") renderRegister("point");
     if (state.view === "register_gridded") renderRegister("gridded");
@@ -1773,7 +1810,10 @@
         el("span", {}, "Marked in ", el("b", { text: "red" }), " is what has to be given.")),
       needed, el("div", { class: "own-fields", style: "margin-top:18px" }, optional),
       el("div", { class: "own-actions" },
-        el("button", { type: "submit", class: "btn btn--primary", id: `own-add-${kind}`, text: "Add this data" }),
+        el("button", { type: "submit", class: "btn btn--primary", id: `own-add-${kind}`, text: "Add this data for use now only" }),
+        el("button", { type: "button", class: "btn btn--ghost", id: `own-future-${kind}`, text: "Add this data for use now and in future",
+          title: "Save it as a recipe in a .oceanvalrc file as well, to use in later matchups",
+          onclick: () => submitOwn(kind, true) }),
         el("span", { class: "own-help", id: `own-count-${kind}` })));
     form.addEventListener("submit", (event) => { event.preventDefault(); submitOwn(kind); });
     section.append(
@@ -1784,28 +1824,34 @@
   }
   ["point", "gridded"].forEach(buildOwn);
 
-  // the datasets added so far
+  // the datasets added so far, with the recipes they were saved as too
   function refreshOwn(kind) {
     const entries = state.own.entries[kind];
+    const saved = state.own.saved[kind] || [];
     const box = $(`own-list-${kind}`);
     box.hidden = entries.length === 0;
     box.replaceChildren(el("h2", { text: `Added ${plural(entries.length, OWN_TEXT[kind].noun)}` }),
       el("ul", {}, ...entries.map((entry, index) => el("li", {},
         el("span", {}, el("strong", { text: entry.name }), ` from ${entry.source}: `,
-          el("span", { class: "is-mono", text: shorten(String(entry.obs_path), 70) })),
+          el("span", { class: "is-mono", text: shorten(String(entry.obs_path), 70) }),
+          saved[index] ? el("small", { text: `Also saved for future use, as ${saved[index].recipe}` }) : null),
         button("Remove", "text", () => post("api/own_remove", { kind, index }),
-          { "aria-label": `Remove ${entry.name} from ${entry.source}` })))));
+          { "aria-label": `Remove ${entry.name} from ${entry.source}`,
+            title: saved[index] ? "Takes it out of this run only: the recipe stays saved." : null })))));
     $(`own-count-${kind}`).textContent = entries.length ? "Add as many as you have, then continue." : "";
   }
 
-  async function submitOwn(kind) {
+  // future is whether it is to be saved as a recipe as well, which the
+  // own_future step asks more for first, while the form is kept for Back
+  async function submitOwn(kind, future = false) {
     const form = {};
     for (const [name, control] of Object.entries(own[kind])) { form[name] = control.read(); control.clear(); }
     $(`own-error-${kind}`).hidden = true;
-    const add = $(`own-add-${kind}`);
-    add.disabled = true;
-    const reply = await post("api/own_add", { kind, form });
-    add.disabled = false;
+    const buttons = [$(`own-add-${kind}`), $(`own-future-${kind}`)];
+    buttons.forEach((add) => { add.disabled = true; });
+    const reply = await post(future ? "api/own_future" : "api/own_add", { kind, form });
+    buttons.forEach((add) => { add.disabled = false; });
+    if (reply.ok && future) return;
     if (reply.ok) {
       Object.values(own[kind]).forEach((control) => control.reset());
       $(`own-optional-${kind}`).open = false;
@@ -1830,6 +1876,292 @@
     banner.hidden = !general;
     if (general) banner.replaceChildren(icon("error"), el("span", { text: general }));
     if (firstBad) firstBad.input.focus();
+  }
+
+  // ---- 3b: your own observations, saved for future use too ----
+  // The own_future step asks for what a recipe needs that the form did not
+  // (see recipe_forms.missing_boxes). What OceanVal will assume unless it is
+  // changed is amber, until something is typed over it, and what has to be
+  // given is red. Back keeps what was typed, which is sent with it.
+  const FUTURE_LABELS = {
+    units: "Units",
+    source_info: "Source information",
+    long_name: "Long name",
+    short_name: "Short name",
+    short_title: "Short title",
+  };
+  const FUTURE_HELP = {
+    source_info: "A description or citation of the observations, shown in the report.",
+    long_name: "The variable's full name in the report.",
+    short_name: "Used for the variable's figures and files.",
+    short_title: "The title of the variable's report page.",
+  };
+  // what a recipe keeps of the form: the rest is for this run only
+  const RECIPE_KEEPS = ["name", "source", "obs_path", "obs_variable", "climatology"];
+  const RECIPE_LABELS = ["source_info", "long_name", "short_name", "short_title"];
+  const future = { kind: null, controls: {}, saving: false, data: null };
+  // said once the step it leads to is shown (see enterView)
+  let pendingToast = null;
+
+  const shownValue = (value) => (value === true ? "yes" : value === false ? "no"
+    : Array.isArray(value) ? value.join(", ") : String(value));
+
+  function unitsHelp(kind, box, status) {
+    if (kind === "point") return "What the observations are measured in, e.g. mg m-3. A csv file does not say, so enter them.";
+    if (status === "checking") return "They are read from the data once it has been checked.";
+    if (box.assumed) return "What the observations are measured in, as the data says.";
+    return "The data does not say what its units are, so enter them, e.g. mg m-3.";
+  }
+
+  // one box the step asks, starting with what OceanVal assumes, or what was typed in it before Back
+  function futureField(box) {
+    const name = box.name;
+    const id = `fu-${name}`;
+    const described = `${id}-help ${id}-err`;
+    const error = el("span", { class: "own-err", id: `${id}-err`, role: "alert" });
+    const note = el("span", { class: "own-help", id: `${id}-help`, text: FUTURE_HELP[name] || "" });
+    const pill = el("span", { class: "own-assumed", text: "Assumed" });
+    const needed = el("span", { class: "own-req", text: "Required", hidden: true });
+    const input = name === "source_info"
+      ? el("textarea", { class: "s-input", id, rows: "2", spellcheck: "false", "aria-describedby": described })
+      : el("input", { type: "text", class: "s-input", id, spellcheck: "false", autocapitalize: "off", autocomplete: "off",
+        placeholder: name === "units" ? "e.g. mg m-3" : null, "aria-describedby": described });
+    const wrapper = el("div", { class: "own-field" + (name === "source_info" ? " is-wide" : "") },
+      el("label", { class: "g-label", for: id }, FUTURE_LABELS[name], pill, needed), input, note, error);
+    const control = {
+      box, input, wrapper, note, pill, needed,
+      typed: Boolean(box.value),
+      read: () => input.value.trim(),
+      show(text) { error.textContent = text; input.classList.add("is-invalid"); input.setAttribute("aria-invalid", "true"); },
+      clear() { error.textContent = ""; input.classList.remove("is-invalid"); input.setAttribute("aria-invalid", "false"); },
+    };
+    input.value = box.value || box.assumed || "";
+    input.addEventListener("input", () => {
+      // typed over, it is the user's
+      control.typed = Boolean(input.value.trim());
+      control.clear();
+      $("future-error").hidden = true;
+      refreshOwnFuture();
+    });
+    input.addEventListener("change", () => {
+      // emptied, it is what OceanVal assumes again
+      if (!input.value.trim() && control.box.assumed) input.value = control.box.assumed;
+      refreshOwnFuture();
+    });
+    future.controls[name] = control;
+    return wrapper;
+  }
+
+  // where to save the recipe, as on the pages for registering one
+  function futureWhere(box) {
+    const radios = ["local", "global"].map((value) => el("input", { type: "radio", name: "fu-where", value, id: `fu-where-${value}` }));
+    const labels = radios.map((radio) => el("label", { for: radio.id },
+      radio,
+      el("strong", { id: `${radio.id}-title`, text: radio.value === "local"
+        ? "I only want this data to be available when I run OceanVal here"
+        : "I want this data to be available when I run OceanVal anywhere" }),
+      el("small", { id: `${radio.id}-path` })));
+    const pill = el("span", { class: "own-assumed", text: "Assumed" });
+    const wrapper = el("div", { class: "own-field is-wide" },
+      el("span", { class: "g-label", id: "fu-where-label" }, "Where should the recipe be saved?", pill),
+      el("div", { class: "reg-where", role: "radiogroup", "aria-labelledby": "fu-where-label", id: "fu-where" }, ...labels));
+    const control = {
+      box, radios, labels, pill, wrapper,
+      typed: Boolean(box.value),
+      read: () => (radios.find((radio) => radio.checked) || {}).value || "",
+      clear() {},
+    };
+    radios.forEach((radio) => {
+      radio.checked = radio.value === (box.value || box.assumed);
+      radio.addEventListener("change", () => {
+        control.typed = true;
+        $("future-error").hidden = true;
+        refreshOwnFuture();
+      });
+    });
+    future.controls.where = control;
+    return wrapper;
+  }
+
+  function fillOwnFuture() {
+    const data = state.own.future;
+    const section = $("view-own-future");
+    future.controls = {};
+    future.saving = false;
+    future.data = null;
+    if (!data) {
+      section.replaceChildren();
+      return;
+    }
+    future.kind = data.kind;
+    const entry = data.entry;
+    const gridded = data.kind === "gridded";
+    const summary = [
+      ["Variable", entry.name],
+      ["Source", entry.source],
+      [gridded ? "The data" : "Observations directory", String(entry.obs_path), true],
+    ];
+    if (gridded) summary.push(["Observation variable", entry.obs_variable, true], ["Climatology", entry.climatology ? "Yes" : "No"]);
+    summary.push(["You will use it as", data.recipe, true]);
+    // the report's names of a variable OceanVal names already are its own
+    const keeps = new Set(data.labels ? RECIPE_KEEPS : [...RECIPE_KEEPS, ...RECIPE_LABELS]);
+    const run = state.own.fields[data.kind]
+      .filter((field) => !keeps.has(field.name) && field.name in entry)
+      .map((field) => `${field.label} (${shownValue(entry[field.name])})`);
+    section.replaceChildren(
+      el("p", { class: "lede" }, `To use ${entry.name} from ${entry.source} in later matchups too, OceanVal saves it as a recipe in a `,
+        el("code", { text: ".oceanvalrc" }), " file, as ", el("strong", { text: "Add your own validation data for future use" }),
+        " does. A recipe needs some things the form did not ask for, which are below. What OceanVal will assume unless you change it is in amber."),
+      el("div", { class: "banner", id: "future-error", role: "alert", hidden: true }),
+      el("form", { class: "own-form reg-form future-form card", id: "future-form", novalidate: true, autocomplete: "off" },
+        el("h2", { text: `Save ${entry.name} from ${entry.source} for future use` }),
+        el("div", { class: "own-legends" },
+          el("p", { class: "own-legend" }, el("span", { class: "own-swatch is-amber", "aria-hidden": "true" }),
+            el("span", {}, "Marked in ", el("b", { class: "is-amber", text: "amber" }), " is what OceanVal will assume unless you change it.")),
+          el("p", { class: "own-legend", id: "fu-legend-required", hidden: true }, el("span", { class: "own-swatch", "aria-hidden": "true" }),
+            el("span", {}, "Marked in ", el("b", { text: "red" }), " is what has to be given."))),
+        el("dl", { class: "future-summary" }, ...summary.flatMap(([term, value, mono]) => [
+          el("dt", { text: term }), el("dd", { class: mono ? "is-mono" : null, text: value })])),
+        el("h3", { class: "reg-title", text: "What the recipe needs" }),
+        el("div", { class: "own-fields" }, ...data.boxes.filter((box) => box.name !== "where").map(futureField)),
+        data.labels ? el("p", { class: "reg-labels__note", id: "fu-labels-note",
+          text: `OceanVal already names this variable “${data.labels[2]}” in the report, so the recipe shares that name.` }) : null,
+        el("p", { class: "group__msg", id: "fu-data-msg", "aria-live": "polite" }),
+        el("h3", { class: "reg-title", text: "Where to save it" }),
+        el("div", { class: "own-fields" }, futureWhere(data.boxes.find((box) => box.name === "where"))),
+        el("p", { class: "group__msg", id: "fu-where-msg", "aria-live": "polite" }),
+        run.length ? el("p", { class: "own-help future-run", id: "fu-run",
+          text: `For this run only, as a recipe does not keep them: ${run.join(", ")}.` }) : null));
+    $("future-form").addEventListener("submit", (event) => { event.preventDefault(); submitFuture(); });
+    refreshOwnFuture();
+    // what has to be given, if anything does
+    const controls = Object.values(future.controls);
+    const first = controls.find((control) => control.input && !control.read()) || controls[0];
+    (first.input || first.radios.find((radio) => radio.checked) || first.radios[0]).focus();
+  }
+
+  function futureProblems() {
+    const data = state.own.future;
+    if (!data || !future.controls.where) return ["step"];
+    const problems = [];
+    if (data.data.status !== "ok") problems.push("data");
+    for (const control of Object.values(future.controls)) {
+      if (control.input && !control.read() && !control.box.assumed) problems.push(control.box.name);
+    }
+    const where = future.controls.where.read();
+    if (!where || data.where[where].errors.length) problems.push("where");
+    return problems;
+  }
+
+  // what the state says of the step: what is assumed, the check of data on a
+  // server, the files the recipe can be saved in, and whether it can be
+  function refreshOwnFuture() {
+    const data = state.own.future;
+    if (state.view !== "own_future" || !data || !future.controls.where) return;
+    const status = data.data.status;
+    let required = false;
+    for (const box of data.boxes) {
+      const control = future.controls[box.name];
+      if (!control) continue;
+      const before = control.box.assumed;
+      control.box = box;
+      if (box.name === "where") {
+        control.labels.forEach((label, index) => label.classList.toggle("is-assumed", !control.typed && control.radios[index].checked));
+        control.pill.hidden = control.typed;
+        continue;
+      }
+      const input = control.input;
+      // the units of data on a server are known once it has been checked
+      if (!control.typed && box.assumed !== before) input.value = box.assumed || "";
+      const assumed = !control.typed && Boolean(box.assumed) && input.value.trim() === box.assumed;
+      input.classList.toggle("is-assumed", assumed);
+      control.pill.hidden = !assumed;
+      const needed = !box.assumed && status !== "checking";
+      control.wrapper.classList.toggle("is-required", needed);
+      control.needed.hidden = !needed;
+      required = required || needed;
+      if (box.name === "units") control.note.textContent = unitsHelp(data.kind, box, status);
+    }
+    $("fu-legend-required").hidden = !required;
+
+    // the data on a server, which is checked as the step is shown
+    const shown = JSON.stringify(data.data);
+    if (future.data !== shown) {
+      future.data = shown;
+      const remote = data.kind === "gridded" && (data.entry.thredds || String(data.entry.obs_path).includes("://"));
+      const lines = [];
+      if (status === "checking") lines.push(line("Checking the data on the server. This can take a while…"));
+      else if (status === "failed") {
+        lines.push(line(`${data.data.error} A recipe is only saved once its data has been checked.`, "error", " ",
+          el("button", { type: "button", class: "link", id: "fu-check", text: "Check again",
+            onclick: () => post("api/own_future_check") })));
+      } else if (remote) lines.push(line("The data on the server has been checked.", "ok"));
+      message("fu-data-msg", lines, status === "failed");
+    }
+
+    for (const place of ["local", "global"]) $(`fu-where-${place}-path`).textContent = data.where[place].path;
+    $("fu-where-global-title").textContent = data.same_file
+      ? "I want this data to be available when I run OceanVal anywhere (the same file, as OceanVal is running in your home directory)"
+      : "I want this data to be available when I run OceanVal anywhere";
+    const chosen = future.controls.where.read();
+    const found = chosen ? data.where[chosen] : { errors: [], warnings: [] };
+    message("fu-where-msg", [...found.errors.map((text) => line(text, "error")), ...found.warnings.map((text) => line(text, "same"))],
+      found.errors.length > 0);
+
+    const save = $("future-save");
+    if (save) {
+      const problems = futureProblems();
+      save.disabled = problems.length > 0 || future.saving;
+      save.title = problems.length ? "Fill in what is marked in red, choose where to save it, and let the data be checked" : "";
+    }
+  }
+
+  // what was typed, which OceanVal uses in place of what it assumes
+  function readFuture() {
+    const boxes = {};
+    for (const [name, control] of Object.entries(future.controls)) {
+      if (control.typed && control.read()) boxes[name] = control.read();
+    }
+    return boxes;
+  }
+
+  async function submitFuture() {
+    if (futureProblems().length || future.saving) return;
+    const kind = future.kind;
+    Object.values(future.controls).forEach((control) => control.clear());
+    $("future-error").hidden = true;
+    future.saving = true;
+    refreshOwnFuture();
+    const reply = await post("api/own_future_save", { boxes: readFuture() });
+    future.saving = false;
+    if (reply.ok) {
+      // the form, for the next dataset, as after one added for use now only
+      Object.values(own[kind]).forEach((control) => control.reset());
+      $(`own-optional-${kind}`).open = false;
+      const place = reply.saved.where === "global" ? "everywhere" : "for this directory";
+      const text = `Added, and saved for future use as ${reply.saved.recipe}, ${place}.`;
+      if (shownView === "own_future") pendingToast = text;
+      else toast(text);
+      return;
+    }
+    const errors = reply.errors || {};
+    const general = [];
+    let first = null;
+    for (const [name, text] of Object.entries(errors)) {
+      const control = future.controls[name];
+      if (control && control.input) {
+        control.show(text);
+        first = first || control;
+      } else {
+        general.push(text);
+      }
+    }
+    if (reply.error) general.push(reply.error);
+    const banner = $("future-error");
+    banner.hidden = general.length === 0;
+    if (general.length) banner.replaceChildren(icon("error"), el("span", { text: general.join(" ") }));
+    if (first) first.input.focus();
+    refreshOwnFuture();
   }
 
   // ---- registering recipes of your own ----

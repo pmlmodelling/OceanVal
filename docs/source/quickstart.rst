@@ -35,7 +35,8 @@ output to a validation report:
    Or register recipes of your own for observations you use again, which are
    saved in a ``.oceanvalrc`` file (see :doc:`recipes`).
 2. **Simulation**: where the model output is, and which files to use.
-3. **Own data**: add observations of your own, if you have any.
+3. **Own data**: add observations of your own, if you have any, for this
+   matchup only or saved as a recipe for later ones too.
 4. **Recipes**: check the model variables found, and choose the
    observations to validate against.
 5. **Units**: check and confirm the units, with conversions suggested where
